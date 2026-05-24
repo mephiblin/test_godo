@@ -46,12 +46,13 @@ func _run_domain_smoke() -> void:
 	SaveService.add_inventory_item(slot, "antivenom", 1)
 	SaveService.add_inventory_item(slot, "throwing_knife", 1)
 	SaveService.update_front_state(slot, 20, 20, ["독"])
-	var town_gate_before := await _debug_route_transition(slot, "town_square", "dungeon_floor_01", GameApp.DUNGEON_SOURCE_COMPILED)
+	var route_smoke := _route_smoke_driver()
+	var town_gate_before: Dictionary = await route_smoke.transition(slot, "town_square", "dungeon_floor_01", GameApp.DUNGEON_SOURCE_COMPILED)
 	var gatekeeper_route_before := NpcService.inspect_route(slot, _find_service_by_type(NpcService.list_services("npc_gatekeeper"), "route_info"))
 	var board_offers_before := QuestService.board_offers(slot)
 	var board_offers_refresh := QuestService.refresh_board(slot)
 	var accept_result: Dictionary = QuestService.accept_quest(slot, "slime_cleanup")
-	var town_gate_after := await _debug_route_transition(slot, "town_square", "dungeon_floor_01", GameApp.DUNGEON_SOURCE_COMPILED)
+	var town_gate_after: Dictionary = await route_smoke.transition(slot, "town_square", "dungeon_floor_01", GameApp.DUNGEON_SOURCE_COMPILED)
 	var gatekeeper_route_after := NpcService.inspect_route(slot, _find_service_by_type(NpcService.list_services("npc_gatekeeper"), "route_info"))
 	var stock_before: Array[Dictionary] = ShopService.ensure_skill_shop_stock(slot, "town_scholar", ContentRegistry.get_definition("vendors", "town_scholar"))
 	var stock_refresh: Array[Dictionary] = ShopService.reroll_skill_shop_stock(slot, "town_scholar", ContentRegistry.get_definition("vendors", "town_scholar"))
@@ -71,7 +72,7 @@ func _run_domain_smoke() -> void:
 	var identify_mask_result := NpcService.identify_item(slot, "npc_scholar", _find_service_by_type(scholar_services, "identify"), "priest_mask")
 	var equip_mask_result := SaveService.equip_item(slot, "priest_mask")
 	var quest_seed_accept := QuestService.accept_quest_seed(slot, "npc_scholar", "quest_seed_black_mural")
-	var quest_seed_dungeon_snapshot_before: Dictionary = await _debug_route_snapshot(slot, "dungeon_floor_01", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
+	var quest_seed_dungeon_snapshot_before: Dictionary = await route_smoke.snapshot(slot, "dungeon_floor_01", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
 	var field_ai_probe: Dictionary = {}
 	var field_ambush_probe: Dictionary = {}
 	var field_group_probe: Dictionary = {}
@@ -246,18 +247,18 @@ func _run_domain_smoke() -> void:
 	var shrine_result: Dictionary = EventService.apply_event(slot, "event_shrine_healing_spring")
 	var altar_result: Dictionary = EventService.apply_event(slot, "event_blood_altar_unlock")
 	var cache_result: Dictionary = EventService.apply_event(slot, "event_scholar_cache_reward")
-	var quest_seed_floor_02_snapshot_before: Dictionary = await _debug_route_snapshot(slot, "dungeon_floor_02", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
-	var floor3_gate_before: Dictionary = await _debug_route_transition(slot, "dungeon_floor_02", "dungeon_floor_03", GameApp.DUNGEON_SOURCE_COMPILED)
-	var quest_seed_town_snapshot_ready: Dictionary = await _debug_route_snapshot(slot, "town_square", GameApp.MODE_TOWN, GameApp.DUNGEON_SOURCE_COMPILED)
+	var quest_seed_floor_02_snapshot_before: Dictionary = await route_smoke.snapshot(slot, "dungeon_floor_02", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
+	var floor3_gate_before: Dictionary = await route_smoke.transition(slot, "dungeon_floor_02", "dungeon_floor_03", GameApp.DUNGEON_SOURCE_COMPILED)
+	var quest_seed_town_snapshot_ready: Dictionary = await route_smoke.snapshot(slot, "town_square", GameApp.MODE_TOWN, GameApp.DUNGEON_SOURCE_COMPILED)
 	var quest_seed_claim := QuestService.claim_quest_seed_reward(slot, "npc_scholar", "quest_seed_black_mural")
 	var second_seed_accept_after := QuestService.accept_quest_seed(slot, "npc_wounded_mystic", "quest_seed_black_water_vow")
-	var quest_seed_floor_02_snapshot_active: Dictionary = await _debug_route_snapshot(slot, "dungeon_floor_02", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
+	var quest_seed_floor_02_snapshot_active: Dictionary = await route_smoke.snapshot(slot, "dungeon_floor_02", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
 	var black_water_rite_result: Dictionary = EventService.apply_event(slot, "event_black_water_rite")
-	var quest_seed_floor_02_snapshot_ready: Dictionary = await _debug_route_snapshot(slot, "dungeon_floor_02", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
+	var quest_seed_floor_02_snapshot_ready: Dictionary = await route_smoke.snapshot(slot, "dungeon_floor_02", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
 	var second_seed_claim := QuestService.claim_quest_seed_reward(slot, "npc_wounded_mystic", "quest_seed_black_water_vow")
-	var quest_seed_floor_02_snapshot_after: Dictionary = await _debug_route_snapshot(slot, "dungeon_floor_02", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
-	var floor3_gate_after: Dictionary = await _debug_route_transition(slot, "dungeon_floor_02", "dungeon_floor_03", GameApp.DUNGEON_SOURCE_COMPILED)
-	var floor3_snapshot_after_unlock: Dictionary = await _debug_route_snapshot(slot, "dungeon_floor_03", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
+	var quest_seed_floor_02_snapshot_after: Dictionary = await route_smoke.snapshot(slot, "dungeon_floor_02", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
+	var floor3_gate_after: Dictionary = await route_smoke.transition(slot, "dungeon_floor_02", "dungeon_floor_03", GameApp.DUNGEON_SOURCE_COMPILED)
+	var floor3_snapshot_after_unlock: Dictionary = await route_smoke.snapshot(slot, "dungeon_floor_03", GameApp.MODE_DUNGEON, GameApp.DUNGEON_SOURCE_COMPILED)
 	var trainer_services_after := NpcService.describe_services_for_slot(slot, "npc_trainer")
 	QuestService.on_monster_defeated(slot, "slime_alpha")
 	var reward_result: Dictionary = QuestService.claim_reward(slot)
@@ -954,48 +955,9 @@ func _service_overlay_smoke_driver() -> RefCounted:
 	var script: Script = load("res://scripts/tests/service_overlay_smoke_driver.gd")
 	return script.new()
 
-func _debug_route_snapshot(slot: int, map_id: String, route: String, dungeon_source: String) -> Dictionary:
-	var scene_path := "res://scenes/town/TownScene.tscn"
-	if route == GameApp.MODE_DUNGEON:
-		scene_path = "res://scenes/dungeon/DungeonScene.tscn"
-	var packed: PackedScene = load(scene_path)
-	if packed == null:
-		return {}
-	var scene: Node = packed.instantiate()
-	SceneRouter.scene_host.add_child(scene)
-	if scene.has_method("setup"):
-		scene.call("setup", {
-			"slot": slot,
-			"map_id": map_id,
-			"dungeon_source": dungeon_source
-		})
-	var snapshot: Dictionary = {}
-	if scene.has_method("hud_snapshot"):
-		snapshot = scene.call("hud_snapshot")
-	scene.queue_free()
-	await get_tree().process_frame
-	return snapshot
-
-func _debug_route_transition(slot: int, start_map_id: String, target_map_id: String, dungeon_source: String) -> Dictionary:
-	var packed: PackedScene = load("res://scenes/dungeon/DungeonScene.tscn")
-	if packed == null:
-		return {}
-	var scene: Node = packed.instantiate()
-	SceneRouter.scene_host.add_child(scene)
-	if scene.has_method("setup"):
-		scene.call("setup", {
-			"slot": slot,
-			"map_id": start_map_id,
-			"dungeon_source": dungeon_source
-		})
-	var grid_smoke := _grid_scene_smoke_driver()
-	var result: Dictionary = grid_smoke.route_probe(scene, target_map_id)
-	if SceneRouter.current_scene != null and SceneRouter.current_scene != scene and SceneRouter.current_scene.has_method("hud_snapshot"):
-		result["snapshot"] = SceneRouter.current_scene.call("hud_snapshot")
-	if is_instance_valid(scene):
-		scene.queue_free()
-	await get_tree().process_frame
-	return result
+func _route_smoke_driver() -> RefCounted:
+	var script: Script = load("res://scripts/tests/route_smoke_driver.gd")
+	return script.new()
 
 func _capture_editor_fallback_snapshot(map_id: String, route_entry: String, file_name: String, options: Dictionary = {}) -> Dictionary:
 	var packed: PackedScene = EDITOR_WORKSPACE_SCENE

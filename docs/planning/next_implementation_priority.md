@@ -111,6 +111,9 @@ original web-repo `godot-port-plan.md`.
   probe methods into `combat_smoke_driver.gd`.
 - 2026-05-24 service overlay smoke driver pass moved the remaining NPC service
   smoke selector out of the production service overlay into a test-only driver.
+- 2026-05-24 main root route smoke driver pass moved domain-smoke route
+  snapshot/transition scene probes out of `main_root.gd` into a test-only
+  driver.
 
 ## P0
 
@@ -134,6 +137,9 @@ original web-repo `godot-port-plan.md`.
    - Done: remove the remaining NPC service selector smoke helper from
      `service_overlay.gd`; visual smoke now selects gatekeeper/scholar services
      through `service_overlay_smoke_driver.gd`.
+   - Done: move domain-smoke route snapshot/transition helpers out of
+     `main_root.gd`; domain smoke now uses `route_smoke_driver.gd` for those
+     temporary probe scenes.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
