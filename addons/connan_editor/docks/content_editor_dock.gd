@@ -48,6 +48,8 @@ var current_definition_event_step_id := ""
 var current_definition_npc_service_index := 0
 
 func _ready() -> void:
+	name = "Connan Content Editor"
+	custom_minimum_size = Vector2(360, 0)
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_build_ui()
@@ -59,72 +61,29 @@ func _build_ui() -> void:
 	title.add_theme_font_size_override("font_size", 20)
 	add_child(title)
 
-	var toolbar := HBoxContainer.new()
-	add_child(toolbar)
+	var tabs := TabContainer.new()
+	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(tabs)
+
+	var definition_tab := VBoxContainer.new()
+	definition_tab.name = "Definition"
+	definition_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	definition_tab.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tabs.add_child(definition_tab)
+
+	var definition_toolbar := HBoxContainer.new()
+	definition_tab.add_child(definition_toolbar)
 
 	kind_option = OptionButton.new()
 	for kind in ContentTools.EDITABLE_KINDS:
 		kind_option.add_item(kind)
 	kind_option.item_selected.connect(_on_kind_selected)
-	toolbar.add_child(kind_option)
-
-	var reload_button := Button.new()
-	reload_button.text = "Reload"
-	reload_button.pressed.connect(_reload)
-	toolbar.add_child(reload_button)
-
-	var validate_button := Button.new()
-	validate_button.text = "Validate"
-	validate_button.pressed.connect(_validate)
-	toolbar.add_child(validate_button)
-
-	var export_button := Button.new()
-	export_button.text = "Export Manifest"
-	export_button.pressed.connect(_export_manifest)
-	toolbar.add_child(export_button)
-
-	var bundle_button := Button.new()
-	bundle_button.text = "Build Bundle"
-	bundle_button.pressed.connect(_build_bundle)
-	toolbar.add_child(bundle_button)
-
-	var map_button := Button.new()
-	map_button.text = "Validate Maps"
-	map_button.pressed.connect(_validate_maps)
-	toolbar.add_child(map_button)
-
-	var preview_button := Button.new()
-	preview_button.text = "Preview Dungeon Build"
-	preview_button.pressed.connect(_preview_dungeon_build)
-	toolbar.add_child(preview_button)
-
-	map_option = OptionButton.new()
-	map_option.item_selected.connect(_on_map_selected)
-	toolbar.add_child(map_option)
-
-	placement_option = OptionButton.new()
-	placement_option.custom_minimum_size = Vector2(180, 0)
-	placement_option.item_selected.connect(_on_placement_selected)
-	toolbar.add_child(placement_option)
-
-	var play_town_button := Button.new()
-	play_town_button.text = "Play Selected"
-	play_town_button.pressed.connect(_play_selected_map)
-	toolbar.add_child(play_town_button)
-
-	var play_dungeon_button := Button.new()
-	play_dungeon_button.text = "Play Selected Compiled"
-	play_dungeon_button.pressed.connect(_play_selected_compiled)
-	toolbar.add_child(play_dungeon_button)
-
-	var play_dungeon_authored_button := Button.new()
-	play_dungeon_authored_button.text = "Play Selected Authored"
-	play_dungeon_authored_button.pressed.connect(_play_selected_authored)
-	toolbar.add_child(play_dungeon_authored_button)
+	definition_toolbar.add_child(kind_option)
 
 	var split := HSplitContainer.new()
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(split)
+	definition_tab.add_child(split)
 
 	entry_list = ItemList.new()
 	entry_list.custom_minimum_size = Vector2(220, 360)
@@ -141,16 +100,48 @@ func _build_ui() -> void:
 	fields_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(fields_box)
 
+	var save_button := Button.new()
+	save_button.text = "Save Row"
+	save_button.pressed.connect(_save_current)
+	definition_tab.add_child(save_button)
+
+	var map_tab := VBoxContainer.new()
+	map_tab.name = "Map Placement"
+	map_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map_tab.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tabs.add_child(map_tab)
+	tabs.set_tab_title(tabs.get_tab_count() - 1, "Map/Placement")
+
+	var map_toolbar := HBoxContainer.new()
+	map_tab.add_child(map_toolbar)
+
+	var map_label := Label.new()
+	map_label.text = "Map"
+	map_toolbar.add_child(map_label)
+
+	map_option = OptionButton.new()
+	map_option.item_selected.connect(_on_map_selected)
+	map_toolbar.add_child(map_option)
+
+	var placement_label := Label.new()
+	placement_label.text = "Placement"
+	map_toolbar.add_child(placement_label)
+
+	placement_option = OptionButton.new()
+	placement_option.custom_minimum_size = Vector2(180, 0)
+	placement_option.item_selected.connect(_on_placement_selected)
+	map_toolbar.add_child(placement_option)
+
 	var placement_title := Label.new()
 	placement_title.text = "Selected Map Placement"
 	placement_title.add_theme_font_size_override("font_size", 16)
-	add_child(placement_title)
+	map_tab.add_child(placement_title)
 
 	var placement_scroll := ScrollContainer.new()
 	placement_scroll.custom_minimum_size = Vector2(0, 220)
 	placement_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	placement_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(placement_scroll)
+	map_tab.add_child(placement_scroll)
 
 	placement_fields_box = VBoxContainer.new()
 	placement_fields_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -159,26 +150,45 @@ func _build_ui() -> void:
 
 	placement_affordance_box = VBoxContainer.new()
 	placement_affordance_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_child(placement_affordance_box)
+	map_tab.add_child(placement_affordance_box)
 
 	var map_title := Label.new()
 	map_title.text = "Selected Map Structure"
 	map_title.add_theme_font_size_override("font_size", 16)
-	add_child(map_title)
+	map_tab.add_child(map_title)
 
 	var map_scroll := ScrollContainer.new()
 	map_scroll.custom_minimum_size = Vector2(0, 220)
 	map_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(map_scroll)
+	map_tab.add_child(map_scroll)
 
 	map_fields_box = VBoxContainer.new()
 	map_fields_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map_fields_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	map_scroll.add_child(map_fields_box)
 
+	var map_actions := HBoxContainer.new()
+	map_tab.add_child(map_actions)
+
+	var save_placement_button := Button.new()
+	save_placement_button.text = "Save Placement"
+	save_placement_button.pressed.connect(_save_current_placement)
+	map_actions.add_child(save_placement_button)
+
+	var save_map_button := Button.new()
+	save_map_button.text = "Save Map"
+	save_map_button.pressed.connect(_save_current_map)
+	map_actions.add_child(save_map_button)
+
+	var grid_tab := VBoxContainer.new()
+	grid_tab.name = "Grid"
+	grid_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid_tab.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tabs.add_child(grid_tab)
+
 	var grid_toolbar := HBoxContainer.new()
-	add_child(grid_toolbar)
+	grid_tab.add_child(grid_toolbar)
 
 	var grid_label := Label.new()
 	grid_label.text = "Grid Edit Mode"
@@ -211,32 +221,76 @@ func _build_ui() -> void:
 	grid_scroll.custom_minimum_size = Vector2(0, 180)
 	grid_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(grid_scroll)
+	grid_tab.add_child(grid_scroll)
 
 	map_grid_container = GridContainer.new()
 	map_grid_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map_grid_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	grid_scroll.add_child(map_grid_container)
 
-	var save_button := Button.new()
-	save_button.text = "Save Row"
-	save_button.pressed.connect(_save_current)
-	add_child(save_button)
+	var build_tab := VBoxContainer.new()
+	build_tab.name = "Build Status"
+	build_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	build_tab.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tabs.add_child(build_tab)
+	tabs.set_tab_title(tabs.get_tab_count() - 1, "Build/Status")
 
-	var save_placement_button := Button.new()
-	save_placement_button.text = "Save Placement"
-	save_placement_button.pressed.connect(_save_current_placement)
-	add_child(save_placement_button)
+	var build_toolbar := HBoxContainer.new()
+	build_tab.add_child(build_toolbar)
 
-	var save_map_button := Button.new()
-	save_map_button.text = "Save Map"
-	save_map_button.pressed.connect(_save_current_map)
-	add_child(save_map_button)
+	var reload_button := Button.new()
+	reload_button.text = "Reload"
+	reload_button.pressed.connect(_reload)
+	build_toolbar.add_child(reload_button)
+
+	var validate_button := Button.new()
+	validate_button.text = "Validate"
+	validate_button.pressed.connect(_validate)
+	build_toolbar.add_child(validate_button)
+
+	var export_button := Button.new()
+	export_button.text = "Export Manifest"
+	export_button.pressed.connect(_export_manifest)
+	build_toolbar.add_child(export_button)
+
+	var bundle_button := Button.new()
+	bundle_button.text = "Build Bundle"
+	bundle_button.pressed.connect(_build_bundle)
+	build_toolbar.add_child(bundle_button)
+
+	var map_button := Button.new()
+	map_button.text = "Validate Maps"
+	map_button.pressed.connect(_validate_maps)
+	build_toolbar.add_child(map_button)
+
+	var preview_button := Button.new()
+	preview_button.text = "Preview Dungeon Build"
+	preview_button.pressed.connect(_preview_dungeon_build)
+	build_toolbar.add_child(preview_button)
+
+	var play_toolbar := HBoxContainer.new()
+	build_tab.add_child(play_toolbar)
+
+	var play_town_button := Button.new()
+	play_town_button.text = "Play Selected"
+	play_town_button.pressed.connect(_play_selected_map)
+	play_toolbar.add_child(play_town_button)
+
+	var play_dungeon_button := Button.new()
+	play_dungeon_button.text = "Play Selected Compiled"
+	play_dungeon_button.pressed.connect(_play_selected_compiled)
+	play_toolbar.add_child(play_dungeon_button)
+
+	var play_dungeon_authored_button := Button.new()
+	play_dungeon_authored_button.text = "Play Selected Authored"
+	play_dungeon_authored_button.pressed.connect(_play_selected_authored)
+	play_toolbar.add_child(play_dungeon_authored_button)
 
 	status_label = RichTextLabel.new()
 	status_label.bbcode_enabled = true
 	status_label.custom_minimum_size = Vector2(0, 100)
-	add_child(status_label)
+	status_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	build_tab.add_child(status_label)
 
 func _reload() -> void:
 	definitions_cache = ContentTools.load_definitions()

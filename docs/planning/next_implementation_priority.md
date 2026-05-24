@@ -71,6 +71,12 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 play-view HUD occlusion pass reduced the in-game grid/town HUD
   footprint so actual 3D play view, markers, and authored props remain visible
   during smoke-tested town and dungeon routes.
+- 2026-05-24 editor/game file-boundary validation pass added editor smoke
+  assertions for the dock root name and build/imported manifest metadata after
+  dock cleanup.
+- 2026-05-24 editor dock engineizing pass renamed the content editor dock root
+  and split the monolithic generated `VBoxContainer` stack into Definition,
+  Map/Placement, Grid, and Build/Status tabs.
 
 ## P0
 
@@ -115,6 +121,11 @@ original web-repo `godot-port-plan.md`.
    - Prioritize Map/Build, Generator, Event Graph, NPC/Quest, Material, and Light
      authoring surfaces.
    - Keep preview/import/validation/build working while adding real editing UX.
+   - Done: content editor dock no longer appears as an anonymous
+     `@VBoxContainer@...` tab and no longer exposes all authoring surfaces in one
+     unbounded vertical stack.
+   - Done: editor smoke now directly guards the content editor dock root name
+     while checking build/import handoff metadata.
 
 4. `validation-import-contract`
    - Done: stricter checks now cover missing material, broken `entryStepId`, step
@@ -131,6 +142,9 @@ original web-repo `godot-port-plan.md`.
      is stale.
    - Done: imported build bundles now record definition-family source hashes,
      and runtime falls back to source JSON if any definition hash is stale.
+   - Done: editor smoke now asserts the imported build manifest path,
+     validation report, definition hashes, and compiled map source hash metadata
+     remain intact across the editor/game file boundary.
    - Broaden stale bundle and content-version mismatch handling to exported
      build metadata and CI artifact reports.
 
@@ -199,6 +213,8 @@ original web-repo `godot-port-plan.md`.
 1. `test-stack-structure`
    - Separate validator, domain test, scene smoke, export smoke, and benchmark layers.
    - Done: validation fixtures now have a dedicated headless probe command.
+   - Done: editor smoke has direct assertions for dock root naming and
+     build/imported manifest boundary metadata.
    - Reduce reliance on screenshot artifacts where direct assertions are possible.
    - Standardize headless commands for future CI.
 

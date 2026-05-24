@@ -53,9 +53,11 @@ func _initialize() -> void:
 	var imported_event_contract_ok := false
 	var imported_npc_contract_ok := false
 	var definition_authoring_ok := false
+	var editor_dock_root_named_ok := false
 	var route_preview_report: Dictionary = {}
 	var fallback_workspace_summary_ok := false
 	var fallback_workspace_detail_ok := false
+	var imported_manifest_flow_ok := false
 
 	var power_slash := _find_row(definitions.get("skills", []), "power_slash")
 	if not power_slash.is_empty():
@@ -77,6 +79,7 @@ func _initialize() -> void:
 	var definition_dock: Control = ContentEditorDockScript.new()
 	get_root().add_child(definition_dock)
 	await process_frame
+	editor_dock_root_named_ok = definition_dock.name == "Connan Content Editor"
 	var event_authoring_ok := bool(definition_dock.call("smoke_select_kind", "events")) \
 		and bool(definition_dock.call("smoke_select_definition", "event_blood_altar_unlock")) \
 		and bool(definition_dock.call("smoke_definition_event_set_entry_step", "altar_end")) \
@@ -394,12 +397,16 @@ func _initialize() -> void:
 			content_registry.call("load_all")
 			var imported_manifest := _load_json_dict(ContentTools.IMPORTED_MANIFEST_PATH)
 			var compiled_maps: Array = imported_manifest.get("compiledMaps", [])
+			var map_source_hash_ok := false
 			content_ok = not imported_manifest.is_empty() and compiled_maps.size() > 0
 			for entry in compiled_maps:
 				if typeof(entry) != TYPE_DICTIONARY:
 					continue
 				if String(entry.get("id", "")) != "dungeon_floor_01":
 					continue
+				map_source_hash_ok = String(entry.get("sourcePath", "")) == FLOOR01_PATH \
+					and entry.has("sourceHash") \
+					and int(entry.get("sourceHash", 0)) != 0
 				var imported_map_data := _load_json_dict(String(entry.get("path", "")))
 				compiled_map_has_preview = imported_map_data.has("compiledPreview")
 				imported_start_x = int(imported_map_data.get("start", [-1, -1])[0])
@@ -421,6 +428,12 @@ func _initialize() -> void:
 						imported_event_contract_ok = String(placement.get("authoringSelectedEventStepId", "")) != "" \
 							and int(placement.get("authoringSelectedEventChoiceIndex", -1)) >= 0
 				break
+			imported_manifest_flow_ok = bool(bundle.get("ok", false)) \
+				and String(bundle.get("manifestPath", "")) == ContentTools.IMPORTED_MANIFEST_PATH \
+				and bool(report.get("validation", {}).get("ok", false)) \
+				and bool(report.get("mapValidation", {}).get("ok", false)) \
+				and imported_manifest.has("definitionHashes") \
+				and map_source_hash_ok
 			var runtime_skill: Dictionary = content_registry.call("get_definition", "skills", "power_slash")
 			runtime_skill_power = int(runtime_skill.get("power", -1))
 		if game_app != null:
@@ -539,7 +552,7 @@ func _initialize() -> void:
 	fallback_workspace.queue_free()
 	await process_frame
 
-	print("EDITOR_SMOKE validation_ok=%s map_ok=%s preview_ok=%s invalid_blocked=%s invalid_unchanged=%s map_invalid_blocked=%s map_invalid_unchanged=%s map_structure_invalid_blocked=%s map_structure_invalid_unchanged=%s edit_ok=%s definition_authoring_ok=%s map_edit_ok=%s map_structure_ok=%s grid_editor_ok=%s placement_grid_ok=%s placement_reference_ok=%s placement_affordance_ok=%s placement_create_ok=%s placement_delete_ok=%s fallback_workspace_ok=%s fallback_workspace_detail_ok=%s bundle_ok=%s content_ok=%s manifest=%s compiled_preview=%s runtime_power=%d field_ai=%d imported_start_x=%d imported_slime_y=%d rest_event=%s deserter_npc=%s compiled_handoff=%s authored_handoff=%s counts=%s" % [
+	print("EDITOR_SMOKE validation_ok=%s map_ok=%s preview_ok=%s invalid_blocked=%s invalid_unchanged=%s map_invalid_blocked=%s map_invalid_unchanged=%s map_structure_invalid_blocked=%s map_structure_invalid_unchanged=%s edit_ok=%s definition_authoring_ok=%s dock_root_named=%s map_edit_ok=%s map_structure_ok=%s grid_editor_ok=%s placement_grid_ok=%s placement_reference_ok=%s placement_affordance_ok=%s placement_create_ok=%s placement_delete_ok=%s fallback_workspace_ok=%s fallback_workspace_detail_ok=%s bundle_ok=%s content_ok=%s imported_manifest_flow_ok=%s manifest=%s compiled_preview=%s runtime_power=%d field_ai=%d imported_start_x=%d imported_slime_y=%d rest_event=%s deserter_npc=%s compiled_handoff=%s authored_handoff=%s counts=%s" % [
 		validation.get("ok", false),
 		map_validation.get("ok", false),
 		preview.get("ok", false),
@@ -551,6 +564,7 @@ func _initialize() -> void:
 		invalid_map_structure_unchanged,
 		valid_edit_applied,
 		definition_authoring_ok,
+		editor_dock_root_named_ok,
 		valid_map_edit_applied,
 		valid_map_structure_applied,
 		grid_editor_path_ok,
@@ -563,6 +577,7 @@ func _initialize() -> void:
 		fallback_workspace_detail_ok,
 		bundle.get("ok", false),
 		content_ok,
+		imported_manifest_flow_ok,
 		ContentTools.IMPORTED_MANIFEST_PATH,
 		compiled_map_has_preview,
 		runtime_skill_power,
@@ -582,6 +597,7 @@ func _initialize() -> void:
 		and invalid_edit_unchanged \
 		and valid_edit_applied \
 		and definition_authoring_ok \
+		and editor_dock_root_named_ok \
 		and invalid_map_edit_blocked \
 		and invalid_map_edit_unchanged \
 		and invalid_map_structure_blocked \
@@ -602,6 +618,7 @@ func _initialize() -> void:
 		and fallback_workspace_detail_ok \
 		and bool(bundle.get("ok", false)) \
 		and content_ok \
+		and imported_manifest_flow_ok \
 		and compiled_map_has_preview \
 		and runtime_skill_power == edited_skill_power \
 		and runtime_field_ai_approach == 6 \
