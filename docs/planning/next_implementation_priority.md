@@ -33,6 +33,9 @@ original web-repo `godot-port-plan.md`.
   risk, added objective/gate guidance to HUD snapshots, added dungeon world
   path markers for active interactions, and added guided event/NPC placement
   selectors in the editor preview panel.
+- 2026-05-24 combat domain pass expanded the project domain smoke with direct
+  victory/defeat summary assertions for combat outcome data, reward rows, and
+  defeat party HP.
 
 ## P0
 
@@ -93,7 +96,10 @@ original web-repo `godot-port-plan.md`.
      action intent presentation instead of only a text block.
    - Done: combat victory/defeat outcomes now have clearer overlay summaries and
      explicit continuation choices.
-   - Move combat tests beyond smoke-only coverage into direct domain assertions.
+   - Done: domain smoke now directly asserts victory/defeat summary data,
+     reward rows, monster instance IDs, and defeat HP state.
+   - Move remaining combat tests beyond smoke-only coverage into smaller direct
+     domain probes where autoload context is available.
    - Expand skill/item/effect authoring coverage.
    - Use enemy `combatProfile` more broadly.
    - Polish defeat, reward, and end-state UX further.

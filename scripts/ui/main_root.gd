@@ -134,6 +134,8 @@ func _run_domain_smoke() -> void:
 	var combat_enemy_guard_probe: Dictionary = {}
 	var combat_enemy_resist_probe: Dictionary = {}
 	var combat_view_model_probe: Dictionary = {}
+	var combat_victory_summary_probe: Dictionary = {}
+	var combat_defeat_summary_probe: Dictionary = {}
 	var ending_report_probe: Dictionary = {}
 	var combat_runtime_script := preload("res://scripts/runtime/combat_runtime.gd")
 	var probe_profile: Dictionary = {
@@ -155,6 +157,22 @@ func _run_domain_smoke() -> void:
 	})
 	combat_enemy_guard_probe = guard_runtime.smoke_probe_enemy_turn()
 	combat_view_model_probe = guard_runtime.build_view_model()
+	var victory_runtime = combat_runtime_script.new()
+	victory_runtime.setup({
+		"slot": probe_slot,
+		"monster_id": "slime_alpha",
+		"monster_instance_id": "domain_slime_alpha",
+		"return_map_id": "dungeon_floor_01"
+	})
+	combat_victory_summary_probe = victory_runtime.smoke_win()
+	var defeat_runtime = combat_runtime_script.new()
+	defeat_runtime.setup({
+		"slot": probe_slot,
+		"monster_id": "serpent_guard",
+		"monster_instance_id": "domain_serpent_guard",
+		"return_map_id": "dungeon_floor_02"
+	})
+	combat_defeat_summary_probe = defeat_runtime.smoke_lose()
 	SaveService.update_front_state(probe_slot, 20, 20, [])
 	var resist_runtime = combat_runtime_script.new()
 	resist_runtime.setup({
@@ -315,6 +333,8 @@ func _run_domain_smoke() -> void:
 		"combatEnemyGuardProbe": combat_enemy_guard_probe,
 		"combatEnemyResistProbe": combat_enemy_resist_probe,
 		"combatViewModelProbe": combat_view_model_probe,
+		"combatVictorySummaryProbe": combat_victory_summary_probe,
+		"combatDefeatSummaryProbe": combat_defeat_summary_probe,
 		"endingReportProbe": ending_report_probe,
 		"defeatProbe": defeat_probe,
 		"fightVictory": fight_victory,
@@ -448,6 +468,13 @@ func _run_domain_smoke() -> void:
 		and not combat_view_model_probe.get("enemyCombatProfile", {}).get("turnOps", []).is_empty() \
 		and combat_view_model_probe.has("selectedRollIds") \
 		and combat_view_model_probe.has("pendingItemState") \
+		and bool(combat_victory_summary_probe.get("victory", false)) \
+		and String(combat_victory_summary_probe.get("summary", {}).get("monsterId", "")) == "slime_alpha" \
+		and String(combat_victory_summary_probe.get("summary", {}).get("monsterInstanceId", "")) == "domain_slime_alpha" \
+		and not combat_victory_summary_probe.get("summary", {}).get("rewards", []).is_empty() \
+		and bool(combat_defeat_summary_probe.get("defeat", false)) \
+		and String(combat_defeat_summary_probe.get("summary", {}).get("monsterId", "")) == "serpent_guard" \
+		and int(combat_defeat_summary_probe.get("summary", {}).get("partyHp", 1)) == 0 \
 		and bool(ending_report_probe.get("cleared", false)) \
 		and String(ending_report_probe.get("message", "")).contains("Blind Priest Defeated") \
 		and String(defeat_probe.get("route", "")) == "town" \

@@ -78,6 +78,7 @@ Out:
 - Added HUD objective guidance for quest targets, active quest seeds, and blocked gate requirements.
 - Added dungeon world-space path markers from the player toward the active interaction target.
 - Added editor guided authoring selectors for event/rest/trap event IDs and NPC service NPC IDs, plus label sync actions.
+- Added direct combat victory/defeat summary assertions to the existing autoload-backed domain smoke.
 
 ## Files Changed
 - addons/connan_editor/docks/content_editor_dock.gd: added guided event/NPC placement authoring controls.
@@ -85,6 +86,7 @@ Out:
 - docs/tasks/2026-05-24-playability-port-backlog-pass.md:
 - scripts/runtime/grid_scene.gd: added objective snapshots and dungeon focus path markers.
 - scripts/ui/grid_hud.gd: added objective panel rendering.
+- scripts/ui/main_root.gd: expanded domain smoke combat outcome assertions.
 
 ## Follow-ups
-- Remaining work: manual playtest path marker readability, deeper event graph/NPC service editing, validation fixture tests, direct combat domain tests, town runtime extraction cleanup.
+- Remaining work: manual playtest path marker readability, deeper event graph/NPC service editing, validation fixture tests, smaller combat domain probes under an autoload-aware runner, town runtime extraction cleanup.
