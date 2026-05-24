@@ -63,6 +63,9 @@ original web-repo `godot-port-plan.md`.
   JSON when those hashes are stale.
 - 2026-05-24 town world presenter separation pass moved town ambient presentation
   state/animation and the town build entrypoint into `town_world_presenter.gd`.
+- 2026-05-24 dungeon route breadcrumb tuning pass sampled long interaction
+  paths, lifted/pulsed breadcrumbs above the floor, and color-coded blocked,
+  danger, reward, rest/service, and route targets.
 
 ## P0
 
@@ -90,7 +93,11 @@ original web-repo `godot-port-plan.md`.
      gate guidance as an in-game objective panel.
    - Done: quest target, quest seed objective, and reward turn-in placements now
      get distinct world marker colors and stay visible as intent affordances.
-   - Next: tune path marker density/occlusion after manual play sessions.
+   - Done: active dungeon path markers now sample long routes, lift/pulse above
+     the floor, and use intent-specific colors/shapes for blocked, danger,
+     reward, rest/service, and route targets.
+   - Next: do manual play tuning for marker size/occlusion in narrow halls and
+     crowded authored encounters.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.
 
 3. `editor-authoring-parity`
