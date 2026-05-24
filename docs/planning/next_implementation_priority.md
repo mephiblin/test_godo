@@ -163,6 +163,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 runtime map query pass moved movement blocking, vision blocking,
   front interaction lookup, dungeon focus path, placement runtime cell, and
   visited-cell key logic out of `grid_scene.gd` into `runtime_map_query.gd`.
+- 2026-05-24 runtime route gate pass moved route block-message checks and
+  campaign-clear title/eligibility decisions out of `grid_scene.gd` into
+  `runtime_route_gate.gd`.
 
 ## P0
 
@@ -241,6 +244,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move runtime map/cell query bodies into `runtime_map_query.gd`,
      keeping movement, minimap, focus path, and field-monster callers on stable
      `grid_scene.gd` delegates for now.
+   - Done: move route gate condition checks and campaign-clear title decisions
+     into `runtime_route_gate.gd`, preserving current route HUD, route
+     execution, town gate, and smoke-driver call surfaces.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 

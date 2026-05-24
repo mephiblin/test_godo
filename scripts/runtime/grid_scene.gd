@@ -19,6 +19,7 @@ const DUNGEON_WORLD_PRESENTER_SCRIPT := preload("res://scripts/runtime/dungeon_w
 const RUNTIME_SNAPSHOT_BUILDER_SCRIPT := preload("res://scripts/runtime/runtime_snapshot_builder.gd")
 const DUNGEON_INTERACTION_RUNTIME_SCRIPT := preload("res://scripts/runtime/dungeon_interaction_runtime.gd")
 const RUNTIME_MAP_QUERY_SCRIPT := preload("res://scripts/runtime/runtime_map_query.gd")
+const RUNTIME_ROUTE_GATE_SCRIPT := preload("res://scripts/runtime/runtime_route_gate.gd")
 
 var map_data: Dictionary = {}
 var current_slot := 1
@@ -45,6 +46,7 @@ var dungeon_world_presenter: RefCounted
 var runtime_snapshot_builder: RefCounted
 var dungeon_interaction_runtime: RefCounted
 var runtime_map_query: RefCounted
+var runtime_route_gate: RefCounted
 
 @onready var world_root: Node3D = $WorldRoot
 @onready var player_rig: Node3D = $PlayerRig3D
@@ -84,6 +86,7 @@ func setup(payload: Dictionary) -> void:
 	runtime_snapshot_builder = RUNTIME_SNAPSHOT_BUILDER_SCRIPT.new().configure(self)
 	dungeon_interaction_runtime = DUNGEON_INTERACTION_RUNTIME_SCRIPT.new().configure(self)
 	runtime_map_query = RUNTIME_MAP_QUERY_SCRIPT.new().configure(self)
+	runtime_route_gate = RUNTIME_ROUTE_GATE_SCRIPT.new().configure(self)
 	_ensure_field_monster_runtime()
 	_build_world()
 	_refresh_town_focus_targets()
@@ -554,43 +557,19 @@ func _route_from_placement(placement: Dictionary) -> void:
 		dungeon_interaction_runtime.call("route_from_placement", placement)
 
 func _route_block_message(placement: Dictionary) -> String:
-	var slot_data: Dictionary = SaveService.load_slot(current_slot)
-	var required_flag := String(placement.get("requiredFlag", ""))
-	if required_flag != "" and not bool(slot_data.get("flags", {}).get(required_flag, false)):
-		return String(placement.get("blockedMessage", "The route is still sealed."))
-	var required_bosses := int(placement.get("bossesDefeatedAtLeast", 0))
-	if required_bosses > 0 and QuestService.progression_bosses_defeated(current_slot) < required_bosses:
-		return String(placement.get("blockedMessage", "Requires progression %d." % required_bosses))
-	var required_quest_statuses: Array = placement.get("requiredQuestStatuses", [])
-	if not required_quest_statuses.is_empty():
-		var quest_status := String(QuestService.current_quest(current_slot).get("status", "none"))
-		if not required_quest_statuses.has(quest_status):
-			return String(placement.get("blockedMessage", "The route is still sealed."))
-	var required_seed_id := String(placement.get("requiredQuestSeedId", ""))
-	if required_seed_id != "":
-		var required_seed_status := String(placement.get("requiredQuestSeedStatus", "rewarded"))
-		var seed_status := String(QuestService.quest_seed_states(current_slot).get(required_seed_id, {}).get("status", ""))
-		if seed_status != required_seed_status:
-			return String(placement.get("blockedMessage", "The route is still sealed."))
-	return ""
+	if runtime_route_gate == null:
+		return ""
+	return String(runtime_route_gate.call("route_block_message", placement))
 
 func _should_mark_campaign_clear(placement: Dictionary) -> bool:
-	if String(placement.get("endingFlag", "")).strip_edges() != "":
-		return true
-	if String(map_data.get("id", "")) != "dungeon_floor_03":
+	if runtime_route_gate == null:
 		return false
-	if String(placement.get("targetRoute", "")) != GameApp.MODE_TOWN:
-		return false
-	var slot_data: Dictionary = SaveService.load_slot(current_slot)
-	return bool(slot_data.get("flags", {}).get("blind_priest_cleared", false))
+	return bool(runtime_route_gate.call("should_mark_campaign_clear", placement))
 
 func _resolved_campaign_clear_title(placement: Dictionary) -> String:
-	var title := String(placement.get("endingTitle", ""))
-	if title != "":
-		return title
-	if String(map_data.get("id", "")) == "dungeon_floor_03":
-		return "Blind Priest Defeated"
-	return "Expedition Cleared"
+	if runtime_route_gate == null:
+		return "Expedition Cleared"
+	return String(runtime_route_gate.call("resolved_campaign_clear_title", placement))
 
 func _enter_combat(placement: Dictionary) -> void:
 	if dungeon_interaction_runtime != null:
