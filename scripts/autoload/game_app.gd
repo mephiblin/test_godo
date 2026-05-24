@@ -14,7 +14,6 @@ var pending_combat_context: Dictionary = {}
 var smoke_enabled := false
 var smoke_output_dir := ""
 var dungeon_runtime_source := DUNGEON_SOURCE_COMPILED
-var editor_test_payload: Dictionary = {}
 
 func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -124,16 +123,3 @@ func handle_combat_defeat(summary: Dictionary, return_to_title: bool = false) ->
 		"map_id": "town_square",
 		"dungeon_source": dungeon_runtime_source
 	})
-
-func set_editor_test_payload(payload: Dictionary) -> void:
-	editor_test_payload = payload.duplicate(true)
-
-func consume_editor_test_payload(expected_route: String = "") -> Dictionary:
-	if editor_test_payload.is_empty():
-		return {}
-	var payload := editor_test_payload.duplicate(true)
-	var route := String(payload.get("route", ""))
-	if expected_route != "" and route != "" and route != expected_route:
-		return {}
-	editor_test_payload.clear()
-	return payload

@@ -43,7 +43,7 @@ var dungeon_affordance_presenter: RefCounted
 
 func setup(payload: Dictionary) -> void:
 	if payload.is_empty() and allow_editor_test_payload:
-		payload = GameApp.consume_editor_test_payload(route_name)
+		payload = EditorPlaytestBridge.consume_payload(route_name)
 	current_slot = int(payload.get("slot", GameApp.current_slot))
 	var save_data: Dictionary = SaveService.load_slot(current_slot)
 	var runtime: Dictionary = save_data.get("runtime", {})

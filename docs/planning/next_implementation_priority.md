@@ -119,6 +119,8 @@ original web-repo `godot-port-plan.md`.
   driver while preserving visual capture.
 - 2026-05-24 editor workspace script boundary pass moved the fallback editor
   workspace script out of `scripts/runtime` into `scripts/editor_tools`.
+- 2026-05-24 editor playtest payload boundary pass moved custom play payload
+  storage out of `GameApp` into `EditorPlaytestBridge`.
 
 ## P0
 
@@ -151,6 +153,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move `EditorWorkspace.tscn` script from `scripts/runtime` to
      `scripts/editor_tools`, so fallback editor tooling no longer lives in the
      game runtime script tree.
+   - Done: remove editor custom-play payload storage/accessors from `GameApp`;
+     explicit playtest scenes now consume `EditorPlaytestBridge` only when their
+     `allow_editor_test_payload` flag is enabled.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 

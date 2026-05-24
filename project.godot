@@ -18,6 +18,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 GameApp="*res://scripts/autoload/game_app.gd"
+EditorPlaytestBridge="*res://scripts/editor_tools/editor_playtest_bridge.gd"
 ContentRegistry="*res://scripts/autoload/content_registry.gd"
 SaveService="*res://scripts/autoload/save_service.gd"
 ShopService="*res://scripts/autoload/shop_service.gd"

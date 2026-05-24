@@ -47,7 +47,7 @@ func play_map_test(map_id: String, dungeon_source: String = GameApp.DUNGEON_SOUR
 	GameApp.current_slot = slot
 	GameApp.current_mode = route
 	GameApp.dungeon_runtime_source = dungeon_source
-	GameApp.set_editor_test_payload({
+	EditorPlaytestBridge.set_payload({
 		"route": route,
 		"slot": slot,
 		"map_id": map_id,

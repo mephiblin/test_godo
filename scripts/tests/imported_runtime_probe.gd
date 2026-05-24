@@ -40,12 +40,13 @@ func _probe_imported_maps(registry: Node) -> void:
 
 func _probe_new_game_runtime_state() -> void:
 	var app := _game_app()
-	app.editor_test_payload.clear()
+	var editor_bridge := _editor_playtest_bridge()
+	editor_bridge.call("clear_payload")
 	app.start_new_game(PROBE_SLOT, {
 		"name": "Runtime Probe",
 		"slotName": "Imported Runtime Probe"
 	})
-	_expect(app.editor_test_payload.is_empty(), "new game runtime should not consume or persist editor test payload")
+	_expect((editor_bridge.get("payload") as Dictionary).is_empty(), "new game runtime should not consume or persist editor test payload")
 	_expect(app.dungeon_runtime_source == app.DUNGEON_SOURCE_COMPILED, "new game runtime source should be compiled")
 	_expect(app.current_mode == app.MODE_TOWN, "new game should enter town mode")
 	var data: Dictionary = _save_service().load_slot(PROBE_SLOT)
@@ -60,9 +61,10 @@ func _probe_new_game_runtime_state() -> void:
 
 func _probe_runtime_scene_ignores_editor_payload() -> void:
 	var app := _game_app()
+	var editor_bridge := _editor_playtest_bridge()
 	app.current_slot = PROBE_SLOT
 	app.dungeon_runtime_source = app.DUNGEON_SOURCE_COMPILED
-	app.set_editor_test_payload({
+	editor_bridge.call("set_payload", {
 		"route": app.MODE_DUNGEON,
 		"slot": PROBE_SLOT,
 		"map_id": "dungeon_floor_02",
@@ -71,12 +73,12 @@ func _probe_runtime_scene_ignores_editor_payload() -> void:
 	var scene: Node = load("res://scenes/dungeon/DungeonScene.tscn").instantiate()
 	root.add_child(scene)
 	await process_frame
-	_expect(not app.editor_test_payload.is_empty(), "real runtime scene should not consume editor test payload")
+	_expect(not (editor_bridge.get("payload") as Dictionary).is_empty(), "real runtime scene should not consume editor test payload")
 	_expect(String(scene.get("map_data").get("id", "")) == "dungeon_floor_01", "real runtime scene should use its default/runtime payload instead of editor test payload")
 	_expect(String(scene.get("dungeon_source_mode")) == app.DUNGEON_SOURCE_COMPILED, "real runtime scene should not inherit authored editor test source")
 	scene.queue_free()
 	await process_frame
-	app.editor_test_payload.clear()
+	editor_bridge.call("clear_payload")
 
 func _backup_slot(slot: int) -> void:
 	var path: String = _save_service().slot_path(slot)
@@ -99,6 +101,9 @@ func _registry() -> Node:
 
 func _game_app() -> Node:
 	return root.get_node("GameApp")
+
+func _editor_playtest_bridge() -> Node:
+	return root.get_node("EditorPlaytestBridge")
 
 func _save_service() -> Node:
 	return root.get_node("SaveService")

@@ -441,7 +441,7 @@ func _initialize() -> void:
 			game_app.set("current_slot", 1)
 			game_app.set("current_mode", "dungeon")
 			game_app.set("dungeon_runtime_source", "compiled")
-			game_app.call("set_editor_test_payload", {
+			root.get_node("EditorPlaytestBridge").call("set_payload", {
 				"route": "dungeon",
 				"slot": 1,
 				"map_id": "dungeon_floor_01",
@@ -458,7 +458,7 @@ func _initialize() -> void:
 
 			game_app.set("current_mode", "dungeon")
 			game_app.set("dungeon_runtime_source", "authored")
-			game_app.call("set_editor_test_payload", {
+			root.get_node("EditorPlaytestBridge").call("set_payload", {
 				"route": "dungeon",
 				"slot": 1,
 				"map_id": "dungeon_floor_01",
