@@ -76,3 +76,24 @@ static func build_intent_text(vm: Dictionary) -> String:
 	if String(vm.get("dicePhase", "")) == "spinning":
 		return "[color=#8fb7d8]Dice spinning[/color]\nSpace stops the reel; choose up to %d dice." % int(vm.get("selectLimit", 2))
 	return "[color=#9aa7b8]Choose action[/color]\nSelect dice, use an item, or flee."
+
+static func build_victory_text(summary: Dictionary) -> String:
+	var reward_lines: Array[String] = []
+	for reward in summary.get("rewards", []):
+		if typeof(reward) != TYPE_DICTIONARY:
+			continue
+		var row := String(reward.get("label", "enemy defeated"))
+		if bool(reward.get("boss", false)):
+			row += " / boss flag %s" % String(reward.get("flag", ""))
+		reward_lines.append(row)
+	if reward_lines.is_empty():
+		reward_lines.append("Field monster state will be marked defeated.")
+	return "[b]Enemy[/b] %s\n[b]Return Map[/b] %s\n[b]Party HP[/b] %d/%d\n[b]Front Status[/b] %s\n[b]Outcome[/b]\n%s\n[b]Log[/b]\n%s" % [
+		String(summary.get("enemyName", "Enemy")),
+		String(summary.get("mapId", "")),
+		int(summary.get("partyHp", 0)),
+		int(summary.get("partyMaxHp", 0)),
+		", ".join(summary.get("frontStatuses", [])) if not summary.get("frontStatuses", []).is_empty() else "-",
+		"\n".join(reward_lines),
+		"\n".join(summary.get("logTail", []))
+	]

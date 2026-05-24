@@ -11,6 +11,10 @@ var minimap_texture: TextureRect
 var minimap_caption: Label
 var minimap_legend: RichTextLabel
 var prompt_panel: PanelContainer
+var intent_row: HBoxContainer
+var intent_chip: PanelContainer
+var intent_chip_label: Label
+var next_step_label: Label
 var interaction_title: Label
 var interaction_detail: RichTextLabel
 var last_minimap_hash := ""
@@ -84,8 +88,23 @@ func _ready() -> void:
 	add_child(prompt_panel)
 
 	var prompt_layout := VBoxContainer.new()
-	prompt_layout.custom_minimum_size = Vector2(820, 74)
+	prompt_layout.custom_minimum_size = Vector2(820, 104)
 	prompt_panel.add_child(prompt_layout)
+
+	intent_row = HBoxContainer.new()
+	intent_row.add_theme_constant_override("separation", 8)
+	prompt_layout.add_child(intent_row)
+	intent_chip = PanelContainer.new()
+	intent_chip.custom_minimum_size = Vector2(96, 26)
+	intent_row.add_child(intent_chip)
+	intent_chip_label = Label.new()
+	intent_chip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	intent_chip_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	intent_chip_label.add_theme_font_size_override("font_size", 13)
+	intent_chip.add_child(intent_chip_label)
+	next_step_label = Label.new()
+	next_step_label.add_theme_font_size_override("font_size", 13)
+	intent_row.add_child(next_step_label)
 
 	interaction_title = Label.new()
 	interaction_title.add_theme_font_size_override("font_size", 18)
@@ -126,16 +145,18 @@ func _apply_dungeon_layout() -> void:
 	log_label.custom_minimum_size = Vector2(340, 70)
 	prompt_panel.offset_left = 16
 	prompt_panel.offset_right = -16
-	interaction_detail.custom_minimum_size = Vector2(780, 42)
+	interaction_detail.custom_minimum_size = Vector2(780, 54)
 
 func _apply_town_layout() -> void:
 	_apply_dungeon_layout()
 
 func _update_interaction(interaction: Dictionary) -> void:
 	if not bool(interaction.get("available", false)):
+		_update_intent_chip({})
 		interaction_title.text = String(interaction.get("title", ""))
 		interaction_detail.text = String(interaction.get("detail", ""))
 		return
+	_update_intent_chip(interaction)
 	interaction_title.text = "%s  |  %s" % [
 		String(interaction.get("title", "")),
 		String(interaction.get("action", ""))
@@ -146,6 +167,43 @@ func _update_interaction(interaction: Dictionary) -> void:
 	if selection != "":
 		detail += "\n[color=#8fb7d8]%s[/color]" % selection
 	interaction_detail.text = "%s\n%s" % [status, detail]
+
+func _update_intent_chip(interaction: Dictionary) -> void:
+	if interaction.is_empty():
+		intent_chip.visible = false
+		next_step_label.text = ""
+		return
+	intent_chip.visible = true
+	var intent := String(interaction.get("intent", "interact"))
+	intent_chip.modulate = _intent_chip_color(intent, bool(interaction.get("blocked", false)))
+	intent_chip_label.text = intent.to_upper()
+	var next_step: Array = interaction.get("nextStep", [])
+	var guide := String(interaction.get("guide", ""))
+	if next_step.size() == 2:
+		next_step_label.text = "Next %d,%d  |  %s" % [int(next_step[0]), int(next_step[1]), guide]
+	else:
+		next_step_label.text = guide
+
+func _intent_chip_color(intent: String, blocked: bool) -> Color:
+	if blocked:
+		return Color("a56350")
+	match intent:
+		"route":
+			return Color("b7a25d")
+		"combat":
+			return Color("b75f5f")
+		"event":
+			return Color("b0608b")
+		"door":
+			return Color("9d835f")
+		"reward":
+			return Color("c6924f")
+		"rest":
+			return Color("68a879")
+		"service":
+			return Color("6e9bc5")
+		_:
+			return Color("6f7b89")
 
 func _update_minimap(minimap: Dictionary) -> void:
 	var cells: Array = minimap.get("cells", [])

@@ -12,6 +12,7 @@ var roll_container: HBoxContainer
 var runtime := preload("res://scripts/runtime/combat_runtime.gd").new()
 const CombatHudPresenter = preload("res://scripts/runtime/combat_hud_presenter.gd")
 var defeat_overlay: Control
+var victory_overlay: Control
 
 func setup(payload: Dictionary) -> void:
 	runtime.setup(payload)
@@ -182,7 +183,7 @@ func _handle_outcome(outcome: Dictionary) -> void:
 		if not bool(outcome.get("victory", false)):
 			_show_defeat_overlay(outcome.get("summary", runtime.build_defeat_summary()))
 			return
-		GameApp.exit_combat(bool(outcome.get("victory", false)))
+		_show_victory_overlay(outcome.get("summary", runtime.build_victory_summary()))
 		return
 	_refresh()
 
@@ -226,7 +227,11 @@ func _queue_firebomb() -> void:
 	_handle_outcome(runtime.pick_item("firebomb"))
 
 func smoke_win() -> void:
-	_handle_outcome(runtime.smoke_win())
+	var outcome := runtime.smoke_win()
+	if bool(outcome.get("exit", false)) and bool(outcome.get("victory", false)):
+		GameApp.exit_combat(true)
+		return
+	_handle_outcome(outcome)
 
 func smoke_use_item(item_id: String) -> void:
 	_handle_outcome(runtime.smoke_use_item(item_id))
@@ -289,8 +294,9 @@ func _show_defeat_overlay(summary: Dictionary) -> void:
 	var body := RichTextLabel.new()
 	body.bbcode_enabled = true
 	body.custom_minimum_size = Vector2(520, 180)
-	body.text = "[b]Enemy[/b] %s\n[b]Return[/b] town_square\n[b]Penalty[/b] 20%% gold, minimum 10 if possible\n[b]Statuses[/b] %s\n[b]Log[/b]\n%s" % [
+	body.text = "[b]Enemy[/b] %s\n[b]Next[/b] Recover in town or return to title\n[b]Penalty[/b] 20%% gold, minimum 10 if possible\n[b]Current Gold[/b] %d\n[b]Statuses[/b] %s\n[b]Log[/b]\n%s" % [
 		String(summary.get("enemyName", "Unknown Enemy")),
+		int(summary.get("gold", 0)),
 		str(summary.get("statuses", [])),
 		"\n".join(summary.get("logTail", []))
 	]
@@ -309,3 +315,42 @@ func _show_defeat_overlay(summary: Dictionary) -> void:
 		GameApp.handle_combat_defeat(summary, true)
 	)
 	buttons.add_child(title_button)
+
+func _show_victory_overlay(summary: Dictionary) -> void:
+	if victory_overlay != null:
+		victory_overlay.queue_free()
+	var overlay := PanelContainer.new()
+	overlay.anchor_right = 1.0
+	overlay.anchor_bottom = 1.0
+	overlay.offset_left = 160
+	overlay.offset_top = 110
+	overlay.offset_right = -160
+	overlay.offset_bottom = -110
+	add_child(overlay)
+	victory_overlay = overlay
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	overlay.add_child(box)
+	var title := Label.new()
+	title.text = "Victory"
+	title.add_theme_font_size_override("font_size", 30)
+	box.add_child(title)
+	var body := RichTextLabel.new()
+	body.bbcode_enabled = true
+	body.custom_minimum_size = Vector2(560, 190)
+	body.text = CombatHudPresenter.build_victory_text(summary)
+	box.add_child(body)
+	var buttons := HBoxContainer.new()
+	box.add_child(buttons)
+	var continue_button := Button.new()
+	continue_button.text = "Return To Dungeon"
+	continue_button.pressed.connect(func() -> void:
+		GameApp.exit_combat(true)
+	)
+	buttons.add_child(continue_button)
+	var inventory_button := Button.new()
+	inventory_button.text = "Continue And Review Later"
+	inventory_button.pressed.connect(func() -> void:
+		GameApp.exit_combat(true)
+	)
+	buttons.add_child(inventory_button)

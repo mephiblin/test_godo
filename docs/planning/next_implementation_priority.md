@@ -26,6 +26,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 gameplay pass added dungeon type-specific 3D placement markers,
   animated interaction/focus intent markers, a clearer combat enemy stage, and
   additional floor 3 trap/cache gameplay beats.
+- 2026-05-24 UX/authoring pass added dungeon HUD intent chips/next-step guides,
+  combat victory/defeat outcome overlays, and placement quick-author actions in
+  the editor preview panel.
 
 ## P0
 
@@ -40,8 +43,8 @@ original web-repo `godot-port-plan.md`.
      loot, and combat detail plus intent labels.
    - Done: dungeon placements now render with type-specific 3D marker shapes,
      rings, animated intent nodes, and a focused target marker.
-   - Next: add dedicated dungeon HUD visual treatment for intent labels and
-     optional path-to-object guidance where useful.
+   - Done: dungeon HUD now renders active intent chips and next-step guidance.
+   - Next: add optional path-to-object guidance where useful.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.
 
 3. `editor-authoring-parity`
@@ -80,6 +83,8 @@ original web-repo `godot-port-plan.md`.
 2. `combat-system-hardening`
    - Done: combat screen now has a readable enemy stage with HP/guard/status and
      action intent presentation instead of only a text block.
+   - Done: combat victory/defeat outcomes now have clearer overlay summaries and
+     explicit continuation choices.
    - Move combat tests beyond smoke-only coverage into direct domain assertions.
    - Expand skill/item/effect authoring coverage.
    - Use enemy `combatProfile` more broadly.
@@ -91,7 +96,13 @@ original web-repo `godot-port-plan.md`.
    - Strengthen service handoff and downstream surface contracts.
    - Clarify objective and gating descriptions across town and dungeon.
 
-4. `save-migration-packaging`
+4. `editor-authoring-ux`
+   - Done: placement preview includes quick-author actions for traps, rest points,
+     field monsters, NPC services, route links, and loot caches.
+   - Next: convert event graph and NPC service editing from preview-only into
+     direct guided field editors.
+
+5. `save-migration-packaging`
    - Expand regression coverage around save robustness.
    - Collect more exported-build play evidence.
    - Finish packaging cleanup and connect CI if the repo workflow needs it.

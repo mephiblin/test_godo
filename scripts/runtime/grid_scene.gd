@@ -2025,8 +2025,46 @@ func _interaction_snapshot() -> Dictionary:
 		"hint": _interaction_alignment_hint(placement, source, distance),
 		"selection": _town_focus_summary(placement, source),
 		"anchorCell": _town_anchor_snapshot(placement, source),
-		"intent": _interaction_intent_label(placement, source, distance)
+		"intent": _interaction_intent_label(placement, source, distance),
+		"nextStep": _interaction_next_step_snapshot(placement, source),
+		"guide": _interaction_guide_text(placement, source, distance)
 	}
+
+func _interaction_next_step_snapshot(placement: Dictionary, source: String) -> Array:
+	if placement.is_empty():
+		return []
+	if _is_town_map() and source == "selected":
+		var anchor := _town_interaction_anchor_cell(placement)
+		var next_step := _town_next_step_toward(anchor)
+		if next_step != player_cell:
+			return [next_step.x, next_step.y]
+	var cell := _placement_runtime_cell(placement)
+	return [cell.x, cell.y]
+
+func _interaction_guide_text(placement: Dictionary, source: String, distance: int) -> String:
+	var intent := _interaction_intent_label(placement, source, distance)
+	if source == "selected" and distance > 1:
+		return "W/Space advances toward the selected hub."
+	match intent:
+		"route":
+			var blocked := _route_block_message(placement)
+			if blocked != "":
+				return "Route is gated: satisfy the listed condition before using Space."
+			return "Space travels to the linked map."
+		"combat":
+			return "Space starts combat; prepare skills/items before engaging."
+		"event":
+			return "Space resolves this event or hazard immediately."
+		"door":
+			return "Space checks the door; keys/secrets may change passability."
+		"reward":
+			return "Space collects loot and records it in recent rewards."
+		"rest":
+			return "Space rests here and applies the authored recovery event."
+		"service":
+			return "Space opens the NPC/service menu."
+		_:
+			return "Space interacts with the highlighted object."
 
 func _interaction_intent_label(placement: Dictionary, source: String, distance: int) -> String:
 	var kind := String(placement.get("type", ""))

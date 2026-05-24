@@ -868,6 +868,7 @@ func _render_placement_affordances(placement: Dictionary) -> void:
 	summary.custom_minimum_size = Vector2(0, 70)
 	summary.text = _placement_affordance_summary(placement)
 	placement_affordance_box.add_child(summary)
+	_add_placement_quick_actions(placement)
 
 	var placement_type := String(placement.get("type", ""))
 	match placement_type:
@@ -2062,6 +2063,62 @@ func _default_new_placement(placement_type: String, placement_id: String, cell: 
 			placement["targetRoute"] = "town"
 			placement["targetMapId"] = "town_square"
 	return placement
+
+func _add_placement_quick_actions(placement: Dictionary) -> void:
+	var placement_type := String(placement.get("type", ""))
+	var actions: Array[Dictionary] = []
+	match placement_type:
+		"trap":
+			actions.append({"label": "Poison Trap", "fields": {"eventId": "event_trap_poison_dart", "label": "Poison Dart Trap"}})
+			actions.append({"label": "Bleed Trap", "fields": {"eventId": "event_trap_bleed_blade", "label": "Blade Trap"}})
+			actions.append({"label": "Curse Trap", "fields": {"eventId": "event_trap_curse_rune", "label": "Curse Rune Trap"}})
+		"rest":
+			actions.append({"label": "Guarded Camp", "fields": {"eventId": "event_camp_guard_post", "label": "Guarded Camp"}})
+			actions.append({"label": "Healing Shrine", "fields": {"eventId": "event_shrine_healing_spring", "label": "Healing Shrine"}})
+		"field_monster":
+			actions.append({"label": "Patrol Guard", "fields": {"fieldAi": {"behavior": "patrol", "approachRange": 4, "chaseRange": 2, "hearingRange": 1, "leashRange": 5, "alertRadius": 6, "warningTurns": 1, "patrolPoints": []}, "blocking": true}})
+			actions.append({"label": "Ambush", "fields": {"fieldAi": {"behavior": "ambush", "approachRange": 4, "chaseRange": 2, "hearingRange": 1, "leashRange": 5, "wakeRange": 2, "alertRadius": 5, "warningTurns": 1, "patrolPoints": []}, "blocking": true}})
+		"npc_service":
+			actions.append({"label": "Scholar NPC", "fields": {"npcId": "npc_scholar", "label": "Scholar"}})
+			actions.append({"label": "Mystic NPC", "fields": {"npcId": "npc_wounded_mystic", "label": "Wounded Mystic"}})
+			actions.append({"label": "Captain NPC", "fields": {"npcId": "npc_deserter_captain", "label": "Deserter Captain"}})
+		"stairs", "gate":
+			actions.append({"label": "To Town", "fields": {"targetRoute": "town", "targetMapId": "town_square"}})
+			actions.append({"label": "To Floor 2", "fields": {"targetRoute": "dungeon", "targetMapId": "dungeon_floor_02"}})
+			actions.append({"label": "To Floor 3", "fields": {"targetRoute": "dungeon", "targetMapId": "dungeon_floor_03"}})
+		"loot":
+			actions.append({"label": "Satchel", "fields": {"lootTableId": "loot_dungeon_satchel", "itemId": "healing_tonic", "label": "Abandoned Satchel"}})
+			actions.append({"label": "Antivenom Cache", "fields": {"lootTableId": "loot_dungeon_satchel", "itemId": "antivenom", "label": "Antivenom Cache"}})
+	if actions.is_empty():
+		return
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	placement_affordance_box.add_child(row)
+	var label := Label.new()
+	label.text = "Quick author:"
+	row.add_child(label)
+	for action in actions:
+		var button := Button.new()
+		button.text = String(action.get("label", "Apply"))
+		button.pressed.connect(_apply_placement_quick_action.bind(action.get("fields", {})))
+		row.add_child(button)
+
+func _apply_placement_quick_action(fields: Dictionary) -> void:
+	if current_placement_id == "":
+		return
+	var updated := _current_selected_placement()
+	if updated.is_empty():
+		return
+	for key in fields.keys():
+		updated[String(key)] = fields[key]
+		if placement_editors.has(String(key)):
+			smoke_set_current_placement_field(String(key), fields[key])
+	for index in range(current_map_placements.size()):
+		if String(current_map_placements[index].get("id", "")) == current_placement_id:
+			current_map_placements[index] = updated.duplicate(true)
+			break
+	_show_placement_editor(updated)
+	status_label.text = "[b]Quick Author Applied[/b] %s" % current_placement_id
 
 func _validate() -> void:
 	var result := ContentTools.validate_definitions(definitions_cache)

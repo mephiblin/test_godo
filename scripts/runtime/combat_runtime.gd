@@ -200,6 +200,28 @@ func build_defeat_summary() -> Dictionary:
 		"logTail": combat_log.slice(maxi(combat_log.size() - 4, 0), combat_log.size())
 	}
 
+func build_victory_summary() -> Dictionary:
+	var rewards: Array[Dictionary] = []
+	if monster_id != "":
+		var monster_def := ContentRegistry.get_definition("monsters", monster_id)
+		rewards.append({
+			"label": String(monster_def.get("name", enemy_name)),
+			"boss": bool(monster_def.get("boss", false)),
+			"flag": "%s_cleared" % monster_id if bool(monster_def.get("boss", false)) else ""
+		})
+	return {
+		"enemyName": enemy_name,
+		"monsterId": monster_id,
+		"monsterInstanceId": monster_instance_id,
+		"mapId": return_map_id,
+		"partyHp": party_hp,
+		"partyMaxHp": party_max_hp,
+		"frontStatuses": front_statuses.duplicate(),
+		"enemyStatuses": enemy_statuses.duplicate(),
+		"rewards": rewards,
+		"logTail": combat_log.slice(maxi(combat_log.size() - 5, 0), combat_log.size())
+	}
+
 func pick_item(item_id: String) -> Dictionary:
 	var item_def := ContentRegistry.get_definition("items", item_id)
 	if item_def.is_empty():
@@ -438,11 +460,11 @@ func _resolve_selected_rolls(resolved_roll_ids: Array[int]) -> Dictionary:
 	_apply_damage_to_enemy(damage)
 	if enemy_hp <= 0:
 		_persist_party_state()
-		return {"exit": true, "victory": true}
+		return {"exit": true, "victory": true, "summary": build_victory_summary()}
 	_apply_enemy_status_tick()
 	if enemy_hp <= 0:
 		_persist_party_state()
-		return {"exit": true, "victory": true}
+		return {"exit": true, "victory": true, "summary": build_victory_summary()}
 	_run_enemy_turn()
 	if party_hp <= 0:
 		combat_log.append("The front line was defeated.")
@@ -479,7 +501,7 @@ func _use_pending_item() -> Dictionary:
 	_clear_pending_item()
 	if enemy_hp <= 0:
 		_persist_party_state()
-		return {"exit": true, "victory": true}
+		return {"exit": true, "victory": true, "summary": build_victory_summary()}
 	_persist_party_state()
 	return {"refresh": true}
 
