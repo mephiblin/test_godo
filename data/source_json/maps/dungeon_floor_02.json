@@ -37,6 +37,56 @@
       "eventId": "event_black_water_rite"
     },
     {
+      "id": "black_water_stalker",
+      "type": "field_monster",
+      "label": "Black Water Stalker",
+      "position": [5, 4],
+      "monsterId": "grave_robber",
+      "encounterId": "encounter_grave_robber",
+      "blocking": true,
+      "fieldAi": {
+        "alertGroup": "black_water_watch",
+        "faction": "cult_raider",
+        "behavior": "patrol",
+        "approachRange": 5,
+        "chaseRange": 3,
+        "hearingRange": 2,
+        "leashRange": 6,
+        "alertRadius": 7,
+        "warningTurns": 1,
+        "loseSightTurns": 2,
+        "patrolPoints": [
+          [5, 4],
+          [6, 4],
+          [6, 5],
+          [5, 5]
+        ]
+      }
+    },
+    {
+      "id": "camp_husk_ambush",
+      "type": "field_monster",
+      "label": "Camp Husk Ambush",
+      "position": [1, 6],
+      "monsterId": "ruin_husk",
+      "encounterId": "encounter_ruin_husk",
+      "blocking": true,
+      "fieldAi": {
+        "alertGroup": "black_water_watch",
+        "faction": "temple_dead",
+        "behavior": "ambush",
+        "approachRange": 4,
+        "chaseRange": 2,
+        "hearingRange": 1,
+        "leashRange": 5,
+        "wakeRange": 2,
+        "alertRadius": 5,
+        "warningTurns": 1,
+        "loseSightTurns": 1,
+        "patrolPoints": []
+      }
+    },
+    {
       "id": "stairs_down_floor_03",
       "type": "stairs",
       "label": "Descend to the Ruined Sanctuary",

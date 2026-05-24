@@ -31,9 +31,44 @@
       "encounterId": "encounter_blind_priest",
       "blocking": true,
       "fieldAi": {
+        "alertGroup": "sanctuary_watch",
+        "faction": "blind_priest_cult",
+        "behavior": "guard",
         "approachRange": 5,
         "chaseRange": 3,
-        "leashRange": 7
+        "hearingRange": 2,
+        "leashRange": 7,
+        "alertRadius": 6,
+        "warningTurns": 0,
+        "loseSightTurns": 2,
+        "patrolPoints": []
+      }
+    },
+    {
+      "id": "sanctuary_egg_guard",
+      "type": "field_monster",
+      "label": "Sanctuary Egg Guard",
+      "position": [6, 5],
+      "monsterId": "serpent_egg",
+      "encounterId": "encounter_serpent_guard",
+      "blocking": true,
+      "fieldAi": {
+        "alertGroup": "sanctuary_watch",
+        "faction": "blind_priest_cult",
+        "behavior": "patrol",
+        "approachRange": 4,
+        "chaseRange": 2,
+        "hearingRange": 1,
+        "leashRange": 5,
+        "alertRadius": 6,
+        "warningTurns": 1,
+        "loseSightTurns": 1,
+        "patrolPoints": [
+          [6, 5],
+          [5, 5],
+          [5, 4],
+          [6, 4]
+        ]
       }
     },
     {

@@ -74,6 +74,9 @@ static func validate_definitions(definitions: Dictionary) -> Dictionary:
 	var items_by_id := {}
 	var events_by_id := {}
 	var vendors_by_id := {}
+	var skills_by_id := {}
+	var quests_by_id := {}
+	var quest_seed_ids := {}
 	for kind in definition_kinds():
 		var seen := {}
 		for row in definitions.get(kind, []):
@@ -95,10 +98,17 @@ static func validate_definitions(definitions: Dictionary) -> Dictionary:
 				events_by_id[row_id] = row
 			elif kind == "vendors":
 				vendors_by_id[row_id] = row
+			elif kind == "skills":
+				skills_by_id[row_id] = row
+			elif kind == "quests":
+				quests_by_id[row_id] = row
 	for quest in definitions.get("quests", []):
 		var target := String(quest.get("targetMonsterId", ""))
 		if target != "" and not monsters_by_id.has(target):
 			errors.append("quest %s points to missing monster %s." % [quest.get("id", ""), target])
+		var reward_item := String(quest.get("rewardItemId", ""))
+		if reward_item != "" and not items_by_id.has(reward_item):
+			errors.append("quest %s rewardItemId points to missing item %s." % [quest.get("id", ""), reward_item])
 	for encounter in definitions.get("encounters", []):
 		for enemy in encounter.get("enemies", []):
 			if typeof(enemy) != TYPE_DICTIONARY:
@@ -106,6 +116,20 @@ static func validate_definitions(definitions: Dictionary) -> Dictionary:
 			var monster_id := String(enemy.get("monsterId", ""))
 			if monster_id != "" and not monsters_by_id.has(monster_id):
 				errors.append("encounter %s points to missing monster %s." % [encounter.get("id", ""), monster_id])
+	for vendor in definitions.get("vendors", []):
+		for item_id in vendor.get("itemIds", []):
+			if String(item_id) != "" and not items_by_id.has(String(item_id)):
+				errors.append("vendor %s itemIds points to missing item %s." % [vendor.get("id", ""), item_id])
+		for skill_id in vendor.get("skillIds", []):
+			if String(skill_id) != "" and not skills_by_id.has(String(skill_id)):
+				errors.append("vendor %s skillIds points to missing skill %s." % [vendor.get("id", ""), skill_id])
+	for npc in definitions.get("npcs", []):
+		for quest_seed in npc.get("questSeeds", []):
+			if typeof(quest_seed) != TYPE_DICTIONARY:
+				continue
+			var quest_seed_id := String(quest_seed.get("id", ""))
+			if quest_seed_id != "":
+				quest_seed_ids[quest_seed_id] = true
 	for npc in definitions.get("npcs", []):
 		for service in npc.get("services", []):
 			if typeof(service) != TYPE_DICTIONARY:
@@ -113,16 +137,38 @@ static func validate_definitions(definitions: Dictionary) -> Dictionary:
 			var vendor_id := String(service.get("vendorId", ""))
 			if vendor_id != "" and not vendors_by_id.has(vendor_id):
 				errors.append("npc %s points to missing vendor %s." % [npc.get("id", ""), vendor_id])
+			for skill_id in service.get("skillIds", []):
+				if String(skill_id) != "" and not skills_by_id.has(String(skill_id)):
+					errors.append("npc %s service skillIds points to missing skill %s." % [npc.get("id", ""), skill_id])
 			var reward_items: Array = service.get("inventory", [])
 			for item_id in reward_items:
 				if String(item_id) != "" and not items_by_id.has(String(item_id)):
 					errors.append("npc %s service inventory points to missing item %s." % [npc.get("id", ""), item_id])
+			var opens_service: Dictionary = service.get("opensService", {})
+			if not opens_service.is_empty():
+				_validate_npc_opens_service(errors, String(npc.get("id", "")), opens_service, vendors_by_id, skills_by_id, items_by_id)
+			var dialogue: Dictionary = service.get("dialogue", {})
+			if not dialogue.is_empty():
+				_validate_event_like_graph(errors, "npc %s service dialogue" % npc.get("id", ""), dialogue, items_by_id, quest_seed_ids)
+			var fight_encounter_id := String(service.get("encounterId", ""))
+			if fight_encounter_id != "" and _find_definition_row("encounters", fight_encounter_id).is_empty():
+				errors.append("npc %s service points to missing encounter %s." % [npc.get("id", ""), fight_encounter_id])
 		for quest_seed in npc.get("questSeeds", []):
 			if typeof(quest_seed) != TYPE_DICTIONARY:
 				continue
+			var quest_seed_id := String(quest_seed.get("id", ""))
 			var complete_event := String(quest_seed.get("completeEventId", ""))
 			if complete_event != "" and not events_by_id.has(complete_event):
 				errors.append("npc %s quest seed points to missing event %s." % [npc.get("id", ""), complete_event])
+			var rewards: Dictionary = quest_seed.get("rewards", {})
+			for reward_item in rewards.get("items", []):
+				if typeof(reward_item) != TYPE_DICTIONARY:
+					continue
+				var reward_item_id := String(reward_item.get("itemId", ""))
+				if reward_item_id != "" and not items_by_id.has(reward_item_id):
+					errors.append("npc %s quest seed %s reward points to missing item %s." % [npc.get("id", ""), quest_seed_id, reward_item_id])
+	for event in definitions.get("events", []):
+		_validate_event_like_graph(errors, "event %s" % event.get("id", ""), event, items_by_id, quest_seed_ids)
 	for loot_table in definitions.get("loot_tables", []):
 		for item_id in _collect_item_ids(loot_table):
 			if not items_by_id.has(item_id):
@@ -131,6 +177,72 @@ static func validate_definitions(definitions: Dictionary) -> Dictionary:
 		"ok": errors.is_empty(),
 		"errors": errors
 	}
+
+static func _validate_npc_opens_service(errors: Array[String], npc_id: String, opens_service: Dictionary, vendors_by_id: Dictionary, skills_by_id: Dictionary, items_by_id: Dictionary) -> void:
+	var service_id := String(opens_service.get("serviceId", ""))
+	if service_id == "":
+		errors.append("npc %s opensService is missing serviceId." % npc_id)
+	var vendor_id := String(opens_service.get("vendorId", ""))
+	if vendor_id != "" and not vendors_by_id.has(vendor_id):
+		errors.append("npc %s opensService points to missing vendor %s." % [npc_id, vendor_id])
+	for skill_id in opens_service.get("skillIds", []):
+		if String(skill_id) != "" and not skills_by_id.has(String(skill_id)):
+			errors.append("npc %s opensService skillIds points to missing skill %s." % [npc_id, skill_id])
+	for item_id in opens_service.get("itemIds", []):
+		if String(item_id) != "" and not items_by_id.has(String(item_id)):
+			errors.append("npc %s opensService itemIds points to missing item %s." % [npc_id, item_id])
+
+static func _validate_event_like_graph(errors: Array[String], label: String, event_row: Dictionary, items_by_id: Dictionary, quest_seed_ids: Dictionary) -> void:
+	var step_ids := {}
+	for step in event_row.get("steps", []):
+		if typeof(step) != TYPE_DICTIONARY:
+			errors.append("%s has non-dictionary step." % label)
+			continue
+		var step_id := String(step.get("id", ""))
+		if step_id == "":
+			errors.append("%s has step with empty id." % label)
+			continue
+		if step_ids.has(step_id):
+			errors.append("%s duplicates step id %s." % [label, step_id])
+		step_ids[step_id] = true
+	var entry_step_id := String(event_row.get("entryStepId", ""))
+	if entry_step_id != "" and not step_ids.has(entry_step_id):
+		errors.append("%s has broken entryStepId %s." % [label, entry_step_id])
+	for effect in event_row.get("effects", []):
+		if typeof(effect) == TYPE_DICTIONARY:
+			_validate_event_effect(errors, label, effect, items_by_id, quest_seed_ids)
+	for step in event_row.get("steps", []):
+		if typeof(step) != TYPE_DICTIONARY:
+			continue
+		for effect in step.get("effects", []):
+			if typeof(effect) == TYPE_DICTIONARY:
+				_validate_event_effect(errors, "%s step %s" % [label, step.get("id", "")], effect, items_by_id, quest_seed_ids)
+		for choice in step.get("choices", []):
+			if typeof(choice) != TYPE_DICTIONARY:
+				errors.append("%s step %s has non-dictionary choice." % [label, step.get("id", "")])
+				continue
+			var next_step_id := String(choice.get("nextStepId", ""))
+			if next_step_id != "" and not step_ids.has(next_step_id):
+				errors.append("%s step %s choice points to missing nextStepId %s." % [label, step.get("id", ""), next_step_id])
+			var required_seed_id := String(choice.get("requiredQuestSeedId", ""))
+			if required_seed_id != "" and not quest_seed_ids.has(required_seed_id):
+				errors.append("%s step %s choice requires missing quest seed %s." % [label, step.get("id", ""), required_seed_id])
+			for effect in choice.get("effects", []):
+				if typeof(effect) == TYPE_DICTIONARY:
+					_validate_event_effect(errors, "%s step %s choice" % [label, step.get("id", "")], effect, items_by_id, quest_seed_ids)
+
+static func _validate_event_effect(errors: Array[String], label: String, effect: Dictionary, items_by_id: Dictionary, quest_seed_ids: Dictionary) -> void:
+	var kind := String(effect.get("kind", ""))
+	if kind == "":
+		errors.append("%s has effect with empty kind." % label)
+	if kind == "grant_item":
+		var item_id := String(effect.get("itemId", ""))
+		if item_id == "" or not items_by_id.has(item_id):
+			errors.append("%s grant_item points to missing item %s." % [label, item_id])
+	if kind == "set_quest_seed_state":
+		var quest_seed_id := String(effect.get("questSeedId", ""))
+		if quest_seed_id == "" or not quest_seed_ids.has(quest_seed_id):
+			errors.append("%s set_quest_seed_state points to missing quest seed %s." % [label, quest_seed_id])
 
 static func validate_maps() -> Dictionary:
 	return _validate_maps_dictionary(_load_manifest_maps())

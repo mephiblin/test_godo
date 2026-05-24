@@ -13,13 +13,9 @@ var minimap_legend: RichTextLabel
 var prompt_panel: PanelContainer
 var interaction_title: Label
 var interaction_detail: RichTextLabel
-var town_focus_panel: PanelContainer
-var town_focus_title: Label
-var town_focus_radial: HBoxContainer
-var town_focus_strip: HBoxContainer
-var town_focus_detail: RichTextLabel
 var last_minimap_hash := ""
 var current_hud_mode := ""
+var last_snapshot: Dictionary = {}
 
 func configure(target_scene: Node) -> Control:
 	scene_ref = target_scene
@@ -101,47 +97,16 @@ func _ready() -> void:
 	interaction_detail.custom_minimum_size = Vector2(780, 42)
 	prompt_layout.add_child(interaction_detail)
 
-	town_focus_panel = PanelContainer.new()
-	town_focus_panel.offset_left = 16
-	town_focus_panel.offset_top = 292
-	town_focus_panel.custom_minimum_size = Vector2(460, 74)
-	add_child(town_focus_panel)
-
-	var focus_layout := VBoxContainer.new()
-	focus_layout.custom_minimum_size = Vector2(430, 64)
-	town_focus_panel.add_child(focus_layout)
-
-	town_focus_title = Label.new()
-	town_focus_title.add_theme_font_size_override("font_size", 17)
-	focus_layout.add_child(town_focus_title)
-
-	town_focus_radial = HBoxContainer.new()
-	town_focus_radial.alignment = BoxContainer.ALIGNMENT_CENTER
-	town_focus_radial.add_theme_constant_override("separation", 8)
-	town_focus_radial.custom_minimum_size = Vector2(430, 34)
-	focus_layout.add_child(town_focus_radial)
-
-	town_focus_strip = HBoxContainer.new()
-	town_focus_strip.add_theme_constant_override("separation", 6)
-	town_focus_strip.custom_minimum_size = Vector2(430, 28)
-	focus_layout.add_child(town_focus_strip)
-
-	town_focus_detail = RichTextLabel.new()
-	town_focus_detail.bbcode_enabled = true
-	town_focus_detail.fit_content = true
-	town_focus_detail.custom_minimum_size = Vector2(420, 38)
-	focus_layout.add_child(town_focus_detail)
-
 func _process(_delta: float) -> void:
 	if scene_ref == null or not is_instance_valid(scene_ref):
 		return
 	var snapshot: Dictionary = scene_ref.call("hud_snapshot")
+	last_snapshot = snapshot
 	_apply_layout(String(snapshot.get("hudMode", "")))
 	title_label.text = String(snapshot.get("title", ""))
 	state_label.text = String(snapshot.get("state", ""))
 	log_label.text = String(snapshot.get("log", ""))
 	_update_interaction(snapshot.get("interaction", {}))
-	_update_town_focus(snapshot.get("townFocus", {}))
 	_update_minimap(snapshot.get("minimap", {}))
 
 func _apply_layout(hud_mode: String) -> void:
@@ -149,25 +114,22 @@ func _apply_layout(hud_mode: String) -> void:
 		return
 	current_hud_mode = hud_mode
 	if hud_mode == "town":
-		info_panel.custom_minimum_size = Vector2(460, 214)
-		left_column.custom_minimum_size = Vector2(270, 190)
-		right_column.custom_minimum_size = Vector2(150, 190)
-		state_label.custom_minimum_size = Vector2(250, 84)
-		log_label.custom_minimum_size = Vector2(250, 58)
-		prompt_panel.offset_left = 16
-		prompt_panel.offset_right = -260
-		interaction_detail.custom_minimum_size = Vector2(620, 40)
-		town_focus_panel.visible = true
+		_apply_town_layout()
 	else:
-		info_panel.custom_minimum_size = Vector2(560, 250)
-		left_column.custom_minimum_size = Vector2(360, 220)
-		right_column.custom_minimum_size = Vector2(160, 220)
-		state_label.custom_minimum_size = Vector2(340, 90)
-		log_label.custom_minimum_size = Vector2(340, 70)
-		prompt_panel.offset_left = 16
-		prompt_panel.offset_right = -16
-		interaction_detail.custom_minimum_size = Vector2(780, 42)
-		town_focus_panel.visible = false
+		_apply_dungeon_layout()
+
+func _apply_dungeon_layout() -> void:
+	info_panel.custom_minimum_size = Vector2(560, 250)
+	left_column.custom_minimum_size = Vector2(360, 220)
+	right_column.custom_minimum_size = Vector2(160, 220)
+	state_label.custom_minimum_size = Vector2(340, 90)
+	log_label.custom_minimum_size = Vector2(340, 70)
+	prompt_panel.offset_left = 16
+	prompt_panel.offset_right = -16
+	interaction_detail.custom_minimum_size = Vector2(780, 42)
+
+func _apply_town_layout() -> void:
+	_apply_dungeon_layout()
 
 func _update_interaction(interaction: Dictionary) -> void:
 	if not bool(interaction.get("available", false)):
@@ -184,129 +146,6 @@ func _update_interaction(interaction: Dictionary) -> void:
 	if selection != "":
 		detail += "\n[color=#8fb7d8]%s[/color]" % selection
 	interaction_detail.text = "%s\n%s" % [status, detail]
-
-func _update_town_focus(town_focus: Dictionary) -> void:
-	if current_hud_mode != "town":
-		return
-	var entries: Array = town_focus.get("entries", [])
-	if entries.is_empty():
-		town_focus_title.text = "Hub Focus"
-		_clear_town_focus_radial()
-		_clear_town_focus_strip()
-		town_focus_detail.text = "근처 허브가 없다."
-		return
-	town_focus_title.text = "Hub Focus  |  %s" % String(town_focus.get("controls", ""))
-	_rebuild_town_focus_radial(entries)
-	_rebuild_town_focus_strip(entries)
-	var parts: Array[String] = []
-	var anchor: Array = town_focus.get("selectedAnchor", [])
-	var next_step: Array = town_focus.get("nextStep", [])
-	var path_length := int(town_focus.get("pathLength", 0))
-	for entry in entries:
-		if typeof(entry) != TYPE_DICTIONARY:
-			continue
-		var label := String(entry.get("label", entry.get("id", "")))
-		var distance := int(entry.get("distance", 0))
-		if bool(entry.get("selected", false)):
-			parts.append("[color=#f3e7b3]> %s (%d)[/color]" % [label, distance])
-		else:
-			parts.append("[color=#9aa7b8]%s (%d)[/color]" % [label, distance])
-	if anchor.size() == 2:
-		parts.append("[color=#d7c27a]anchor %d,%d[/color]" % [int(anchor[0]), int(anchor[1])])
-	if next_step.size() == 2:
-		parts.append("[color=#8fb7d8]next %d,%d[/color]" % [int(next_step[0]), int(next_step[1])])
-	if path_length > 0:
-		parts.append("[color=#9aa7b8]path %d[/color]" % path_length)
-	town_focus_detail.text = "  ".join(parts)
-
-func _clear_town_focus_strip() -> void:
-	for child in town_focus_strip.get_children():
-		child.queue_free()
-
-func _clear_town_focus_radial() -> void:
-	for child in town_focus_radial.get_children():
-		child.queue_free()
-
-func _rebuild_town_focus_radial(entries: Array) -> void:
-	_clear_town_focus_radial()
-	if entries.is_empty():
-		return
-	var selected_index := 0
-	for idx in range(entries.size()):
-		var entry: Dictionary = entries[idx]
-		if bool(entry.get("selected", false)):
-			selected_index = idx
-			break
-	var left_entry: Dictionary = entries[(selected_index - 1 + entries.size()) % entries.size()]
-	var center_entry: Dictionary = entries[selected_index]
-	var right_entry: Dictionary = entries[(selected_index + 1) % entries.size()]
-	town_focus_radial.add_child(_town_focus_radial_chip(left_entry, "<"))
-	town_focus_radial.add_child(_town_focus_radial_chip(center_entry, "●"))
-	town_focus_radial.add_child(_town_focus_radial_chip(right_entry, ">"))
-
-func _town_focus_radial_chip(entry: Dictionary, marker: String) -> Control:
-	var segment := PanelContainer.new()
-	segment.custom_minimum_size = Vector2(106, 30)
-	segment.modulate = _town_focus_chip_color(String(entry.get("type", "")), bool(entry.get("selected", false)))
-	var label := Label.new()
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 13)
-	label.text = "%s %s" % [marker, _town_focus_chip_label(entry)]
-	segment.add_child(label)
-	return segment
-
-func _rebuild_town_focus_strip(entries: Array) -> void:
-	_clear_town_focus_strip()
-	for entry in entries:
-		if typeof(entry) != TYPE_DICTIONARY:
-			continue
-		var segment := PanelContainer.new()
-		segment.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		segment.custom_minimum_size = Vector2(88, 26)
-		segment.modulate = _town_focus_chip_color(String(entry.get("type", "")), bool(entry.get("selected", false)))
-		var label := Label.new()
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", 13)
-		label.text = "%s %d" % [_town_focus_chip_label(entry), int(entry.get("distance", 0))]
-		segment.add_child(label)
-		town_focus_strip.add_child(segment)
-
-func _town_focus_chip_label(entry: Dictionary) -> String:
-	var kind := String(entry.get("type", ""))
-	match kind:
-		"quest_board":
-			return "의뢰"
-		"healer":
-			return "치료"
-		"skill_shop":
-			return "기술"
-		"trade":
-			return "상점"
-		"npc_service":
-			return "NPC"
-		"rest":
-			return "휴식"
-		_:
-			return String(entry.get("label", entry.get("id", "")))
-
-func _town_focus_chip_color(kind: String, selected: bool) -> Color:
-	var base := Color("6f7b89")
-	match kind:
-		"quest_board":
-			base = Color("b7895d")
-		"healer", "rest":
-			base = Color("6da87d")
-		"skill_shop":
-			base = Color("6e7fc5")
-		"trade":
-			base = Color("8d7c59")
-		"npc_service":
-			base = Color("8d679f")
-	if selected:
-		return base.lightened(0.45)
-	return base
 
 func _update_minimap(minimap: Dictionary) -> void:
 	var cells: Array = minimap.get("cells", [])

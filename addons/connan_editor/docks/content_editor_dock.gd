@@ -1348,12 +1348,9 @@ func _npc_opens_service_catalog_preview(npc_id: String) -> String:
 	var catalog_skill_ids := _resolve_skill_shop_catalog_ids(opens_service)
 	if catalog_skill_ids.is_empty():
 		return "Opens catalog: unresolved"
-	var content_registry := get_tree().root.get_node_or_null("ContentRegistry")
-	if content_registry == null:
-		return "Opens catalog: unresolved"
 	var preview_names: Array[String] = []
 	for skill_id in catalog_skill_ids:
-		var skill_def: Dictionary = content_registry.call("get_definition", "skills", skill_id)
+		var skill_def := _definition_row_for_preview("skills", skill_id)
 		if skill_def.is_empty():
 			continue
 		preview_names.append("%s(%s)" % [
@@ -1380,12 +1377,9 @@ func _npc_opens_service_stock_preview(npc_id: String) -> String:
 		return "Opens stock: unavailable"
 	var stock_size := int(opens_service.get("stockSize", 3))
 	var catalog_skill_ids := _resolve_skill_shop_catalog_ids(opens_service)
-	var content_registry := get_tree().root.get_node_or_null("ContentRegistry")
-	if content_registry == null:
-		return "Opens stock: unresolved"
 	var sample_prices: Array[String] = []
 	for skill_id in catalog_skill_ids:
-		var skill_def: Dictionary = content_registry.call("get_definition", "skills", skill_id)
+		var skill_def := _definition_row_for_preview("skills", skill_id)
 		if skill_def.is_empty():
 			continue
 		sample_prices.append("%s=%dg" % [
@@ -1399,6 +1393,21 @@ func _npc_opens_service_stock_preview(npc_id: String) -> String:
 		", ".join(sample_prices)
 	]
 
+func _definition_row_for_preview(kind: String, row_id: String) -> Dictionary:
+	var current_definitions := ContentTools.load_definitions()
+	for row in current_definitions.get(kind, []):
+		if typeof(row) == TYPE_DICTIONARY and String(row.get("id", "")) == row_id:
+			return row
+	var content_registry := get_tree().root.get_node_or_null("ContentRegistry")
+	if content_registry != null:
+		var registry_row: Dictionary = content_registry.call("get_definition", kind, row_id)
+		if not registry_row.is_empty():
+			return registry_row
+	for row in definitions_cache.get(kind, []):
+		if typeof(row) == TYPE_DICTIONARY and String(row.get("id", "")) == row_id:
+			return row
+	return {}
+
 func _resolve_skill_shop_catalog_ids(opens_service: Dictionary) -> Array[String]:
 	var skill_ids: Array[String] = []
 	for skill_id_variant in opens_service.get("skillIds", []):
@@ -1411,9 +1420,12 @@ func _resolve_skill_shop_catalog_ids(opens_service: Dictionary) -> Array[String]
 	match catalog_id:
 		"trainer_skill_rotation":
 			var content_registry := get_tree().root.get_node_or_null("ContentRegistry")
-			if content_registry == null:
-				return skill_ids
-			for skill_def in content_registry.call("list_definitions", "skills"):
+			var skill_rows: Array = []
+			if content_registry != null:
+				skill_rows = content_registry.call("list_definitions", "skills")
+			if skill_rows.is_empty():
+				skill_rows = definitions_cache.get("skills", [])
+			for skill_def in skill_rows:
 				if typeof(skill_def) != TYPE_DICTIONARY:
 					continue
 				var row: Dictionary = skill_def

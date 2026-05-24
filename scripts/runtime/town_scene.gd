@@ -8,6 +8,9 @@ func setup(payload: Dictionary) -> void:
 	super.setup(payload)
 	town_hub_controller = TOWN_HUB_CONTROLLER_SCRIPT.new().configure(self)
 
+func build_hud() -> Control:
+	return preload("res://scripts/ui/town_hud.gd").new().configure(self)
+
 func _process(delta: float) -> void:
 	_animate_town_ambient()
 	_animate_town_focus_anchor(delta)

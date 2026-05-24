@@ -118,5 +118,378 @@
 		"power": 1.0,
 		"price": 28.0,
 		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_berserk",
+		"cooldownTurns": 2.0,
+		"effectKind": "attack",
+		"effectOps": [
+			{
+				"allowWeaponBonus": true,
+				"bonus": 2.0,
+				"op": "damage_enemy"
+			}
+		],
+		"id": "skill_berserk",
+		"kind": "attack",
+		"name": "Berserk",
+		"power": 2.0,
+		"price": 32.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_guard_stance",
+		"cooldownTurns": 2.0,
+		"effectKind": "guard",
+		"effectOps": [
+			{
+				"bonus": 3.0,
+				"op": "gain_guard"
+			}
+		],
+		"id": "skill_guard_stance",
+		"kind": "buff",
+		"name": "Guard Stance",
+		"power": 1.0,
+		"price": 24.0,
+		"targetMode": "self"
+	},
+	{
+		"cooldownKey": "skill_vital_stab",
+		"cooldownTurns": 2.0,
+		"effectKind": "lifesteal",
+		"effectOps": [
+			{
+				"allowWeaponBonus": true,
+				"bonus": 1.0,
+				"op": "damage_enemy"
+			},
+			{
+				"op": "lifesteal_last_damage",
+				"ratio": 0.35
+			}
+		],
+		"id": "skill_vital_stab",
+		"kind": "lifesteal",
+		"name": "Vital Stab",
+		"power": 2.0,
+		"price": 34.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_piercing_shot",
+		"cooldownTurns": 1.0,
+		"effectKind": "break_attack",
+		"effectOps": [
+			{
+				"allowWeaponBonus": true,
+				"armorBreakOffset": 1.0,
+				"bonus": 1.0,
+				"op": "damage_enemy"
+			},
+			{
+				"op": "break_enemy_armor",
+				"value": 1.0
+			}
+		],
+		"id": "skill_piercing_shot",
+		"kind": "attack",
+		"name": "Piercing Shot",
+		"power": 2.0,
+		"price": 30.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_serpent_phantasm",
+		"cooldownTurns": 3.0,
+		"effectKind": "guard",
+		"effectOps": [
+			{
+				"bonus": 2.0,
+				"op": "gain_guard"
+			},
+			{
+				"op": "apply_enemy_status",
+				"status": "weakened"
+			}
+		],
+		"id": "skill_serpent_phantasm",
+		"kind": "debuff",
+		"name": "Serpent Phantasm",
+		"power": 1.0,
+		"price": 36.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_purify",
+		"cooldownTurns": 2.0,
+		"effectKind": "heal",
+		"effectOps": [
+			{
+				"bonus": 4.0,
+				"op": "heal_self"
+			}
+		],
+		"id": "skill_purify",
+		"kind": "heal",
+		"name": "Purify",
+		"power": 1.0,
+		"price": 28.0,
+		"targetMode": "self"
+	},
+	{
+		"cooldownKey": "skill_weakness_read",
+		"cooldownTurns": 2.0,
+		"effectKind": "break_attack",
+		"effectOps": [
+			{
+				"op": "break_enemy_armor",
+				"value": 2.0
+			},
+			{
+				"op": "apply_enemy_status",
+				"status": "weakened"
+			}
+		],
+		"id": "skill_weakness_read",
+		"kind": "debuff",
+		"name": "Weakness Read",
+		"power": 1.0,
+		"price": 22.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_blood_cleave",
+		"cooldownTurns": 2.0,
+		"effectKind": "attack",
+		"effectOps": [
+			{
+				"allowWeaponBonus": true,
+				"bonus": 3.0,
+				"op": "damage_enemy"
+			}
+		],
+		"id": "skill_blood_cleave",
+		"kind": "attack",
+		"name": "Blood Cleave",
+		"power": 3.0,
+		"price": 38.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_bastion_vow",
+		"cooldownTurns": 3.0,
+		"effectKind": "guard",
+		"effectOps": [
+			{
+				"bonus": 5.0,
+				"op": "gain_guard"
+			}
+		],
+		"id": "skill_bastion_vow",
+		"kind": "buff",
+		"name": "Bastion Vow",
+		"power": 1.0,
+		"price": 40.0,
+		"targetMode": "self"
+	},
+	{
+		"cooldownKey": "skill_chain_lightning",
+		"cooldownTurns": 3.0,
+		"effectKind": "attack",
+		"effectOps": [
+			{
+				"bonus": 4.0,
+				"op": "damage_enemy"
+			}
+		],
+		"id": "skill_chain_lightning",
+		"kind": "attack",
+		"name": "Chain Lightning",
+		"power": 3.0,
+		"price": 42.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_mending_wave",
+		"cooldownTurns": 3.0,
+		"effectKind": "heal",
+		"effectOps": [
+			{
+				"bonus": 6.0,
+				"op": "heal_self"
+			}
+		],
+		"id": "skill_mending_wave",
+		"kind": "heal",
+		"name": "Mending Wave",
+		"power": 1.0,
+		"price": 36.0,
+		"targetMode": "self"
+	},
+	{
+		"cooldownKey": "skill_venom_mark",
+		"cooldownTurns": 2.0,
+		"effectKind": "debuff",
+		"effectOps": [
+			{
+				"op": "apply_enemy_status",
+				"status": "poisoned"
+			}
+		],
+		"id": "skill_venom_mark",
+		"kind": "debuff",
+		"name": "Venom Mark",
+		"power": 1.0,
+		"price": 26.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_storm_bolt",
+		"cooldownTurns": 2.0,
+		"effectKind": "attack",
+		"effectOps": [
+			{
+				"bonus": 3.0,
+				"op": "damage_enemy"
+			}
+		],
+		"id": "skill_storm_bolt",
+		"kind": "attack",
+		"name": "Storm Bolt",
+		"power": 2.0,
+		"price": 34.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_thunder_clap",
+		"cooldownTurns": 3.0,
+		"effectKind": "break_attack",
+		"effectOps": [
+			{
+				"bonus": 2.0,
+				"op": "damage_enemy"
+			},
+			{
+				"op": "break_enemy_armor",
+				"value": 2.0
+			}
+		],
+		"id": "skill_thunder_clap",
+		"kind": "attack",
+		"name": "Thunder Clap",
+		"power": 2.0,
+		"price": 36.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_holy_light",
+		"cooldownTurns": 2.0,
+		"effectKind": "heal",
+		"effectOps": [
+			{
+				"bonus": 5.0,
+				"op": "heal_self"
+			}
+		],
+		"id": "skill_holy_light",
+		"kind": "heal",
+		"name": "Holy Light",
+		"power": 1.0,
+		"price": 32.0,
+		"targetMode": "self"
+	},
+	{
+		"cooldownKey": "skill_death_coil",
+		"cooldownTurns": 3.0,
+		"effectKind": "lifesteal",
+		"effectOps": [
+			{
+				"bonus": 2.0,
+				"op": "damage_enemy"
+			},
+			{
+				"op": "lifesteal_last_damage",
+				"ratio": 0.5
+			}
+		],
+		"id": "skill_death_coil",
+		"kind": "lifesteal",
+		"name": "Death Coil",
+		"power": 2.0,
+		"price": 44.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_avatar_vow",
+		"cooldownTurns": 4.0,
+		"effectKind": "guard",
+		"effectOps": [
+			{
+				"bonus": 6.0,
+				"op": "gain_guard"
+			}
+		],
+		"id": "skill_avatar_vow",
+		"kind": "buff",
+		"name": "Avatar Vow",
+		"power": 1.0,
+		"price": 48.0,
+		"targetMode": "self"
+	},
+	{
+		"cooldownKey": "skill_mana_burn",
+		"cooldownTurns": 2.0,
+		"effectKind": "break_attack",
+		"effectOps": [
+			{
+				"bonus": 1.0,
+				"op": "damage_enemy"
+			},
+			{
+				"op": "apply_enemy_status",
+				"status": "weakened"
+			}
+		],
+		"id": "skill_mana_burn",
+		"kind": "debuff",
+		"name": "Mana Burn",
+		"power": 2.0,
+		"price": 30.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_divide_guard",
+		"cooldownTurns": 2.0,
+		"effectKind": "break_attack",
+		"effectOps": [
+			{
+				"op": "break_enemy_armor",
+				"value": 3.0
+			}
+		],
+		"id": "skill_divide_guard",
+		"kind": "debuff",
+		"name": "Divide Guard",
+		"power": 1.0,
+		"price": 30.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "skill_summon_serpent_egg",
+		"cooldownTurns": 4.0,
+		"effectKind": "guard",
+		"effectOps": [
+			{
+				"bonus": 4.0,
+				"op": "gain_guard"
+			}
+		],
+		"id": "skill_summon_serpent_egg",
+		"kind": "buff",
+		"name": "Summon Serpent Egg",
+		"power": 1.0,
+		"price": 46.0,
+		"targetMode": "self"
 	}
 ]

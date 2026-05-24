@@ -1836,29 +1836,29 @@ func _interaction_snapshot() -> Dictionary:
 			if action == "Space로 상호작용":
 				action = "Space로 이동"
 			var blocked_message := _route_block_message(placement)
-			detail = blocked_message if blocked_message != "" else "다음 지역으로 이동한다."
+			detail = _route_affordance_detail(placement, blocked_message)
 		"rest":
 			if action == "Space로 상호작용":
 				action = "Space로 휴식"
 			detail = "짧은 휴식과 회복을 시도한다.\n%s" % _town_service_preview(placement)
 		"field_monster":
 			action = "Space로 전투 진입"
-			detail = "전방 몬스터와 즉시 전투를 시작한다."
+			detail = _field_monster_affordance_detail(placement)
 		"event":
 			action = "Space로 이벤트 조사"
-			detail = "이벤트 정의와 분기를 실행한다."
+			detail = _event_affordance_detail(placement)
 		"locked_door":
 			action = "Space로 문 확인"
-			detail = "잠금 상태와 차단 이유를 확인한다."
+			detail = _door_affordance_detail(placement)
 		"secret_door":
 			action = "Space로 비밀문 확인"
-			detail = "발견된 경우에만 통로가 열린다."
+			detail = _secret_affordance_detail(placement)
 		"loot":
 			action = "Space로 수집"
-			detail = "획득 가능한 보상이나 아이템을 챙긴다."
+			detail = _loot_affordance_detail(placement)
 		"trap":
 			action = "Space로 함정 접촉"
-			detail = "주의하지 않으면 즉시 효과가 발동한다."
+			detail = _trap_affordance_detail(placement)
 	return {
 		"available": true,
 		"id": String(placement.get("id", "")),
@@ -1871,8 +1871,111 @@ func _interaction_snapshot() -> Dictionary:
 		"distance": distance,
 		"hint": _interaction_alignment_hint(placement, source, distance),
 		"selection": _town_focus_summary(placement, source),
-		"anchorCell": _town_anchor_snapshot(placement, source)
+		"anchorCell": _town_anchor_snapshot(placement, source),
+		"intent": _interaction_intent_label(placement, source, distance)
 	}
+
+func _interaction_intent_label(placement: Dictionary, source: String, distance: int) -> String:
+	var kind := String(placement.get("type", ""))
+	if source == "selected" and distance > 1:
+		return "approach"
+	match kind:
+		"gate", "stairs":
+			return "route"
+		"field_monster":
+			return "combat"
+		"event", "trap":
+			return "event"
+		"locked_door", "secret_door":
+			return "door"
+		"npc_service", "quest_board", "healer", "skill_shop", "trade":
+			return "service"
+		"loot":
+			return "reward"
+		"rest":
+			return "rest"
+		_:
+			return "interact"
+
+func _route_affordance_detail(placement: Dictionary, blocked_message: String) -> String:
+	var target_route := String(placement.get("targetRoute", ""))
+	var target_map_id := String(placement.get("targetMapId", ""))
+	var lines: Array[String] = []
+	if blocked_message != "":
+		lines.append("[color=#d89a6d]%s[/color]" % blocked_message)
+	else:
+		lines.append("[color=#9fd6a5]열림[/color] 다음 지역으로 이동한다.")
+	if target_route != "" or target_map_id != "":
+		lines.append("목적지: %s / %s" % [target_route, target_map_id])
+	var required_flag := String(placement.get("requiredFlag", ""))
+	if required_flag != "":
+		lines.append("필요 flag: %s" % required_flag)
+	var required_seed_id := String(placement.get("requiredQuestSeedId", ""))
+	if required_seed_id != "":
+		lines.append("필요 quest seed: %s = %s" % [required_seed_id, String(placement.get("requiredQuestSeedStatus", "rewarded"))])
+	return "\n".join(lines)
+
+func _field_monster_affordance_detail(placement: Dictionary) -> String:
+	var monster_id := String(placement.get("monsterId", placement.get("id", "")))
+	var monster_def := ContentRegistry.get_definition("monsters", monster_id)
+	var ai := _field_ai_config(placement)
+	var profile: Dictionary = monster_def.get("combatProfile", {})
+	var lines := [
+		"전방 몬스터와 즉시 전투를 시작한다.",
+		"대상: %s / encounter %s" % [String(monster_def.get("name", monster_id)), String(placement.get("encounterId", ""))],
+		"AI: %s alert=%s faction=%s" % [String(ai.get("behavior", "guard")), String(ai.get("alertGroup", "")), String(ai.get("faction", ""))]
+	]
+	if not profile.is_empty():
+		lines.append("전투 성향: %s" % String(profile.get("behavior", profile.get("role", "profile"))))
+	return "\n".join(lines)
+
+func _event_affordance_detail(placement: Dictionary) -> String:
+	var event_id := String(placement.get("eventId", ""))
+	var event_def := ContentRegistry.get_definition("events", event_id)
+	var entry_step := String(event_def.get("entryStepId", ""))
+	var effect_count := int(event_def.get("effects", []).size())
+	var step_count := int(event_def.get("steps", []).size())
+	return "이벤트 정의와 분기를 실행한다.\n%s / entry %s / steps %d / effects %d" % [
+		String(event_def.get("name", event_id)),
+		entry_step if entry_step != "" else "direct",
+		step_count,
+		effect_count
+	]
+
+func _door_affordance_detail(placement: Dictionary) -> String:
+	var key_item := String(placement.get("keyItemId", ""))
+	var has_key := key_item != "" and SaveService.inventory(current_slot).has(key_item)
+	if key_item == "":
+		return "잠금 상태와 차단 이유를 확인한다."
+	return "잠긴 통로다.\n필요 열쇠: %s / 보유 %s" % [key_item, "yes" if has_key else "no"]
+
+func _secret_affordance_detail(placement: Dictionary) -> String:
+	var contains_item := String(placement.get("containsItemId", ""))
+	if contains_item != "":
+		return "발견된 경우 통로와 보상이 열린다.\n단서 보상: %s" % contains_item
+	return "발견된 경우에만 통로가 열린다."
+
+func _loot_affordance_detail(placement: Dictionary) -> String:
+	var loot_table_id := String(placement.get("lootTableId", ""))
+	var item_id := String(placement.get("itemId", ""))
+	var parts: Array[String] = ["획득 가능한 보상이나 아이템을 챙긴다."]
+	if loot_table_id != "":
+		parts.append("loot table: %s" % loot_table_id)
+	if item_id != "":
+		parts.append("fallback item: %s" % item_id)
+	return "\n".join(parts)
+
+func _trap_affordance_detail(placement: Dictionary) -> String:
+	var event_id := String(placement.get("eventId", ""))
+	var event_def := ContentRegistry.get_definition("events", event_id)
+	var detection: Dictionary = event_def.get("detection", {})
+	var disarm: Dictionary = event_def.get("disarm", {})
+	var lines: Array[String] = ["주의하지 않으면 즉시 효과가 발동한다."]
+	if not detection.is_empty():
+		lines.append("탐지: %s DC %d" % [String(detection.get("check", "")), int(detection.get("difficulty", 0))])
+	if not disarm.is_empty():
+		lines.append("해제: %s DC %d" % [String(disarm.get("check", "")), int(disarm.get("difficulty", 0))])
+	return "\n".join(lines)
 
 func _interaction_prompt_text() -> String:
 	var interaction := _interaction_snapshot()
@@ -2590,6 +2693,9 @@ func _tick_field_monsters() -> Dictionary:
 	return pending_combat
 
 func _step_monster_toward(current: Vector2i, goal: Vector2i, occupied: Dictionary, placement_id: String) -> Vector2i:
+	var routed_step := _monster_path_next_step(current, goal, occupied, placement_id)
+	if routed_step != current:
+		return routed_step
 	var candidates: Array[Vector2i] = []
 	var delta := goal - current
 	if abs(delta.x) >= abs(delta.y):
@@ -2609,6 +2715,42 @@ func _step_monster_toward(current: Vector2i, goal: Vector2i, occupied: Dictionar
 		if occupied.has(key) and String(occupied.get(key, "")) != placement_id:
 			continue
 		return candidate
+	return current
+
+func _monster_path_next_step(current: Vector2i, goal: Vector2i, occupied: Dictionary, placement_id: String) -> Vector2i:
+	if current == goal:
+		return current
+	var queue: Array[Vector2i] = [current]
+	var came_from := {"%d,%d" % [current.x, current.y]: current}
+	var found := false
+	while not queue.is_empty():
+		var cell: Vector2i = queue.pop_front()
+		if cell == goal:
+			found = true
+			break
+		for dir in DIRS:
+			var candidate: Vector2i = cell + dir
+			var key := "%d,%d" % [candidate.x, candidate.y]
+			if came_from.has(key):
+				continue
+			if candidate != goal and candidate == player_cell:
+				continue
+			if _cell_hard_blocked(candidate):
+				continue
+			if occupied.has(key) and String(occupied.get(key, "")) != placement_id:
+				continue
+			came_from[key] = cell
+			queue.append(candidate)
+	if not found:
+		return current
+	var step := goal
+	while came_from.has("%d,%d" % [step.x, step.y]):
+		var previous: Vector2i = came_from["%d,%d" % [step.x, step.y]]
+		if previous == current:
+			return step
+		if previous == step:
+			break
+		step = previous
 	return current
 
 func _cell_hard_blocked(cell: Vector2i) -> bool:

@@ -20,6 +20,7 @@
           "title": "기술 상점",
           "note": "훈련 계약으로 파티의 기술 주사위와 전투 기술을 정비한다.",
           "catalogId": "trainer_skill_rotation",
+          "skillIds": ["power_slash", "guard_break", "serpent_step", "mending_chant", "blood_drain"],
           "currency": "gold"
         }
       }

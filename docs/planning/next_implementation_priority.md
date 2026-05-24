@@ -20,17 +20,23 @@ original web-repo `godot-port-plan.md`.
   first-pass definition editing.
 - The project is currently GDScript-first, even though the original plan listed
   C# as the preferred domain/runtime/editor tooling language.
+- 2026-05-24 P0 pass split town focus HUD into `town_hud.gd`, improved dungeon
+  interaction details, widened floor 2/3 field AI content, added route-based
+  monster path stepping, and tightened event/NPC/quest validation references.
 
 ## P0
 
 1. `town-runtime-separation`
-   - Move town-only HUD out of `grid_hud.gd` into a dedicated town HUD layer.
-   - Remove remaining town focus, anchor/path marker, proximity, and service
+   - Done: move town-only focus HUD out of `grid_hud.gd` into `town_hud.gd`.
+   - Next: remove remaining town focus, anchor/path marker, proximity, and service
      preview helpers from the generic dungeon runtime surface.
    - Reduce town route dependency on generic dungeon interaction assumptions.
 
 2. `dungeon-interaction-affordance`
-   - Bring dungeon interaction preview up to the town readability level.
+   - Done: interaction snapshots now include stronger door, route, event, trap,
+     loot, and combat detail plus intent labels.
+   - Next: add dedicated dungeon HUD visual treatment for those intent labels and
+     world-space path/next-step markers where useful.
    - Surface doors, stairs, events, traps, NPCs, combat entries, and route gates
      as clear next-step/intent prompts.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.
@@ -43,26 +49,28 @@ original web-repo `godot-port-plan.md`.
    - Keep preview/import/validation/build working while adding real editing UX.
 
 4. `validation-import-contract`
-   - Complete reference integrity checks across definition families.
-   - Enforce missing material, broken `entryStepId`, step target, branch/choice
-     ref, effect target, quest seed state ref, NPC service handoff ref, and quest
-     reward item ref errors.
+   - Done: stricter checks now cover missing material, broken `entryStepId`, step
+     target, choice next-step ref, effect item target, quest seed state ref, NPC
+     service handoff ref, and quest/quest-seed reward item refs.
+   - Next: add fixture tests that intentionally break each contract and assert the
+     validator error.
    - Tighten the source JSON -> imported cache -> manifest export contract.
    - Broaden stale bundle and content-version mismatch handling.
 
 5. `technology-direction-sync`
-   - Decide whether core/runtime/editor tooling should move toward C#.
-   - If yes, define the migration order for registry, save, combat, quest, and
-     validators.
-   - If no, update the port plan so the documented architecture matches the
-     current GDScript-first implementation reality.
+   - Current decision: stay GDScript-first for the vertical-slice hardening pass.
+   - Revisit C# only after registry/save/validator contracts stop moving.
+   - If C# is reintroduced, migrate in this order: validators -> registry -> save
+     -> combat -> quest.
 
 ## P1
 
 1. `field-monster-content-expansion`
-   - Extend authored AI and alert groups to floors 2 and 3.
-   - Generalize secret-door-aware pathing.
-   - Improve route/funnel-based chase decisions.
+   - Done: floor 2 and 3 now include authored AI, alert groups, factions, and
+     multiple behavior profiles.
+   - Done: monster chase uses a path step before falling back to greedy movement,
+     so door/secret-door-aware blocking participates in route choice.
+   - Next: apply faction alert rules in runtime if content proves it needs them.
    - Apply a wider set of authored `fieldAi` combinations to real content.
    - Add faction-level alert rules only if content needs them.
 

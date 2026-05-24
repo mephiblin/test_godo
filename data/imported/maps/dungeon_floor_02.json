@@ -367,6 +367,74 @@
 			"type": "event"
 		},
 		{
+			"blocking": true,
+			"encounterId": "encounter_grave_robber",
+			"fieldAi": {
+				"alertGroup": "black_water_watch",
+				"alertRadius": 7.0,
+				"approachRange": 5.0,
+				"behavior": "patrol",
+				"chaseRange": 3.0,
+				"faction": "cult_raider",
+				"hearingRange": 2.0,
+				"leashRange": 6.0,
+				"loseSightTurns": 2.0,
+				"patrolPoints": [
+					[
+						5.0,
+						4.0
+					],
+					[
+						6.0,
+						4.0
+					],
+					[
+						6.0,
+						5.0
+					],
+					[
+						5.0,
+						5.0
+					]
+				],
+				"warningTurns": 1.0
+			},
+			"id": "black_water_stalker",
+			"label": "Black Water Stalker",
+			"monsterId": "grave_robber",
+			"position": [
+				5.0,
+				4.0
+			],
+			"type": "field_monster"
+		},
+		{
+			"blocking": true,
+			"encounterId": "encounter_ruin_husk",
+			"fieldAi": {
+				"alertGroup": "black_water_watch",
+				"alertRadius": 5.0,
+				"approachRange": 4.0,
+				"behavior": "ambush",
+				"chaseRange": 2.0,
+				"faction": "temple_dead",
+				"hearingRange": 1.0,
+				"leashRange": 5.0,
+				"loseSightTurns": 1.0,
+				"patrolPoints": [],
+				"wakeRange": 2.0,
+				"warningTurns": 1.0
+			},
+			"id": "camp_husk_ambush",
+			"label": "Camp Husk Ambush",
+			"monsterId": "ruin_husk",
+			"position": [
+				1.0,
+				6.0
+			],
+			"type": "field_monster"
+		},
+		{
 			"blockedMessage": "The final seal still resonates with black water. Complete the rite first.",
 			"id": "stairs_down_floor_03",
 			"label": "Descend to the Ruined Sanctuary",
