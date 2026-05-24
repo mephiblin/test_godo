@@ -17,6 +17,7 @@ const INTERACTION_SNAPSHOT_BUILDER_SCRIPT := preload("res://scripts/runtime/inte
 const FIELD_MONSTER_RUNTIME_SCRIPT := preload("res://scripts/runtime/field_monster_runtime.gd")
 const DUNGEON_WORLD_PRESENTER_SCRIPT := preload("res://scripts/runtime/dungeon_world_presenter.gd")
 const RUNTIME_SNAPSHOT_BUILDER_SCRIPT := preload("res://scripts/runtime/runtime_snapshot_builder.gd")
+const DUNGEON_INTERACTION_RUNTIME_SCRIPT := preload("res://scripts/runtime/dungeon_interaction_runtime.gd")
 
 var map_data: Dictionary = {}
 var current_slot := 1
@@ -41,6 +42,7 @@ var interaction_snapshot_builder: RefCounted
 var field_monster_runtime: RefCounted
 var dungeon_world_presenter: RefCounted
 var runtime_snapshot_builder: RefCounted
+var dungeon_interaction_runtime: RefCounted
 
 @onready var world_root: Node3D = $WorldRoot
 @onready var player_rig: Node3D = $PlayerRig3D
@@ -78,6 +80,7 @@ func setup(payload: Dictionary) -> void:
 	field_monster_runtime = FIELD_MONSTER_RUNTIME_SCRIPT.new().configure(self)
 	dungeon_world_presenter = DUNGEON_WORLD_PRESENTER_SCRIPT.new().configure(self)
 	runtime_snapshot_builder = RUNTIME_SNAPSHOT_BUILDER_SCRIPT.new().configure(self)
+	dungeon_interaction_runtime = DUNGEON_INTERACTION_RUNTIME_SCRIPT.new().configure(self)
 	_ensure_field_monster_runtime()
 	_build_world()
 	_refresh_town_focus_targets()
@@ -425,27 +428,8 @@ func _front_interaction_placement() -> Dictionary:
 	return {}
 
 func _trigger_interaction_placement(placement: Dictionary) -> void:
-	match String(placement.get("type", "")):
-		"gate", "stairs":
-			_route_from_placement(placement)
-		"field_monster":
-			_enter_combat(placement)
-		"quest_board", "healer", "skill_shop", "trade", "npc_service":
-			_open_service_overlay(placement)
-		"event":
-			_trigger_event_placement(placement)
-		"locked_door":
-			_try_unlock_door(placement)
-		"secret_door":
-			_discover_secret(placement)
-		"loot":
-			_collect_loot(placement)
-		"rest":
-			_rest_at_placement(placement)
-		"trap":
-			_trigger_trap(placement)
-		_:
-			_log("Interacted with %s." % placement.get("label", "placement"))
+	if dungeon_interaction_runtime != null:
+		dungeon_interaction_runtime.call("trigger_interaction_placement", placement)
 
 func _interaction_snapshot() -> Dictionary:
 	if interaction_snapshot_builder == null:
@@ -699,24 +683,8 @@ func _dungeon_path_to_cell(target: Vector2i) -> Array[Vector2i]:
 	return reversed_path
 
 func _route_from_placement(placement: Dictionary) -> void:
-	var blocked_message := _route_block_message(placement)
-	if blocked_message != "":
-		_log(blocked_message)
-		return
-	if _should_mark_campaign_clear(placement):
-		SaveService.mark_campaign_clear(
-			current_slot,
-			_resolved_campaign_clear_title(placement),
-			String(map_data.get("id", default_map_id))
-		)
-	var target_route := String(placement.get("targetRoute", "town"))
-	var target_map_id := String(placement.get("targetMapId", "town_square"))
-	GameApp.current_mode = target_route
-	SceneRouter.change_route(target_route, {
-		"slot": current_slot,
-		"map_id": target_map_id,
-		"dungeon_source": dungeon_source_mode
-	})
+	if dungeon_interaction_runtime != null:
+		dungeon_interaction_runtime.call("route_from_placement", placement)
 
 func _route_block_message(placement: Dictionary) -> String:
 	var slot_data: Dictionary = SaveService.load_slot(current_slot)
@@ -758,14 +726,8 @@ func _resolved_campaign_clear_title(placement: Dictionary) -> String:
 	return "Expedition Cleared"
 
 func _enter_combat(placement: Dictionary) -> void:
-	GameApp.enter_combat({
-		"slot": current_slot,
-		"monster_instance_id": String(placement.get("id", "")),
-		"monster_id": String(placement.get("monsterId", placement.get("id", ""))),
-		"monster_name": String(placement.get("label", "Field Monster")),
-		"return_route": route_name,
-		"return_map_id": String(map_data.get("id", default_map_id))
-	})
+	if dungeon_interaction_runtime != null:
+		dungeon_interaction_runtime.call("enter_combat", placement)
 
 func _persist_runtime() -> void:
 	var slot_data: Dictionary = SaveService.load_slot(current_slot)
@@ -1009,104 +971,29 @@ func _toggle_inventory_overlay() -> void:
 	SceneRouter.modal_layer.add_child(active_overlay)
 
 func _trigger_event_placement(placement: Dictionary) -> void:
-	var event_id := String(placement.get("eventId", ""))
-	var event_def := ContentRegistry.get_definition("events", event_id)
-	var result := EventService.apply_event(current_slot, event_id, event_def)
-	var messages: Array = result.get("messages", [])
-	if messages.is_empty():
-		_log("Triggered %s." % placement.get("label", "event"))
-	else:
-		for message in messages:
-			if String(message).strip_edges() != "":
-				_log(String(message))
+	if dungeon_interaction_runtime != null:
+		dungeon_interaction_runtime.call("trigger_event_placement", placement)
 
 func _try_unlock_door(placement: Dictionary) -> void:
-	var key_item := String(placement.get("keyItemId", "rust_key"))
-	if not SaveService.has_inventory_item(current_slot, key_item, 1):
-		_log("Door is locked. Missing %s." % key_item)
-		return
-	var slot_data: Dictionary = SaveService.load_slot(current_slot)
-	var runtime: Dictionary = slot_data.get("runtime", {})
-	var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
-	unlocked_doors[String(placement.get("id", ""))] = true
-	runtime["unlockedDoors"] = unlocked_doors
-	SaveService.update_runtime(current_slot, runtime, route_name)
-	_refresh_field_monsters()
-	_log("Unlocked %s." % placement.get("label", "door"))
+	if dungeon_interaction_runtime != null:
+		dungeon_interaction_runtime.call("try_unlock_door", placement)
 
 func _discover_secret(placement: Dictionary) -> void:
-	var slot_data: Dictionary = SaveService.load_slot(current_slot)
-	var runtime: Dictionary = slot_data.get("runtime", {})
-	var discovered: Dictionary = runtime.get("discoveredSecrets", {})
-	if bool(discovered.get(String(placement.get("id", "")), false)):
-		_log("Secret already discovered.")
-		return
-	discovered[String(placement.get("id", ""))] = true
-	runtime["discoveredSecrets"] = discovered
-	SaveService.update_runtime(current_slot, runtime, route_name)
-	var contains_item := String(placement.get("containsItemId", ""))
-	if contains_item != "":
-		SaveService.add_inventory_item(current_slot, contains_item, 1)
-	_log("Discovered secret cache: %s." % placement.get("label", "secret"))
-	_refresh_field_monsters()
+	if dungeon_interaction_runtime != null:
+		dungeon_interaction_runtime.call("discover_secret", placement)
 
 func _collect_loot(placement: Dictionary) -> void:
-	var slot_data: Dictionary = SaveService.load_slot(current_slot)
-	var runtime: Dictionary = slot_data.get("runtime", {})
-	var claimed: Dictionary = runtime.get("claimedLoot", {})
-	if bool(claimed.get(String(placement.get("id", "")), false)):
-		_log("Loot already claimed.")
-		return
-	claimed[String(placement.get("id", ""))] = true
-	runtime["claimedLoot"] = claimed
-	SaveService.update_runtime(current_slot, runtime, route_name)
-	var rewards := ContentRegistry.resolve_loot_items(String(placement.get("lootTableId", "")))
-	if rewards.is_empty():
-		rewards.append({
-			"itemId": String(placement.get("itemId", "healing_tonic")),
-			"quantity": 1
-		})
-	for reward in rewards:
-		SaveService.add_inventory_item(current_slot, String(reward.get("itemId", "")), int(reward.get("quantity", 1)))
-	var reward_summary: Array[String] = []
-	for reward in rewards:
-		reward_summary.append("%s x%d" % [reward.get("itemId", ""), int(reward.get("quantity", 1))])
-	SaveService.append_recent_reward(current_slot, {
-		"source": "loot",
-		"label": String(placement.get("label", "loot")),
-		"items": reward_summary,
-		"summary": "Loot %s" % ", ".join(reward_summary)
-	})
-	_log("Collected %s: %s." % [placement.get("label", "loot"), ", ".join(reward_summary)])
-	_refresh_field_monsters()
+	if dungeon_interaction_runtime != null:
+		dungeon_interaction_runtime.call("collect_loot", placement)
 
 func _rest_at_placement(placement: Dictionary) -> void:
-	var event_def := ContentRegistry.get_definition("events", String(placement.get("eventId", "")))
-	var result := EventService.apply_event(current_slot, String(placement.get("eventId", "")), event_def)
-	var messages: Array = result.get("messages", [])
-	if messages.is_empty():
-		_log("Rested at %s." % placement.get("label", "camp"))
-	else:
-		for message in messages:
-			if String(message).strip_edges() != "":
-				_log(String(message))
+	if dungeon_interaction_runtime != null:
+		dungeon_interaction_runtime.call("rest_at_placement", placement)
 
 func _trigger_trap(placement: Dictionary) -> void:
-	var event_def := ContentRegistry.get_definition("events", String(placement.get("eventId", "")))
-	var result := EventService.apply_event(current_slot, String(placement.get("eventId", "")), event_def)
-	var messages: Array = result.get("messages", [])
-	if messages.is_empty():
-		_log("Trap triggered at %s." % placement.get("label", "trap"))
-	else:
-		for message in messages:
-			if String(message).strip_edges() != "":
-				_log(String(message))
+	if dungeon_interaction_runtime != null:
+		dungeon_interaction_runtime.call("trigger_trap", placement)
 
 func _try_rest() -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("type", "")) == "rest":
-			var pos: Array = placement.get("position", [0, 0])
-			if Vector2i(pos[0], pos[1]) == player_cell:
-				_rest_at_placement(placement)
-				return
-	_log("No rest point here.")
+	if dungeon_interaction_runtime != null:
+		dungeon_interaction_runtime.call("try_rest")

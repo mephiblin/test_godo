@@ -154,6 +154,9 @@ original web-repo `godot-port-plan.md`.
   `hud_snapshot()` dictionary assembly out of `grid_scene.gd` into
   `runtime_snapshot_builder.gd`, leaving the scene method as the stable UI
   entrypoint.
+- 2026-05-24 dungeon interaction runtime pass moved placement interaction
+  dispatch and route/combat/event/door/secret/loot/rest/trap execution bodies
+  out of `grid_scene.gd` into `dungeon_interaction_runtime.gd`.
 
 ## P0
 
@@ -223,6 +226,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move the full runtime HUD snapshot dictionary construction into
      `runtime_snapshot_builder.gd`, with `grid_scene.gd` retaining only the
      public `hud_snapshot()` delegate used by `grid_hud.gd`.
+   - Done: move placement interaction execution bodies into
+     `dungeon_interaction_runtime.gd`, leaving `grid_scene.gd` compatibility
+     delegates for current scene, UI, and smoke-driver callers.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
