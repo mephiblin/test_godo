@@ -2,11 +2,12 @@
 extends EditorPlugin
 
 const DOCK_NAME := "Connan Content Editor"
+const DOCK_SCENE := preload("res://addons/connan_editor/docks/ContentEditorDock.tscn")
 
 var dock: Control
 
 func _enter_tree() -> void:
-	dock = preload("res://addons/connan_editor/docks/content_editor_dock.gd").new()
+	dock = DOCK_SCENE.instantiate()
 	dock.name = DOCK_NAME
 	dock.custom_minimum_size = Vector2(360, 0)
 	dock.size_flags_horizontal = Control.SIZE_EXPAND_FILL

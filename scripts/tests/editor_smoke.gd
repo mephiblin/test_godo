@@ -1,7 +1,7 @@
 extends SceneTree
 
 const ContentTools = preload("res://scripts/editor/content_tools.gd")
-const ContentEditorDockScript = preload("res://addons/connan_editor/docks/content_editor_dock.gd")
+const ContentEditorDockScene = preload("res://addons/connan_editor/docks/ContentEditorDock.tscn")
 const EditorWorkspaceScript = preload("res://scripts/runtime/editor_workspace.gd")
 const SKILLS_PATH := "res://data/source_json/skills.json"
 const QUESTS_PATH := "res://data/source_json/quests.json"
@@ -76,10 +76,11 @@ func _initialize() -> void:
 		edited_skill_power = int(edited_skill.get("power", 0))
 		valid_edit_applied = bool(valid_edit_result.get("ok", false))
 
-	var definition_dock: Control = ContentEditorDockScript.new()
+	var definition_dock: Control = ContentEditorDockScene.instantiate()
 	get_root().add_child(definition_dock)
 	await process_frame
-	editor_dock_root_named_ok = definition_dock.name == "Connan Content Editor"
+	editor_dock_root_named_ok = definition_dock.name == "Connan Content Editor" \
+		and definition_dock.scene_file_path == "res://addons/connan_editor/docks/ContentEditorDock.tscn"
 	var event_authoring_ok := bool(definition_dock.call("smoke_select_kind", "events")) \
 		and bool(definition_dock.call("smoke_select_definition", "event_blood_altar_unlock")) \
 		and bool(definition_dock.call("smoke_definition_event_set_entry_step", "altar_end")) \
@@ -153,7 +154,7 @@ func _initialize() -> void:
 		invalid_map_structure_blocked = not bool(invalid_map_save.get("ok", false))
 		invalid_map_structure_unchanged = _read_text(FLOOR01_PATH) == floor01_backup
 
-		var dock: Control = ContentEditorDockScript.new()
+		var dock: Control = ContentEditorDockScene.instantiate()
 		get_root().add_child(dock)
 		await process_frame
 		dock.call("smoke_select_map", "dungeon_floor_01")
@@ -178,7 +179,7 @@ func _initialize() -> void:
 		invalid_map_edit_blocked = not bool(invalid_map_edit_result.get("ok", false))
 		invalid_map_edit_unchanged = _read_text(FLOOR01_PATH) == floor01_after_structure_edit
 
-		var placement_dock: Control = ContentEditorDockScript.new()
+		var placement_dock: Control = ContentEditorDockScene.instantiate()
 		get_root().add_child(placement_dock)
 		await process_frame
 		placement_dock.call("smoke_select_map", "dungeon_floor_01")

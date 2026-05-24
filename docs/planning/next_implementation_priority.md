@@ -94,6 +94,8 @@ original web-repo `godot-port-plan.md`.
   `dungeon_affordance_presenter.gd`.
 - 2026-05-24 town focus visual presenter pass moved town focus anchor/path
   visual node construction and anchor animation into `town_world_presenter.gd`.
+- 2026-05-24 editor dock scene pass moved the content editor dock root into a
+  named `.tscn` scene loaded by both the plugin and editor smoke.
 
 ## P0
 
@@ -150,6 +152,8 @@ original web-repo `godot-port-plan.md`.
    - Done: content editor dock no longer appears as an anonymous
      `@VBoxContainer@...` tab and no longer exposes all authoring surfaces in one
      unbounded vertical stack.
+   - Done: content editor dock is now instantiated from a named
+     `ContentEditorDock.tscn` scene instead of a script-only anonymous container.
    - Done: editor smoke now directly guards the content editor dock root name
      while checking build/import handoff metadata.
    - Done: editor Play Selected now launches explicit editor playtest scenes
