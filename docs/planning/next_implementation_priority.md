@@ -89,6 +89,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 dungeon affordance presenter pass moved dungeon placement marker,
   intent marker, focus marker, shape sizing, and affordance animation
   presentation into `dungeon_affordance_presenter.gd`.
+- 2026-05-24 dungeon focus path presenter pass moved focus path marker sampling,
+  color, mesh, height, scale, and node creation into
+  `dungeon_affordance_presenter.gd`.
 
 ## P0
 
@@ -127,6 +130,9 @@ original web-repo `godot-port-plan.md`.
    - Done: dungeon marker/intent/focus shape construction and affordance
      animation moved out of `grid_scene.gd` into
      `dungeon_affordance_presenter.gd`.
+   - Done: dungeon focus path marker sampling and node construction moved out
+     of `grid_scene.gd` into `dungeon_affordance_presenter.gd`; the grid scene
+     now computes the path and delegates rendering.
    - Next: do manual play tuning for marker size in narrow halls and crowded
      authored encounters.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.

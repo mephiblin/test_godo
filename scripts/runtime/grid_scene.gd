@@ -1738,10 +1738,8 @@ func _clear_town_focus_path_nodes() -> void:
 	town_focus_path_nodes.clear()
 
 func _clear_dungeon_focus_path_nodes() -> void:
-	for node in dungeon_focus_path_nodes:
-		if node and is_instance_valid(node):
-			node.queue_free()
-	dungeon_focus_path_nodes.clear()
+	if dungeon_affordance_presenter != null:
+		dungeon_affordance_presenter.call("clear_focus_path")
 
 func _update_town_focus_anchor(selected_id: String) -> void:
 	if not _is_town_map():
@@ -1801,7 +1799,7 @@ func _update_town_focus_path(selected_id: String) -> void:
 
 func _update_dungeon_focus_path(interaction: Dictionary) -> void:
 	_clear_dungeon_focus_path_nodes()
-	if _is_town_map() or not bool(interaction.get("available", false)):
+	if _is_town_map() or dungeon_affordance_presenter == null or not bool(interaction.get("available", false)):
 		return
 	var focus_id := String(interaction.get("id", ""))
 	if focus_id == "":
@@ -1811,105 +1809,7 @@ func _update_dungeon_focus_path(interaction: Dictionary) -> void:
 		return
 	var target := _placement_runtime_cell(placement)
 	var path := _dungeon_path_to_cell(target)
-	if path.size() <= 1:
-		return
-	var marker_indices := _dungeon_focus_path_marker_indices(path.size())
-	if marker_indices.is_empty():
-		return
-	var color := _dungeon_focus_path_color(placement, interaction)
-	for marker_number in range(marker_indices.size()):
-		var idx := int(marker_indices[marker_number])
-		var cell: Vector2i = path[idx]
-		var is_next := idx == 1
-		var is_final := idx == path.size() - 1
-		var node := MeshInstance3D.new()
-		node.mesh = _dungeon_focus_path_mesh(is_next, is_final, bool(interaction.get("blocked", false)))
-		node.material_override = _flat_color_material(color.lightened(0.18 if is_next or is_final else 0.0))
-		var base_y := _dungeon_focus_path_height(is_next, is_final, marker_number)
-		node.position = Vector3(cell.x, base_y, cell.y)
-		node.scale = _dungeon_focus_path_scale(is_next, is_final)
-		node.set_meta("base_y", base_y)
-		node.set_meta("pulse", 0.035 if is_next or is_final else 0.018)
-		node.set_meta("offset", marker_number)
-		node.set_meta("rotate", is_next or is_final)
-		world_root.add_child(node)
-		dungeon_focus_path_nodes.append(node)
-
-func _dungeon_focus_path_marker_indices(path_size: int) -> Array[int]:
-	var indices: Array[int] = []
-	if path_size <= 1:
-		return indices
-	var last_index := path_size - 1
-	indices.append(1)
-	var stride := 1
-	if path_size > 10:
-		stride = 3
-	elif path_size > 6:
-		stride = 2
-	for idx in range(2, last_index):
-		if idx % stride == 0:
-			indices.append(idx)
-	if not indices.has(last_index):
-		indices.append(last_index)
-	if indices.size() > 8:
-		var reduced: Array[int] = [indices[0]]
-		var middle_stride := ceili(float(indices.size() - 2) / 6.0)
-		for idx in range(1, indices.size() - 1):
-			if idx % middle_stride == 0:
-				reduced.append(indices[idx])
-		reduced.append(indices[indices.size() - 1])
-		return reduced
-	return indices
-
-func _dungeon_focus_path_color(placement: Dictionary, interaction: Dictionary) -> Color:
-	if bool(interaction.get("blocked", false)):
-		return Color("d8895f")
-	match String(interaction.get("intent", _interaction_intent_label(placement, "front", 1))):
-		"combat", "event", "door":
-			return Color("d96d5f")
-		"reward":
-			return Color("e2c861")
-		"rest", "service":
-			return Color("76c4a0")
-		"route":
-			return Color("88addd")
-		_:
-			return _placement_runtime_color(placement).lightened(0.18)
-
-func _dungeon_focus_path_mesh(is_next: bool, is_final: bool, blocked: bool) -> Mesh:
-	if is_final:
-		if blocked:
-			var blocked_mesh := BoxMesh.new()
-			blocked_mesh.size = Vector3(0.36, 0.1, 0.36)
-			return blocked_mesh
-		var final_mesh := PrismMesh.new()
-		final_mesh.size = Vector3(0.34, 0.22, 0.34)
-		return final_mesh
-	if is_next:
-		var next_mesh := CylinderMesh.new()
-		next_mesh.top_radius = 0.08
-		next_mesh.bottom_radius = 0.18
-		next_mesh.height = 0.12
-		return next_mesh
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = 0.055
-	mesh.bottom_radius = 0.1
-	mesh.height = 0.07
-	return mesh
-
-func _dungeon_focus_path_height(is_next: bool, is_final: bool, marker_number: int) -> float:
-	if is_final:
-		return 0.18
-	if is_next:
-		return 0.16
-	return 0.12 + float(marker_number % 3) * 0.012
-
-func _dungeon_focus_path_scale(is_next: bool, is_final: bool) -> Vector3:
-	if is_final:
-		return Vector3.ONE * 1.2
-	if is_next:
-		return Vector3.ONE * 1.12
-	return Vector3.ONE
+	dungeon_affordance_presenter.call("spawn_focus_path", path, placement, interaction)
 
 func _dungeon_path_to_cell(target: Vector2i) -> Array[Vector2i]:
 	if target == player_cell:
