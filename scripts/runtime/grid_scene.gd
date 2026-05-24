@@ -795,16 +795,6 @@ func _selected_town_focus_placement(max_distance: int = -1) -> Dictionary:
 		return {}
 	return town_focus_runtime.call("selected_placement", max_distance)
 
-func _try_approach_town_focus(placement: Dictionary) -> bool:
-	if town_focus_runtime == null:
-		return false
-	return bool(town_focus_runtime.call("try_approach", placement))
-
-func _try_advance_town_focus_path() -> bool:
-	if town_focus_runtime == null:
-		return false
-	return bool(town_focus_runtime.call("try_advance_path"))
-
 func _town_interaction_anchor_cell(placement: Dictionary) -> Vector2i:
 	if town_focus_runtime == null:
 		return player_cell
@@ -1174,10 +1164,6 @@ func _interaction_alignment_hint(placement: Dictionary, source: String, distance
 func _refresh_town_focus_targets() -> void:
 	if town_focus_runtime != null:
 		town_focus_runtime.call("refresh_targets")
-
-func _cycle_town_focus(step: int) -> void:
-	if town_focus_runtime != null:
-		town_focus_runtime.call("cycle_focus", step)
 
 func _town_focus_summary(active_placement: Dictionary, source: String) -> String:
 	if town_focus_runtime == null:

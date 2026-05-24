@@ -128,6 +128,10 @@ original web-repo `godot-port-plan.md`.
   presenter pass-through wrappers from `grid_scene.gd`.
 - 2026-05-24 town focus wrapper prune pass removed unused town focus
   pass-through wrappers from `grid_scene.gd`.
+- 2026-05-24 town focus controller direct pass moved town focus keyboard,
+  approach, and smoke cycling callers onto `town_focus_runtime` instead of
+  `grid_scene.gd` private wrapper methods, then removed the now-unused advance,
+  approach, and cycle wrappers.
 
 ## P0
 
@@ -171,6 +175,10 @@ original web-repo `godot-port-plan.md`.
      for world build, ambient animation, and focus visuals.
    - Done: prune unused town focus wrappers from `grid_scene.gd` after their
      callers moved into town-specific runtime/controller code.
+   - Done: route town focus keyboard handling and smoke focus cycling through
+     `town_focus_runtime` directly, reducing external dependence on
+     `grid_scene.gd` private town-focus methods and removing unused focus
+     advance/approach/cycle wrappers.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 

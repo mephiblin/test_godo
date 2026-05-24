@@ -6,7 +6,9 @@ func move_forward(scene: Node) -> void:
 
 func cycle_town_focus(scene: Node, step: int) -> void:
 	if _is_ready(scene):
-		scene.call("_cycle_town_focus", step)
+		var focus_runtime = scene.get("town_focus_runtime")
+		if focus_runtime != null:
+			focus_runtime.call("cycle_focus", step)
 
 func accept_quest(scene: Node) -> void:
 	if not _is_ready(scene):
