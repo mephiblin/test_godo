@@ -80,36 +80,59 @@ func _initialize() -> void:
 	var event_authoring_ok := bool(definition_dock.call("smoke_select_kind", "events")) \
 		and bool(definition_dock.call("smoke_select_definition", "event_blood_altar_unlock")) \
 		and bool(definition_dock.call("smoke_definition_event_set_entry_step", "altar_end")) \
-		and bool(definition_dock.call("smoke_definition_event_add_continue_choice", "altar_start", "Smoke Continue"))
+		and bool(definition_dock.call("smoke_definition_event_add_continue_choice", "altar_start", "Smoke Continue")) \
+		and bool(definition_dock.call("smoke_definition_event_update_step_fields", "altar_start", "Smoke Altar", "Smoke row-level event text.")) \
+		and bool(definition_dock.call("smoke_definition_event_update_choice_fields", "altar_start", 0, "Smoke Choice Label", "altar_end"))
 	var event_authoring_row: Dictionary = definition_dock.call("smoke_collect_current_definition_row")
 	var event_entry_ok := String(event_authoring_row.get("entryStepId", "")) == "altar_end"
 	var event_choice_ok := false
+	var event_step_field_ok := false
 	for step in event_authoring_row.get("steps", []):
 		if typeof(step) != TYPE_DICTIONARY:
 			continue
 		if String(step.get("id", "")) != "altar_start":
 			continue
+		event_step_field_ok = String(step.get("title", "")) == "Smoke Altar" \
+			and String(step.get("text", "")) == "Smoke row-level event text."
 		for choice in (step as Dictionary).get("choices", []):
 			if typeof(choice) == TYPE_DICTIONARY and String((choice as Dictionary).get("label", "")) == "Smoke Continue":
 				event_choice_ok = true
+			if typeof(choice) == TYPE_DICTIONARY \
+					and String((choice as Dictionary).get("label", "")) == "Smoke Choice Label" \
+					and String((choice as Dictionary).get("nextStepId", "")) == "altar_end":
+				event_choice_ok = true
 	var npc_authoring_ok := bool(definition_dock.call("smoke_select_kind", "npcs")) \
 		and bool(definition_dock.call("smoke_select_definition", "npc_gatekeeper")) \
-		and bool(definition_dock.call("smoke_definition_npc_add_talk_service", "Smoke Gate Talk"))
+		and bool(definition_dock.call("smoke_definition_npc_add_talk_service", "Smoke Gate Talk")) \
+		and bool(definition_dock.call("smoke_definition_npc_update_service_fields", 0, "route_info", "Smoke Gate Route", "Smoke row-level NPC service note.", {
+			"kind": "route_info",
+			"serviceId": "smoke_gate_route",
+			"title": "Smoke Route"
+		}))
 	var npc_authoring_row: Dictionary = definition_dock.call("smoke_collect_current_definition_row")
 	var npc_service_ok := false
+	var npc_service_field_ok := false
 	for service in npc_authoring_row.get("services", []):
 		if typeof(service) == TYPE_DICTIONARY \
 				and String((service as Dictionary).get("type", "")) == "talk" \
 				and String((service as Dictionary).get("label", "")) == "Smoke Gate Talk":
 			npc_service_ok = true
-	definition_authoring_ok = event_authoring_ok and event_entry_ok and event_choice_ok and npc_authoring_ok and npc_service_ok
+		if typeof(service) == TYPE_DICTIONARY \
+				and String((service as Dictionary).get("type", "")) == "route_info" \
+				and String((service as Dictionary).get("label", "")) == "Smoke Gate Route" \
+				and String((service as Dictionary).get("note", "")) == "Smoke row-level NPC service note.":
+			var opens_service: Dictionary = (service as Dictionary).get("opensService", {})
+			npc_service_field_ok = String(opens_service.get("serviceId", "")) == "smoke_gate_route"
+	definition_authoring_ok = event_authoring_ok and event_entry_ok and event_choice_ok and event_step_field_ok and npc_authoring_ok and npc_service_ok and npc_service_field_ok
 	if not definition_authoring_ok:
-		print("EDITOR_SMOKE_DEFINITION_AUTHORING event_authoring=%s event_entry=%s event_choice=%s npc_authoring=%s npc_service=%s event_row=%s npc_row=%s" % [
+		print("EDITOR_SMOKE_DEFINITION_AUTHORING event_authoring=%s event_entry=%s event_choice=%s event_step_field=%s npc_authoring=%s npc_service=%s npc_service_field=%s event_row=%s npc_row=%s" % [
 			event_authoring_ok,
 			event_entry_ok,
 			event_choice_ok,
+			event_step_field_ok,
 			npc_authoring_ok,
 			npc_service_ok,
+			npc_service_field_ok,
 			event_authoring_row,
 			npc_authoring_row
 		])

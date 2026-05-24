@@ -167,8 +167,11 @@ original web-repo `godot-port-plan.md`.
    - Done: `events` and `npcs` are now editable definition families in the dock,
      with guided event entry-step/choice authoring and NPC talk-service authoring
      backed by editor smoke assertions.
-   - Next: replace JSON-array editing for event steps and NPC services with
-     row-level field editors, then add visual event graph node/edge editing.
+   - Done: selected event steps, event choices, and NPC services now have
+     row-level field editors that mutate the authored arrays without hand-editing
+     the whole JSON block.
+   - Next: replace the remaining raw JSON array fallback with visual event graph
+     node/edge editing and a dedicated NPC service list editor.
 
 5. `save-migration-packaging`
    - Expand regression coverage around save robustness.

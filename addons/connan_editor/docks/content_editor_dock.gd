@@ -797,10 +797,25 @@ func smoke_definition_event_add_continue_choice(step_id: String, label_text: Str
 	current_definition_event_step_id = step_id
 	return _append_definition_event_choice(label_text)
 
+func smoke_definition_event_update_step_fields(step_id: String, title_text: String, body_text: String) -> bool:
+	if current_kind != "events":
+		return false
+	return _apply_definition_event_step_fields(step_id, title_text, body_text)
+
+func smoke_definition_event_update_choice_fields(step_id: String, choice_index: int, label_text: String, next_step_id: String) -> bool:
+	if current_kind != "events":
+		return false
+	return _apply_definition_event_choice_fields(step_id, choice_index, label_text, next_step_id)
+
 func smoke_definition_npc_add_talk_service(label_text: String = "Authoring Talk") -> bool:
 	if current_kind != "npcs":
 		return false
 	return _append_definition_npc_talk_service(label_text)
+
+func smoke_definition_npc_update_service_fields(index: int, type_text: String, label_text: String, note_text: String, opens_service: Dictionary = {}) -> bool:
+	if current_kind != "npcs":
+		return false
+	return _apply_definition_npc_service_fields(index, type_text, label_text, note_text, opens_service)
 
 func smoke_collect_current_definition_row() -> Dictionary:
 	var collect_result := _collect_current_row_result()
@@ -861,6 +876,7 @@ func _add_event_definition_authoring(parent: VBoxContainer, row: Dictionary) -> 
 	var picker := _build_definition_event_step_picker(row)
 	if picker != null:
 		parent.add_child(picker)
+		_add_event_step_field_editor(parent, row)
 	var actions := HBoxContainer.new()
 	parent.add_child(actions)
 	var set_entry := Button.new()
@@ -886,6 +902,7 @@ func _add_npc_definition_authoring(parent: VBoxContainer, row: Dictionary) -> vo
 	var picker := _build_definition_npc_service_picker(row)
 	if picker != null:
 		parent.add_child(picker)
+		_add_npc_service_field_editor(parent, row)
 	var add_talk := Button.new()
 	add_talk.text = "Add Talk Service"
 	add_talk.pressed.connect(func() -> void:
@@ -893,6 +910,133 @@ func _add_npc_definition_authoring(parent: VBoxContainer, row: Dictionary) -> vo
 			status_label.text = "[b]NPC Authoring[/b] Added talk service to %s" % current_row_id
 	)
 	parent.add_child(add_talk)
+
+func _add_event_step_field_editor(parent: VBoxContainer, row: Dictionary) -> void:
+	var step := _definition_event_step_by_id(row, current_definition_event_step_id)
+	if step.is_empty():
+		return
+	var step_box := VBoxContainer.new()
+	step_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(step_box)
+	var step_title := LineEdit.new()
+	step_title.placeholder_text = "Step title"
+	step_title.text = String(step.get("title", ""))
+	step_box.add_child(_labeled_control("Step Title", step_title))
+	var step_text := TextEdit.new()
+	step_text.custom_minimum_size = Vector2(280, 84)
+	step_text.text = String(step.get("text", ""))
+	step_box.add_child(_labeled_control("Step Text", step_text))
+	var apply_step := Button.new()
+	apply_step.text = "Apply Step Fields"
+	apply_step.pressed.connect(func() -> void:
+		if _apply_definition_event_step_fields(current_definition_event_step_id, step_title.text, step_text.text):
+			status_label.text = "[b]Event Authoring[/b] Step fields updated for %s" % current_definition_event_step_id
+	)
+	step_box.add_child(apply_step)
+	_add_event_choice_field_editor(step_box, row, step)
+
+func _add_event_choice_field_editor(parent: VBoxContainer, row: Dictionary, step: Dictionary) -> void:
+	var choices: Array = step.get("choices", [])
+	if choices.is_empty():
+		return
+	var choice_index := mini(maxi(current_preview_event_choice_index, 0), choices.size() - 1)
+	var choice: Dictionary = choices[choice_index]
+	var choice_label := LineEdit.new()
+	choice_label.placeholder_text = "Choice label"
+	choice_label.text = String(choice.get("label", ""))
+	parent.add_child(_labeled_control("Choice Label", choice_label))
+	var next_step_picker := OptionButton.new()
+	var next_step_id := String(choice.get("nextStepId", ""))
+	var selected_index := 0
+	next_step_picker.add_item("")
+	for step_row in row.get("steps", []):
+		if typeof(step_row) != TYPE_DICTIONARY:
+			continue
+		var option_id := String((step_row as Dictionary).get("id", ""))
+		next_step_picker.add_item(option_id)
+		if option_id == next_step_id:
+			selected_index = next_step_picker.item_count - 1
+	next_step_picker.select(selected_index)
+	parent.add_child(_labeled_control("Choice Next Step", next_step_picker))
+	var apply_choice := Button.new()
+	apply_choice.text = "Apply Choice Fields"
+	apply_choice.pressed.connect(func() -> void:
+		var selected_next := next_step_picker.get_item_text(maxi(next_step_picker.selected, 0))
+		if _apply_definition_event_choice_fields(current_definition_event_step_id, choice_index, choice_label.text, selected_next):
+			status_label.text = "[b]Event Authoring[/b] Choice fields updated for %s" % current_definition_event_step_id
+	)
+	parent.add_child(apply_choice)
+
+func _add_npc_service_field_editor(parent: VBoxContainer, row: Dictionary) -> void:
+	var services: Array = row.get("services", [])
+	if services.is_empty():
+		return
+	var service_index := mini(maxi(current_definition_npc_service_index, 0), services.size() - 1)
+	if typeof(services[service_index]) != TYPE_DICTIONARY:
+		return
+	var service: Dictionary = services[service_index]
+	var service_box := VBoxContainer.new()
+	service_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(service_box)
+	var type_picker := OptionButton.new()
+	var type_options := ["talk", "quest", "skill_shop", "identify", "ending_report", "route_info", "fight"]
+	var selected_type := 0
+	var service_type := String(service.get("type", "talk"))
+	for option in type_options:
+		type_picker.add_item(option)
+		if option == service_type:
+			selected_type = type_picker.item_count - 1
+	type_picker.select(selected_type)
+	service_box.add_child(_labeled_control("Service Type", type_picker))
+	var label_edit := LineEdit.new()
+	label_edit.placeholder_text = "Service label"
+	label_edit.text = String(service.get("label", ""))
+	service_box.add_child(_labeled_control("Service Label", label_edit))
+	var note_edit := LineEdit.new()
+	note_edit.placeholder_text = "Service note"
+	note_edit.text = String(service.get("note", ""))
+	service_box.add_child(_labeled_control("Service Note", note_edit))
+	var opens_service: Dictionary = service.get("opensService", {})
+	var opens_kind := LineEdit.new()
+	opens_kind.placeholder_text = "opensService.kind"
+	opens_kind.text = String(opens_service.get("kind", ""))
+	service_box.add_child(_labeled_control("Opens Kind", opens_kind))
+	var opens_id := LineEdit.new()
+	opens_id.placeholder_text = "opensService.serviceId"
+	opens_id.text = String(opens_service.get("serviceId", ""))
+	service_box.add_child(_labeled_control("Opens Service Id", opens_id))
+	var opens_title := LineEdit.new()
+	opens_title.placeholder_text = "opensService.title"
+	opens_title.text = String(opens_service.get("title", ""))
+	service_box.add_child(_labeled_control("Opens Title", opens_title))
+	var opens_catalog := LineEdit.new()
+	opens_catalog.placeholder_text = "opensService.catalogId"
+	opens_catalog.text = String(opens_service.get("catalogId", ""))
+	service_box.add_child(_labeled_control("Opens Catalog", opens_catalog))
+	var opens_currency := LineEdit.new()
+	opens_currency.placeholder_text = "opensService.currency"
+	opens_currency.text = String(opens_service.get("currency", ""))
+	service_box.add_child(_labeled_control("Opens Currency", opens_currency))
+	var apply_service := Button.new()
+	apply_service.text = "Apply Service Fields"
+	apply_service.pressed.connect(func() -> void:
+		var opens := _opens_service_from_fields(opens_kind.text, opens_id.text, opens_title.text, opens_catalog.text, opens_currency.text)
+		var selected_type_text := type_picker.get_item_text(maxi(type_picker.selected, 0))
+		if _apply_definition_npc_service_fields(service_index, selected_type_text, label_edit.text, note_edit.text, opens):
+			status_label.text = "[b]NPC Authoring[/b] Service fields updated for %s" % current_row_id
+	)
+	service_box.add_child(apply_service)
+
+func _labeled_control(label_text: String, control: Control) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var label := Label.new()
+	label.text = label_text
+	label.custom_minimum_size = Vector2(140, 0)
+	row.add_child(label)
+	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(control)
+	return row
 
 func _event_definition_summary(row: Dictionary) -> String:
 	var step_ids: Array[String] = []
@@ -954,6 +1098,12 @@ func _build_definition_npc_service_picker(row: Dictionary) -> OptionButton:
 	)
 	return picker
 
+func _definition_event_step_by_id(row: Dictionary, step_id: String) -> Dictionary:
+	for step in row.get("steps", []):
+		if typeof(step) == TYPE_DICTIONARY and String((step as Dictionary).get("id", "")) == step_id:
+			return (step as Dictionary).duplicate(true)
+	return {}
+
 func _apply_definition_event_entry_step() -> bool:
 	if current_definition_event_step_id == "":
 		return false
@@ -979,6 +1129,47 @@ func _append_definition_event_choice(label_text: String) -> bool:
 		return _set_definition_editor_value("steps", steps)
 	return false
 
+func _apply_definition_event_step_fields(step_id: String, title_text: String, body_text: String) -> bool:
+	var steps := _definition_editor_array("steps")
+	if steps.is_empty():
+		return false
+	for index in range(steps.size()):
+		if typeof(steps[index]) != TYPE_DICTIONARY:
+			continue
+		var step: Dictionary = (steps[index] as Dictionary).duplicate(true)
+		if String(step.get("id", "")) != step_id:
+			continue
+		step["title"] = title_text
+		step["text"] = body_text
+		steps[index] = step
+		return _set_definition_editor_value("steps", steps)
+	return false
+
+func _apply_definition_event_choice_fields(step_id: String, choice_index: int, label_text: String, next_step_id: String) -> bool:
+	var steps := _definition_editor_array("steps")
+	if steps.is_empty():
+		return false
+	for index in range(steps.size()):
+		if typeof(steps[index]) != TYPE_DICTIONARY:
+			continue
+		var step: Dictionary = (steps[index] as Dictionary).duplicate(true)
+		if String(step.get("id", "")) != step_id:
+			continue
+		var choices: Array = step.get("choices", []).duplicate(true)
+		if choice_index < 0 or choice_index >= choices.size() or typeof(choices[choice_index]) != TYPE_DICTIONARY:
+			return false
+		var choice: Dictionary = (choices[choice_index] as Dictionary).duplicate(true)
+		choice["label"] = label_text
+		if next_step_id == "":
+			choice.erase("nextStepId")
+		else:
+			choice["nextStepId"] = next_step_id
+		choices[choice_index] = choice
+		step["choices"] = choices
+		steps[index] = step
+		return _set_definition_editor_value("steps", steps)
+	return false
+
 func _next_event_step_id(steps: Array, index: int) -> String:
 	for next_index in range(index + 1, steps.size()):
 		if typeof(steps[next_index]) == TYPE_DICTIONARY:
@@ -993,6 +1184,38 @@ func _append_definition_npc_talk_service(label_text: String) -> bool:
 		"note": "Drafted from guided authoring surface."
 	})
 	return _set_definition_editor_value("services", services)
+
+func _apply_definition_npc_service_fields(index: int, type_text: String, label_text: String, note_text: String, opens_service: Dictionary = {}) -> bool:
+	var services := _definition_editor_array("services")
+	if index < 0 or index >= services.size() or typeof(services[index]) != TYPE_DICTIONARY:
+		return false
+	var service: Dictionary = (services[index] as Dictionary).duplicate(true)
+	service["type"] = type_text
+	service["label"] = label_text
+	if note_text == "":
+		service.erase("note")
+	else:
+		service["note"] = note_text
+	if opens_service.is_empty():
+		service.erase("opensService")
+	else:
+		service["opensService"] = opens_service
+	services[index] = service
+	return _set_definition_editor_value("services", services)
+
+func _opens_service_from_fields(kind: String, service_id: String, title: String, catalog_id: String, currency: String) -> Dictionary:
+	var result := {}
+	if kind != "":
+		result["kind"] = kind
+	if service_id != "":
+		result["serviceId"] = service_id
+	if title != "":
+		result["title"] = title
+	if catalog_id != "":
+		result["catalogId"] = catalog_id
+	if currency != "":
+		result["currency"] = currency
+	return result
 
 func _definition_editor_array(key: String) -> Array:
 	if not editors.has(key):
