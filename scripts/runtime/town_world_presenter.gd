@@ -32,7 +32,8 @@ func build_world() -> void:
 			else:
 				_spawn_ground(cell)
 	for placement in map_data.get("placements", []):
-		scene_ref.call("_spawn_town_placement", placement)
+		spawn_placement(placement)
+		scene_ref.call("_spawn_town_placement_beacon", placement)
 	spawn_ambient_dressing()
 
 func spawn_placement(placement: Dictionary) -> void:

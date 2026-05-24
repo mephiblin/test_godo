@@ -189,7 +189,8 @@ func _build_world() -> void:
 	cached_materials.clear()
 	decor_cells = _build_decor_cells()
 	if _is_town_map():
-		_build_town_world()
+		if town_world_presenter != null:
+			town_world_presenter.call("build_world")
 		_refresh_field_monsters()
 		return
 	var floor_mesh := BoxMesh.new()
@@ -263,13 +264,7 @@ func _dungeon_ring_radius(kind: String) -> float:
 func _is_town_map() -> bool:
 	return String(map_data.get("kind", "")) == "town"
 
-func _build_town_world() -> void:
-	if town_world_presenter != null:
-		town_world_presenter.call("build_world")
-
-func _spawn_town_placement(placement: Dictionary) -> void:
-	if town_world_presenter != null:
-		town_world_presenter.call("spawn_placement", placement)
+func _spawn_town_placement_beacon(placement: Dictionary) -> void:
 	var marker := _spawn_placement_beacon(placement, 0.2)
 	placement_nodes[String(placement.get("id", ""))] = marker
 
@@ -314,14 +309,6 @@ func _objective_marker_color(placement: Dictionary) -> Color:
 	if _quest_target_keys().has(key):
 		return Color("f06c6c")
 	return Color(0, 0, 0, 0)
-
-func _register_town_ambient_node(node: Node3D, kind: String, data: Dictionary = {}) -> void:
-	if town_world_presenter != null:
-		town_world_presenter.call("register_ambient_node", node, kind, data)
-
-func _animate_town_ambient() -> void:
-	if town_world_presenter != null:
-		town_world_presenter.call("animate_ambient")
 
 func _flat_color_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -1161,7 +1148,8 @@ func _refresh_interaction_focus() -> void:
 			dungeon_focus_node.position = Vector3(focus_cell.x, 0.09, focus_cell.y)
 			dungeon_focus_node.scale = Vector3.ONE * (1.4 if bool(interaction.get("blocked", false)) else 1.15)
 	_update_dungeon_focus_path(interaction)
-	_update_town_focus_anchor(selected_id)
+	if _is_town_map() and town_world_presenter != null:
+		town_world_presenter.call("update_focus_visuals", selected_id)
 
 func _dungeon_marker_always_shows_intent(placement: Dictionary) -> bool:
 	var kind := String(placement.get("type", ""))
@@ -1233,14 +1221,6 @@ func _selected_town_focus_id() -> String:
 func _clear_dungeon_focus_path_nodes() -> void:
 	if dungeon_affordance_presenter != null:
 		dungeon_affordance_presenter.call("clear_focus_path")
-
-func _update_town_focus_anchor(selected_id: String) -> void:
-	if _is_town_map() and town_world_presenter != null:
-		town_world_presenter.call("update_focus_visuals", selected_id)
-
-func _animate_town_focus_anchor(_delta: float) -> void:
-	if town_world_presenter != null:
-		town_world_presenter.call("animate_focus_anchor")
 
 func _update_dungeon_focus_path(interaction: Dictionary) -> void:
 	_clear_dungeon_focus_path_nodes()

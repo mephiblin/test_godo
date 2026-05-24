@@ -124,6 +124,8 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 town hub interaction controller pass moved selected/nearby town hub
   Space/Enter interaction decisions out of `grid_scene.gd` into
   `town_hub_controller.gd`.
+- 2026-05-24 town presenter wrapper cleanup pass removed trivial town world
+  presenter pass-through wrappers from `grid_scene.gd`.
 
 ## P0
 
@@ -162,6 +164,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move selected/nearby town hub interaction handling out of
      `grid_scene.gd`; `town_hub_controller.gd` now owns town Space/Enter
      approach and fallback service interaction behavior.
+   - Done: remove trivial town world presenter pass-through wrappers from
+     `grid_scene.gd`; town scene/presenter code now calls the presenter directly
+     for world build, ambient animation, and focus visuals.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 

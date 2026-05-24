@@ -12,8 +12,9 @@ func build_hud() -> Control:
 	return preload("res://scripts/ui/town_hud.gd").new().configure(self)
 
 func _process(delta: float) -> void:
-	_animate_town_ambient()
-	_animate_town_focus_anchor(delta)
+	if town_world_presenter != null:
+		town_world_presenter.call("animate_ambient")
+		town_world_presenter.call("animate_focus_anchor")
 
 func hud_snapshot() -> Dictionary:
 	var snapshot: Dictionary = super.hud_snapshot()
