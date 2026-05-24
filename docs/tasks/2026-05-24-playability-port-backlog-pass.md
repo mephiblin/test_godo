@@ -79,12 +79,14 @@ Out:
 - Added dungeon world-space path markers from the player toward the active interaction target.
 - Added editor guided authoring selectors for event/rest/trap event IDs and NPC service NPC IDs, plus label sync actions.
 - Added direct combat victory/defeat summary assertions to the existing autoload-backed domain smoke.
+- Promoted quest target, quest seed objective, and reward turn-in placements into distinct world marker colors with persistent intent visibility.
 
 ## Files Changed
 - addons/connan_editor/docks/content_editor_dock.gd: added guided event/NPC placement authoring controls.
 - docs/planning/next_implementation_priority.md: recorded completed playability pass and next tuning work.
 - docs/tasks/2026-05-24-playability-port-backlog-pass.md:
 - scripts/runtime/grid_scene.gd: added objective snapshots and dungeon focus path markers.
+- scripts/runtime/grid_scene.gd: added objective-aware world marker colors and intent visibility.
 - scripts/ui/grid_hud.gd: added objective panel rendering.
 - scripts/ui/main_root.gd: expanded domain smoke combat outcome assertions.
 

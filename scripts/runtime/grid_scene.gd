@@ -954,9 +954,23 @@ func _spawn_placement_beacon(placement: Dictionary, height: float) -> MeshInstan
 	return marker
 
 func _placement_runtime_color(placement: Dictionary) -> Color:
+	var objective_color := _objective_marker_color(placement)
+	if objective_color.a > 0.0:
+		return objective_color
 	if String(placement.get("type", "")) in ["gate", "stairs"] and _route_block_message(placement) != "":
 		return Color("aa644d")
 	return _placement_color(String(placement.get("type", "")))
+
+func _objective_marker_color(placement: Dictionary) -> Color:
+	var pos := _placement_runtime_cell(placement)
+	var key := "%d,%d" % [pos.x, pos.y]
+	if _quest_turn_in_keys().has(key):
+		return Color("6fd2b3")
+	if _quest_seed_objective_keys().has(key):
+		return Color("d06fe8")
+	if _quest_target_keys().has(key):
+		return Color("f06c6c")
+	return Color(0, 0, 0, 0)
 
 func _town_ground_material(cell: Vector2i) -> StandardMaterial3D:
 	var color := Color("5e6e53")
@@ -2275,6 +2289,10 @@ func _refresh_interaction_focus() -> void:
 func _dungeon_marker_always_shows_intent(placement: Dictionary) -> bool:
 	var kind := String(placement.get("type", ""))
 	if kind in ["gate", "stairs"] and _route_block_message(placement) != "":
+		return true
+	var pos := _placement_runtime_cell(placement)
+	var key := "%d,%d" % [pos.x, pos.y]
+	if _quest_target_keys().has(key) or _quest_turn_in_keys().has(key) or _quest_seed_objective_keys().has(key):
 		return true
 	return kind in ["trap", "field_monster"]
 

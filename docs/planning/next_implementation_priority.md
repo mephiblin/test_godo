@@ -36,6 +36,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 combat domain pass expanded the project domain smoke with direct
   victory/defeat summary assertions for combat outcome data, reward rows, and
   defeat party HP.
+- 2026-05-24 objective marker pass promoted quest targets, quest seed
+  objectives, and reward turn-in locations into world marker colors and
+  always-visible intent nodes.
 
 ## P0
 
@@ -55,6 +58,8 @@ original web-repo `godot-port-plan.md`.
      from the player to the focused object where a route can be found.
    - Done: HUD snapshots now expose current objective, quest seed, and blocked
      gate guidance as an in-game objective panel.
+   - Done: quest target, quest seed objective, and reward turn-in placements now
+     get distinct world marker colors and stay visible as intent affordances.
    - Next: tune path marker density/occlusion after manual play sessions.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.
 
