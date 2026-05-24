@@ -10,6 +10,7 @@ const DIRS := [
 	Vector2i(-1, 0)
 ]
 const TOWN_FOCUS_RUNTIME_SCRIPT := preload("res://scripts/runtime/town_focus_runtime.gd")
+const TOWN_WORLD_PRESENTER_SCRIPT := preload("res://scripts/runtime/town_world_presenter.gd")
 
 var map_data: Dictionary = {}
 var current_slot := 1
@@ -32,8 +33,8 @@ var compiled_preview: Dictionary = {}
 var chunk_overlay_nodes: Array[Node3D] = []
 var compiled_runtime_active := false
 var dungeon_source_mode := GameApp.DUNGEON_SOURCE_COMPILED
-var town_ambient_nodes: Array[Dictionary] = []
 var town_focus_runtime: RefCounted
+var town_world_presenter: RefCounted
 
 @onready var world_root: Node3D = $WorldRoot
 @onready var player_rig: Node3D = $PlayerRig3D
@@ -66,6 +67,7 @@ func setup(payload: Dictionary) -> void:
 	log_lines = []
 	_ensure_field_monster_runtime()
 	town_focus_runtime = TOWN_FOCUS_RUNTIME_SCRIPT.new().configure(self)
+	town_world_presenter = TOWN_WORLD_PRESENTER_SCRIPT.new().configure(self)
 	_build_world()
 	_refresh_town_focus_targets()
 	_apply_player_transform()
@@ -652,7 +654,8 @@ func _build_world() -> void:
 	town_focus_anchor_node = null
 	town_focus_path_nodes.clear()
 	chunk_overlay_nodes.clear()
-	town_ambient_nodes.clear()
+	if town_world_presenter != null:
+		town_world_presenter.call("clear")
 	cached_materials.clear()
 	decor_cells = _build_decor_cells()
 	if _is_town_map():
@@ -849,6 +852,10 @@ func _is_town_map() -> bool:
 	return String(map_data.get("kind", "")) == "town"
 
 func _build_town_world() -> void:
+	if town_world_presenter != null:
+		town_world_presenter.call("build_world")
+
+func _build_town_world_content() -> void:
 	_configure_town_lighting()
 	var cells: Array = map_data.get("cells", [])
 	for y in range(cells.size()):
@@ -1266,70 +1273,12 @@ func _spawn_town_actor(cell: Vector2i, role: String) -> void:
 		_register_town_ambient_node(sash, "banner", {"yawAmplitude": 0.0, "rollAmplitude": 6.0, "speed": 1.55})
 
 func _register_town_ambient_node(node: Node3D, kind: String, data: Dictionary = {}) -> void:
-	town_ambient_nodes.append({
-		"node": node,
-		"kind": kind,
-		"basePosition": node.position,
-		"baseRotation": node.rotation_degrees,
-		"baseScale": node.scale,
-		"data": data
-	})
+	if town_world_presenter != null:
+		town_world_presenter.call("register_ambient_node", node, kind, data)
 
 func _animate_town_ambient() -> void:
-	var time := float(Time.get_ticks_msec()) / 1000.0
-	for entry in town_ambient_nodes:
-		if typeof(entry) != TYPE_DICTIONARY:
-			continue
-		var node: Node3D = entry.get("node")
-		if node == null or not is_instance_valid(node):
-			continue
-		var kind := String(entry.get("kind", ""))
-		var base_position: Vector3 = entry.get("basePosition", node.position)
-		var base_rotation: Vector3 = entry.get("baseRotation", node.rotation_degrees)
-		var base_scale: Vector3 = entry.get("baseScale", node.scale)
-		var data: Dictionary = entry.get("data", {})
-		var speed := float(data.get("speed", 1.0))
-		match kind:
-			"actor_body":
-				var bob := float(data.get("bob", 0.03))
-				node.position = base_position + Vector3(0, sin(time * speed) * bob, 0)
-				node.rotation_degrees = base_rotation + Vector3(0, sin(time * speed * 0.5) * 3.0, 0)
-			"actor_head":
-				var bob_head := float(data.get("bob", 0.02))
-				node.position = base_position + Vector3(0, sin(time * speed + 0.4) * bob_head, 0)
-				node.rotation_degrees = base_rotation + Vector3(0, sin(time * speed * 0.7) * 4.0, 0)
-			"sway":
-				var yaw_amplitude := float(data.get("yawAmplitude", 2.0))
-				var roll_amplitude := float(data.get("rollAmplitude", 1.5))
-				node.rotation_degrees = base_rotation + Vector3(0, sin(time * speed) * yaw_amplitude, sin(time * speed * 1.1) * roll_amplitude)
-			"banner":
-				var roll := float(data.get("rollAmplitude", 4.0))
-				var yaw := float(data.get("yawAmplitude", 2.0))
-				node.rotation_degrees = base_rotation + Vector3(0, sin(time * speed * 0.9) * yaw, sin(time * speed) * roll)
-			"flame":
-				var flicker := float(data.get("flicker", 0.16))
-				node.scale = base_scale * (1.0 + sin(time * speed * 1.4) * flicker)
-				node.position = base_position + Vector3(0, abs(sin(time * speed * 1.8)) * 0.04, 0)
-			"light":
-				if node is OmniLight3D:
-					var light: OmniLight3D = node
-					var energy := float(data.get("energy", 0.8))
-					var flicker_scale := float(data.get("flicker", 0.16))
-					light.light_energy = energy + sin(time * speed * 1.7) * flicker_scale
-			"ember":
-				var rise := float(data.get("rise", 0.28))
-				var drift := float(data.get("drift", 0.08))
-				var cycle := fposmod(time * speed, 1.0)
-				node.position = base_position + Vector3(sin(cycle * TAU) * drift, cycle * rise, cos(cycle * TAU * 0.7) * drift * 0.45)
-				node.scale = base_scale * (1.0 - cycle * 0.45)
-			"mote":
-				var bob_mote := float(data.get("bob", 0.07))
-				var drift_mote := float(data.get("drift", 0.08))
-				node.position = base_position + Vector3(
-					sin(time * speed) * drift_mote,
-					sin(time * speed * 1.4) * bob_mote,
-					cos(time * speed * 0.9) * drift_mote * 0.5
-				)
+	if town_world_presenter != null:
+		town_world_presenter.call("animate_ambient")
 
 func _town_actor_palette(role: String) -> Dictionary:
 	match role:

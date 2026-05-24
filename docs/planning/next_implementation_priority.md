@@ -61,6 +61,8 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 definition hash contract pass made imported build manifests record
   source hashes for every definition family and made runtime fall back to source
   JSON when those hashes are stale.
+- 2026-05-24 town world presenter separation pass moved town ambient presentation
+  state/animation and the town build entrypoint into `town_world_presenter.gd`.
 
 ## P0
 
@@ -69,7 +71,10 @@ original web-repo `godot-port-plan.md`.
    - Done: move town focus ranking, proximity lookup, anchor/path stepping,
      direction hints, focus snapshots, and service preview summaries out of the
      generic dungeon runtime surface into `town_focus_runtime.gd`.
-   - Next: split town landmark/ambient presentation out of `grid_scene.gd`.
+   - Done: move town ambient presentation state/animation and town world build
+     entrypoint into `town_world_presenter.gd`.
+   - Next: split the remaining town landmark mesh construction helpers out of
+     `grid_scene.gd`.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
