@@ -53,14 +53,20 @@ original web-repo `godot-port-plan.md`.
   when imported map hashes no longer match.
 - 2026-05-24 editor direct definition pass exposed `events` and `npcs` as
   editable definition families and added guided event/NPC row authoring actions.
+- 2026-05-24 town focus runtime separation pass moved town focus ranking,
+  selected/nearby hub lookup, approach pathing, direction hints, HUD snapshots,
+  and service previews into `town_focus_runtime.gd`.
 
 ## P0
 
 1. `town-runtime-separation`
    - Done: move town-only focus HUD out of `grid_hud.gd` into `town_hud.gd`.
-   - Next: remove remaining town focus, anchor/path marker, proximity, and service
-     preview helpers from the generic dungeon runtime surface.
-   - Reduce town route dependency on generic dungeon interaction assumptions.
+   - Done: move town focus ranking, proximity lookup, anchor/path stepping,
+     direction hints, focus snapshots, and service preview summaries out of the
+     generic dungeon runtime surface into `town_focus_runtime.gd`.
+   - Next: split town landmark/ambient presentation out of `grid_scene.gd`.
+   - Reduce remaining town route dependency on generic dungeon world dressing
+     assumptions.
 
 2. `dungeon-interaction-affordance`
    - Done: interaction snapshots now include stronger door, route, event, trap,
