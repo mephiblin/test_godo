@@ -17,6 +17,8 @@ var facing := 0
 var log_lines: Array[String] = []
 var placement_nodes: Dictionary = {}
 var placement_rings: Dictionary = {}
+var placement_intent_nodes: Dictionary = {}
+var dungeon_focus_node: MeshInstance3D
 var town_focus_anchor_node: MeshInstance3D
 var town_focus_path_nodes: Array[MeshInstance3D] = []
 var active_overlay: Control
@@ -73,7 +75,8 @@ func _ready() -> void:
 		setup({})
 
 func _process(_delta: float) -> void:
-	pass
+	if not _is_town_map():
+		_animate_dungeon_affordances()
 
 func build_hud() -> Control:
 	return preload("res://scripts/ui/grid_hud.gd").new().configure(self)
@@ -641,6 +644,8 @@ func _build_world() -> void:
 		child.queue_free()
 	placement_nodes.clear()
 	placement_rings.clear()
+	placement_intent_nodes.clear()
+	dungeon_focus_node = null
 	town_focus_anchor_node = null
 	town_focus_path_nodes.clear()
 	chunk_overlay_nodes.clear()
@@ -657,7 +662,6 @@ func _build_world() -> void:
 	wall_mesh.size = Vector3(1.0, 1.8, 1.0)
 	var ceiling_mesh := BoxMesh.new()
 	ceiling_mesh.size = Vector3(1.0, 0.1, 1.0)
-	var marker_mesh := SphereMesh.new()
 	var wall_material := _resolve_surface_material(String(map_data.get("wallMaterialId", "")), Color("7a6a57"))
 	var ceiling_material := _resolve_surface_material(String(map_data.get("ceilingMaterialId", "")), Color("42382d"))
 	var cells: Array = map_data.get("cells", [])
@@ -686,16 +690,157 @@ func _build_world() -> void:
 				world_root.add_child(ceiling)
 				_spawn_decor_for_cell(Vector2i(x, y), tile_role)
 	for placement in map_data.get("placements", []):
-		var marker := MeshInstance3D.new()
-		marker.mesh = marker_mesh
-		var pos: Array = placement.get("position", [0, 0])
-		marker.position = Vector3(pos[0], 0.35, pos[1])
-		marker.scale = Vector3(0.35, 0.35, 0.35)
-		marker.material_override = _marker_material(_placement_color(String(placement.get("type", ""))))
-		world_root.add_child(marker)
-		placement_nodes[String(placement.get("id", ""))] = marker
+		_spawn_dungeon_placement(placement)
+	_spawn_dungeon_focus_marker()
 	_spawn_chunk_overlay()
 	_refresh_field_monsters()
+
+func _spawn_dungeon_placement(placement: Dictionary) -> void:
+	var placement_id := String(placement.get("id", ""))
+	if placement_id == "":
+		return
+	var kind := String(placement.get("type", ""))
+	var pos: Array = placement.get("position", [0, 0])
+	var marker := MeshInstance3D.new()
+	marker.mesh = _dungeon_marker_mesh(kind)
+	marker.position = Vector3(float(pos[0]), _dungeon_marker_height(kind), float(pos[1]))
+	marker.scale = _dungeon_marker_scale(kind)
+	marker.material_override = _marker_material(_placement_runtime_color(placement))
+	world_root.add_child(marker)
+	placement_nodes[placement_id] = marker
+
+	var ring := MeshInstance3D.new()
+	var ring_mesh := CylinderMesh.new()
+	ring_mesh.top_radius = _dungeon_ring_radius(kind)
+	ring_mesh.bottom_radius = _dungeon_ring_radius(kind) + 0.08
+	ring_mesh.height = 0.035
+	ring.mesh = ring_mesh
+	ring.position = Vector3(float(pos[0]), 0.035, float(pos[1]))
+	ring.material_override = _flat_color_material(_placement_runtime_color(placement).darkened(0.22))
+	world_root.add_child(ring)
+	placement_rings[placement_id] = ring
+
+	var intent := MeshInstance3D.new()
+	intent.mesh = _dungeon_intent_mesh(kind)
+	intent.position = Vector3(float(pos[0]), _dungeon_intent_height(kind), float(pos[1]))
+	intent.scale = _dungeon_intent_scale(kind)
+	intent.material_override = _marker_material(_placement_runtime_color(placement).lightened(0.18))
+	world_root.add_child(intent)
+	placement_intent_nodes[placement_id] = intent
+
+func _spawn_dungeon_focus_marker() -> void:
+	var marker := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.18
+	mesh.bottom_radius = 0.34
+	mesh.height = 0.12
+	marker.mesh = mesh
+	marker.visible = false
+	marker.material_override = _flat_color_material(Color("f3e7b3"))
+	world_root.add_child(marker)
+	dungeon_focus_node = marker
+
+func _dungeon_marker_mesh(kind: String) -> Mesh:
+	match kind:
+		"gate", "stairs":
+			var mesh := PrismMesh.new()
+			mesh.size = Vector3(0.58, 0.72, 0.58)
+			return mesh
+		"locked_door", "secret_door":
+			var mesh := BoxMesh.new()
+			mesh.size = Vector3(0.16, 0.78, 0.64)
+			return mesh
+		"field_monster":
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = 0.2
+			mesh.bottom_radius = 0.26
+			mesh.height = 0.86
+			return mesh
+		"event", "trap":
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = 0.28
+			mesh.bottom_radius = 0.28
+			mesh.height = 0.18
+			return mesh
+		"loot":
+			var mesh := BoxMesh.new()
+			mesh.size = Vector3(0.46, 0.32, 0.34)
+			return mesh
+		"rest":
+			var mesh := SphereMesh.new()
+			mesh.radius = 0.24
+			mesh.height = 0.36
+			return mesh
+		"npc_service":
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = 0.16
+			mesh.bottom_radius = 0.2
+			mesh.height = 0.72
+			return mesh
+		_:
+			var mesh := SphereMesh.new()
+			mesh.radius = 0.24
+			mesh.height = 0.42
+			return mesh
+
+func _dungeon_intent_mesh(kind: String) -> Mesh:
+	match kind:
+		"gate", "stairs", "locked_door", "secret_door":
+			var mesh := PrismMesh.new()
+			mesh.size = Vector3(0.34, 0.34, 0.34)
+			return mesh
+		"trap":
+			var mesh := BoxMesh.new()
+			mesh.size = Vector3(0.38, 0.08, 0.38)
+			return mesh
+		_:
+			var mesh := SphereMesh.new()
+			mesh.radius = 0.12
+			mesh.height = 0.22
+			return mesh
+
+func _dungeon_marker_height(kind: String) -> float:
+	match kind:
+		"locked_door", "secret_door", "field_monster", "npc_service":
+			return 0.42
+		"gate", "stairs":
+			return 0.46
+		"event", "trap", "loot", "rest":
+			return 0.18
+		_:
+			return 0.3
+
+func _dungeon_intent_height(kind: String) -> float:
+	match kind:
+		"field_monster", "npc_service", "gate", "stairs":
+			return 1.02
+		"locked_door", "secret_door":
+			return 0.92
+		_:
+			return 0.58
+
+func _dungeon_marker_scale(kind: String) -> Vector3:
+	match kind:
+		"trap":
+			return Vector3(1.0, 0.7, 1.0)
+		"loot":
+			return Vector3.ONE
+		_:
+			return Vector3.ONE
+
+func _dungeon_intent_scale(kind: String) -> Vector3:
+	if kind == "trap":
+		return Vector3(1.0, 1.0, 1.0)
+	return Vector3.ONE
+
+func _dungeon_ring_radius(kind: String) -> float:
+	match kind:
+		"gate", "stairs", "field_monster":
+			return 0.52
+		"trap", "event":
+			return 0.44
+		_:
+			return 0.38
 
 func _is_town_map() -> bool:
 	return String(map_data.get("kind", "")) == "town"
@@ -1532,6 +1677,14 @@ func _placement_color(kind: String) -> Color:
 			return Color("cc6f9a")
 		"trap":
 			return Color("8e73c7")
+		"locked_door":
+			return Color("b18857")
+		"secret_door":
+			return Color("62a088")
+		"loot":
+			return Color("d29b4d")
+		"npc_service":
+			return Color("8db0d9")
 		_:
 			return Color("7ca3d8")
 
@@ -1558,7 +1711,7 @@ func _refresh_field_monsters() -> void:
 				if node:
 					node.visible = not defeated and revealed
 					var cell := _placement_runtime_cell(placement, runtime)
-					node.position = Vector3(cell.x, 0.35, cell.y)
+					node.position = Vector3(cell.x, _dungeon_marker_height("field_monster"), cell.y)
 					node.material_override = _marker_material(_field_monster_marker_color(state))
 			"secret_door":
 				if node:
@@ -1997,21 +2150,22 @@ func _refresh_interaction_focus() -> void:
 		var placement_id := String(placement.get("id", ""))
 		var node: MeshInstance3D = placement_nodes.get(placement_id)
 		var ring: MeshInstance3D = placement_rings.get(placement_id)
+		var intent_node: MeshInstance3D = placement_intent_nodes.get(placement_id)
 		var is_front := placement_id != "" and placement_id == focus_id
 		var is_selected := placement_id != "" and placement_id == selected_id
 		var color := _placement_runtime_color(placement)
 		if node and is_instance_valid(node):
 			if is_front:
-				node.scale = Vector3.ONE * 0.52
-				node.position.y = 0.28
+				node.scale = _dungeon_marker_scale(String(placement.get("type", ""))) * 1.28 if not _is_town_map() else Vector3.ONE * 0.52
+				node.position.y = _dungeon_marker_height(String(placement.get("type", ""))) + 0.08 if not _is_town_map() else 0.28
 				node.material_override = _marker_material(color.lightened(0.22))
 			elif is_selected:
 				node.scale = Vector3.ONE * 0.44
 				node.position.y = 0.24
 				node.material_override = _marker_material(color.lightened(0.12))
 			else:
-				node.scale = Vector3.ONE * 0.35
-				node.position.y = 0.2
+				node.scale = _dungeon_marker_scale(String(placement.get("type", ""))) if not _is_town_map() else Vector3.ONE * 0.35
+				node.position.y = _dungeon_marker_height(String(placement.get("type", ""))) if not _is_town_map() else 0.2
 				node.material_override = _marker_material(color)
 		if ring and is_instance_valid(ring):
 			if is_front:
@@ -2023,8 +2177,44 @@ func _refresh_interaction_focus() -> void:
 			else:
 				ring.scale = Vector3.ONE
 				ring.material_override = _flat_color_material(color.darkened(0.2))
+		if intent_node and is_instance_valid(intent_node):
+			intent_node.visible = is_front or _dungeon_marker_always_shows_intent(placement)
+			intent_node.material_override = _marker_material(color.lightened(0.38 if is_front else 0.1))
+	if dungeon_focus_node and is_instance_valid(dungeon_focus_node):
+		dungeon_focus_node.visible = focus_id != "" and not _is_town_map()
+		if dungeon_focus_node.visible:
+			var focus_placement := _placement_by_id(focus_id)
+			var focus_cell := _placement_runtime_cell(focus_placement) if not focus_placement.is_empty() else player_cell
+			dungeon_focus_node.position = Vector3(focus_cell.x, 0.09, focus_cell.y)
+			dungeon_focus_node.scale = Vector3.ONE * (1.4 if bool(interaction.get("blocked", false)) else 1.15)
 	_update_town_focus_anchor(selected_id)
 	_update_town_focus_path(selected_id)
+
+func _dungeon_marker_always_shows_intent(placement: Dictionary) -> bool:
+	var kind := String(placement.get("type", ""))
+	if kind in ["gate", "stairs"] and _route_block_message(placement) != "":
+		return true
+	return kind in ["trap", "field_monster"]
+
+func _placement_by_id(placement_id: String) -> Dictionary:
+	for placement in map_data.get("placements", []):
+		if typeof(placement) == TYPE_DICTIONARY and String(placement.get("id", "")) == placement_id:
+			return placement
+	return {}
+
+func _animate_dungeon_affordances() -> void:
+	var time := float(Time.get_ticks_msec()) / 1000.0
+	for placement in map_data.get("placements", []):
+		if typeof(placement) != TYPE_DICTIONARY:
+			continue
+		var placement_id := String(placement.get("id", ""))
+		var intent_node: MeshInstance3D = placement_intent_nodes.get(placement_id)
+		if intent_node and is_instance_valid(intent_node) and intent_node.visible:
+			var base_y := _dungeon_intent_height(String(placement.get("type", "")))
+			intent_node.position.y = base_y + sin(time * 3.0 + float(abs(hash(placement_id)) % 7)) * 0.08
+			intent_node.rotation_degrees.y = fposmod(time * 70.0, 360.0)
+	if dungeon_focus_node and is_instance_valid(dungeon_focus_node) and dungeon_focus_node.visible:
+		dungeon_focus_node.rotation_degrees.y = fposmod(time * 90.0, 360.0)
 
 func _interaction_alignment_hint(placement: Dictionary, source: String, distance: int) -> String:
 	if source == "front":

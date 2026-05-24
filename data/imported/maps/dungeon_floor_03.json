@@ -425,6 +425,27 @@
 			"type": "loot"
 		},
 		{
+			"eventId": "event_trap_bleed_blade",
+			"id": "sanctuary_bleed_trap",
+			"label": "Sanctuary Blade Sigil",
+			"position": [
+				3.0,
+				5.0
+			],
+			"type": "trap"
+		},
+		{
+			"id": "sanctuary_antivenom_cache",
+			"itemId": "antivenom",
+			"label": "Priest's Antivenom Cache",
+			"lootTableId": "loot_dungeon_satchel",
+			"position": [
+				1.0,
+				4.0
+			],
+			"type": "loot"
+		},
+		{
 			"eventId": "event_camp_guard_post",
 			"id": "final_rest",
 			"label": "Ruined Watch Chapel",

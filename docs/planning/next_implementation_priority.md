@@ -23,6 +23,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 P0 pass split town focus HUD into `town_hud.gd`, improved dungeon
   interaction details, widened floor 2/3 field AI content, added route-based
   monster path stepping, and tightened event/NPC/quest validation references.
+- 2026-05-24 gameplay pass added dungeon type-specific 3D placement markers,
+  animated interaction/focus intent markers, a clearer combat enemy stage, and
+  additional floor 3 trap/cache gameplay beats.
 
 ## P0
 
@@ -35,10 +38,10 @@ original web-repo `godot-port-plan.md`.
 2. `dungeon-interaction-affordance`
    - Done: interaction snapshots now include stronger door, route, event, trap,
      loot, and combat detail plus intent labels.
-   - Next: add dedicated dungeon HUD visual treatment for those intent labels and
-     world-space path/next-step markers where useful.
-   - Surface doors, stairs, events, traps, NPCs, combat entries, and route gates
-     as clear next-step/intent prompts.
+   - Done: dungeon placements now render with type-specific 3D marker shapes,
+     rings, animated intent nodes, and a focused target marker.
+   - Next: add dedicated dungeon HUD visual treatment for intent labels and
+     optional path-to-object guidance where useful.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.
 
 3. `editor-authoring-parity`
@@ -75,10 +78,12 @@ original web-repo `godot-port-plan.md`.
    - Add faction-level alert rules only if content needs them.
 
 2. `combat-system-hardening`
+   - Done: combat screen now has a readable enemy stage with HP/guard/status and
+     action intent presentation instead of only a text block.
    - Move combat tests beyond smoke-only coverage into direct domain assertions.
    - Expand skill/item/effect authoring coverage.
    - Use enemy `combatProfile` more broadly.
-   - Polish optional 3D enemy stage, defeat, reward, and end-state UX.
+   - Polish defeat, reward, and end-state UX further.
 
 3. `npc-quest-shop-expansion`
    - Apply NPC/service patterns to a broader content family.

@@ -59,3 +59,20 @@ static func build_info_text(vm: Dictionary) -> String:
 	if not vm.get("log", []).is_empty():
 		text += "\n[b]Log[/b]\n%s" % "\n".join(vm.get("log", []))
 	return text
+
+static func build_intent_text(vm: Dictionary) -> String:
+	var pending_item_state: Dictionary = vm.get("pendingItemState", {})
+	var pending_target_state: Dictionary = vm.get("pendingTargetState", {})
+	if not pending_item_state.is_empty():
+		return "[color=#f3e7b3]Item ready[/color] %s\nTarget or Use Item to resolve." % String(pending_item_state.get("name", vm.get("pendingItemId", "")))
+	if not pending_target_state.is_empty():
+		return "[color=#f3e7b3]Target required[/color] %s\nPress Target Enemy to commit the selected command." % String(pending_target_state.get("mode", "enemy"))
+	var selected: Array = vm.get("selectedRollIds", [])
+	if not selected.is_empty():
+		return "[color=#9fd6a5]Selection ready[/color] %s / %d\nEnter confirms, C clears, Swap reorders two dice." % [
+			str(selected),
+			int(vm.get("selectLimit", 2))
+		]
+	if String(vm.get("dicePhase", "")) == "spinning":
+		return "[color=#8fb7d8]Dice spinning[/color]\nSpace stops the reel; choose up to %d dice." % int(vm.get("selectLimit", 2))
+	return "[color=#9aa7b8]Choose action[/color]\nSelect dice, use an item, or flee."

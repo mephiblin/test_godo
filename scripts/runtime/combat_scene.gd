@@ -1,6 +1,13 @@
 extends Control
 
 var info_label: RichTextLabel
+var enemy_stage: PanelContainer
+var enemy_name_label: Label
+var enemy_status_label: Label
+var enemy_hp_bar: ProgressBar
+var enemy_guard_bar: ProgressBar
+var party_hp_bar: ProgressBar
+var combat_intent_label: RichTextLabel
 var roll_container: HBoxContainer
 var runtime := preload("res://scripts/runtime/combat_runtime.gd").new()
 const CombatHudPresenter = preload("res://scripts/runtime/combat_hud_presenter.gd")
@@ -37,6 +44,49 @@ func _ready() -> void:
 	title.text = "Combat: %s" % runtime.enemy_name
 	title.add_theme_font_size_override("font_size", 28)
 	layout.add_child(title)
+
+	enemy_stage = PanelContainer.new()
+	enemy_stage.custom_minimum_size = Vector2(760, 170)
+	layout.add_child(enemy_stage)
+	var stage_layout := HBoxContainer.new()
+	stage_layout.add_theme_constant_override("separation", 14)
+	enemy_stage.add_child(stage_layout)
+
+	var enemy_silhouette := PanelContainer.new()
+	enemy_silhouette.custom_minimum_size = Vector2(140, 140)
+	stage_layout.add_child(enemy_silhouette)
+	var enemy_symbol := Label.new()
+	enemy_symbol.text = "ENEMY"
+	enemy_symbol.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	enemy_symbol.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	enemy_symbol.add_theme_font_size_override("font_size", 24)
+	enemy_silhouette.add_child(enemy_symbol)
+
+	var stage_stats := VBoxContainer.new()
+	stage_stats.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stage_layout.add_child(stage_stats)
+	enemy_name_label = Label.new()
+	enemy_name_label.add_theme_font_size_override("font_size", 22)
+	stage_stats.add_child(enemy_name_label)
+	enemy_hp_bar = ProgressBar.new()
+	enemy_hp_bar.custom_minimum_size = Vector2(520, 24)
+	enemy_hp_bar.show_percentage = false
+	stage_stats.add_child(enemy_hp_bar)
+	enemy_guard_bar = ProgressBar.new()
+	enemy_guard_bar.custom_minimum_size = Vector2(520, 18)
+	enemy_guard_bar.show_percentage = false
+	stage_stats.add_child(enemy_guard_bar)
+	party_hp_bar = ProgressBar.new()
+	party_hp_bar.custom_minimum_size = Vector2(520, 20)
+	party_hp_bar.show_percentage = false
+	stage_stats.add_child(party_hp_bar)
+	enemy_status_label = Label.new()
+	stage_stats.add_child(enemy_status_label)
+	combat_intent_label = RichTextLabel.new()
+	combat_intent_label.bbcode_enabled = true
+	combat_intent_label.fit_content = true
+	combat_intent_label.custom_minimum_size = Vector2(520, 46)
+	stage_stats.add_child(combat_intent_label)
 
 	info_label = RichTextLabel.new()
 	info_label.custom_minimum_size = Vector2(640, 140)
@@ -105,6 +155,27 @@ func _refresh() -> void:
 		)
 		roll_container.add_child(button)
 	info_label.text = CombatHudPresenter.build_info_text(vm)
+	_refresh_stage(vm)
+
+func _refresh_stage(vm: Dictionary) -> void:
+	var enemy_hp := int(vm.get("enemyHp", 0))
+	var enemy_max_hp := maxi(int(vm.get("enemyMaxHp", 1)), 1)
+	var party_hp := int(vm.get("partyHp", 0))
+	var party_max_hp := maxi(int(vm.get("partyMaxHp", 1)), 1)
+	var enemy_guard := int(vm.get("enemyGuardPoints", 0))
+	enemy_name_label.text = "%s  HP %d/%d" % [String(vm.get("enemyName", runtime.enemy_name)), enemy_hp, enemy_max_hp]
+	enemy_hp_bar.max_value = enemy_max_hp
+	enemy_hp_bar.value = clampi(enemy_hp, 0, enemy_max_hp)
+	enemy_guard_bar.max_value = maxi(enemy_guard, 8)
+	enemy_guard_bar.value = enemy_guard
+	enemy_guard_bar.tooltip_text = "Enemy Guard %d" % enemy_guard
+	party_hp_bar.max_value = party_max_hp
+	party_hp_bar.value = clampi(party_hp, 0, party_max_hp)
+	party_hp_bar.tooltip_text = "Party HP %d/%d" % [party_hp, party_max_hp]
+	var enemy_status := ", ".join(vm.get("enemyStatuses", [])) if not vm.get("enemyStatuses", []).is_empty() else "-"
+	var front_status := ", ".join(vm.get("frontStatuses", [])) if not vm.get("frontStatuses", []).is_empty() else "-"
+	enemy_status_label.text = "Enemy status: %s     Front status: %s" % [enemy_status, front_status]
+	combat_intent_label.text = CombatHudPresenter.build_intent_text(vm)
 
 func _handle_outcome(outcome: Dictionary) -> void:
 	if bool(outcome.get("exit", false)):

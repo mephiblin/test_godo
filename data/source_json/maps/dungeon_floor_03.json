@@ -80,6 +80,21 @@
       "itemId": "firebomb"
     },
     {
+      "id": "sanctuary_bleed_trap",
+      "type": "trap",
+      "label": "Sanctuary Blade Sigil",
+      "position": [3, 5],
+      "eventId": "event_trap_bleed_blade"
+    },
+    {
+      "id": "sanctuary_antivenom_cache",
+      "type": "loot",
+      "label": "Priest's Antivenom Cache",
+      "position": [1, 4],
+      "lootTableId": "loot_dungeon_satchel",
+      "itemId": "antivenom"
+    },
+    {
       "id": "final_rest",
       "type": "rest",
       "label": "Ruined Watch Chapel",
