@@ -141,6 +141,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 field monster runtime helper pass moved field AI config,
   behavior, alert group, patrol route/target, marker color, and state-cell
   helper contracts into `field_monster_runtime.gd`.
+- 2026-05-24 field monster tick runtime pass moved field monster runtime
+  initialization, tick/update, pathing, LOS, alert propagation, and auto-engage
+  checks into `field_monster_runtime.gd`.
 
 ## P0
 
@@ -198,6 +201,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move field monster AI helper contracts into
      `field_monster_runtime.gd`, keeping the current scene/test call surface as
      thin delegates ahead of a future full tick-loop split.
+   - Done: move the field monster initialization and tick/update loop into
+     `field_monster_runtime.gd`; `grid_scene.gd` now keeps compatibility
+     delegates for existing scene and smoke-driver callers.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
