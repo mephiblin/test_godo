@@ -247,6 +247,9 @@ static func _validate_event_effect(errors: Array[String], label: String, effect:
 static func validate_maps() -> Dictionary:
 	return _validate_maps_dictionary(_load_manifest_maps())
 
+static func validate_maps_dictionary_for_tests(maps: Dictionary) -> Dictionary:
+	return _validate_maps_dictionary(maps)
+
 static func save_map_placement(map_id: String, placement_id: String, new_data: Dictionary) -> Dictionary:
 	var entry := map_entry(map_id)
 	if entry.is_empty():

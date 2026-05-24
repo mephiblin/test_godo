@@ -39,6 +39,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 objective marker pass promoted quest targets, quest seed
   objectives, and reward turn-in locations into world marker colors and
   always-visible intent nodes.
+- 2026-05-24 validation fixture pass added a negative fixture probe that
+  intentionally breaks definition and map references to prove the validator
+  catches the authored contract failures before import/build.
 
 ## P0
 
@@ -74,8 +77,10 @@ original web-repo `godot-port-plan.md`.
    - Done: stricter checks now cover missing material, broken `entryStepId`, step
      target, choice next-step ref, effect item target, quest seed state ref, NPC
      service handoff ref, and quest/quest-seed reward item refs.
-   - Next: add fixture tests that intentionally break each contract and assert the
-     validator error.
+   - Done: fixture probe now intentionally breaks quest reward item, event
+     entry/choice/effect refs, quest seed state refs, NPC handoff refs, vendor
+     skill refs, map material/placement refs, and fieldAi values, then asserts
+     validator errors.
    - Tighten the source JSON -> imported cache -> manifest export contract.
    - Broaden stale bundle and content-version mismatch handling.
 
@@ -132,6 +137,7 @@ original web-repo `godot-port-plan.md`.
 
 1. `test-stack-structure`
    - Separate validator, domain test, scene smoke, export smoke, and benchmark layers.
+   - Done: validation fixtures now have a dedicated headless probe command.
    - Reduce reliance on screenshot artifacts where direct assertions are possible.
    - Standardize headless commands for future CI.
 
