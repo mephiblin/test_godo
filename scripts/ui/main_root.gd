@@ -150,7 +150,8 @@ func _run_domain_smoke() -> void:
 		"monster_id": "serpent_guard",
 		"monster_name": "뱀 사원 경비병"
 	})
-	combat_enemy_guard_probe = guard_runtime.smoke_probe_enemy_turn()
+	var combat_smoke := _combat_smoke_driver()
+	combat_enemy_guard_probe = combat_smoke.runtime_enemy_turn_probe(guard_runtime)
 	combat_view_model_probe = guard_runtime.build_view_model()
 	var victory_runtime = combat_runtime_script.new()
 	victory_runtime.setup({
@@ -159,7 +160,7 @@ func _run_domain_smoke() -> void:
 		"monster_instance_id": "domain_slime_alpha",
 		"return_map_id": "dungeon_floor_01"
 	})
-	combat_victory_summary_probe = victory_runtime.smoke_win()
+	combat_victory_summary_probe = combat_smoke.runtime_win(victory_runtime)
 	var defeat_runtime = combat_runtime_script.new()
 	defeat_runtime.setup({
 		"slot": probe_slot,
@@ -167,7 +168,7 @@ func _run_domain_smoke() -> void:
 		"monster_instance_id": "domain_serpent_guard",
 		"return_map_id": "dungeon_floor_02"
 	})
-	combat_defeat_summary_probe = defeat_runtime.smoke_lose()
+	combat_defeat_summary_probe = combat_smoke.runtime_lose(defeat_runtime)
 	SaveService.update_front_state(probe_slot, 20, 20, [])
 	var resist_runtime = combat_runtime_script.new()
 	resist_runtime.setup({
@@ -175,7 +176,7 @@ func _run_domain_smoke() -> void:
 		"monster_id": "poisoned_raider",
 		"monster_name": "독에 미친 약탈자"
 	})
-	combat_enemy_resist_probe = resist_runtime.smoke_probe_enemy_turn()
+	combat_enemy_resist_probe = combat_smoke.runtime_enemy_turn_probe(resist_runtime)
 	var probe_data := SaveService.load_slot(probe_slot)
 	probe_data["flags"]["blind_priest_cleared"] = true
 	probe_data["questSeeds"]["quest_seed_black_mural"] = {"id": "quest_seed_black_mural", "status": "rewarded"}
@@ -187,7 +188,6 @@ func _run_domain_smoke() -> void:
 		GameApp.enter_combat(fight_context)
 		await get_tree().process_frame
 		var combat_scene := SceneRouter.current_scene
-		var combat_smoke := _combat_smoke_driver()
 		combat_skill_ids = combat_smoke.skill_ids(combat_scene)
 		combat_roll_rows = combat_smoke.roll_rows(combat_scene)
 		combat_smoke.use_item(combat_scene, "firebomb")
@@ -220,7 +220,6 @@ func _run_domain_smoke() -> void:
 	})
 	await get_tree().process_frame
 	var defeat_scene := SceneRouter.current_scene
-	var combat_smoke := _combat_smoke_driver()
 	combat_smoke.lose(defeat_scene)
 	await get_tree().process_frame
 	combat_smoke.recover_in_town(defeat_scene)

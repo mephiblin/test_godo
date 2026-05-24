@@ -107,6 +107,8 @@ original web-repo `godot-port-plan.md`.
   driver.
 - 2026-05-24 combat scene smoke driver pass moved combat scene public
   smoke/debug wrappers into a test-only driver used by smoke flows.
+- 2026-05-24 combat runtime probe driver pass moved combat runtime smoke/debug
+  probe methods into `combat_smoke_driver.gd`.
 
 ## P0
 
@@ -238,6 +240,8 @@ original web-repo `godot-port-plan.md`.
      combatProfile behavior, and poison resistance.
    - Done: `combat_scene.gd` no longer exposes public smoke/debug wrappers;
      smoke flows drive its runtime through `combat_smoke_driver.gd`.
+   - Done: `combat_runtime.gd` no longer exposes public smoke/debug probe
+     methods; direct combat domain probes now use `combat_smoke_driver.gd`.
    - Move additional combat tests beyond smoke-only coverage into smaller direct
      domain probes as multi-enemy and party-role systems expand.
    - Expand skill/item/effect authoring coverage.

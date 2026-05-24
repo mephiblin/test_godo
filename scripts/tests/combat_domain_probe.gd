@@ -1,10 +1,12 @@
 extends SceneTree
 
 const CombatRuntime = preload("res://scripts/runtime/combat_runtime.gd")
+const CombatSmokeDriver = preload("res://scripts/tests/combat_smoke_driver.gd")
 const PROBE_SLOT := 3
 
 var failures: Array[String] = []
 var slot_backups: Dictionary = {}
+var combat_smoke := CombatSmokeDriver.new()
 
 func _initialize() -> void:
 	_content_registry().call("load_all")
@@ -51,7 +53,7 @@ func _prepare_probe_slot() -> void:
 	_save_service().call("update_front_state", PROBE_SLOT, 14, 20, ["독"])
 
 func _probe_skill_effect_ops() -> void:
-	var guard_break: Dictionary = _runtime("serpent_guard").smoke_probe_skill_effect("guard_break", 6, {
+	var guard_break: Dictionary = combat_smoke.runtime_skill_effect_probe(_runtime("serpent_guard"), "guard_break", 6, {
 		"enemyHp": 28,
 		"enemyGuardPoints": 0,
 		"weaponBonus": 0
@@ -61,7 +63,7 @@ func _probe_skill_effect_ops() -> void:
 	_expect(int(guard_break.get("after", {}).get("enemyArmorBreak", 0)) >= 2, "guard_break should increase enemy armor break")
 	_expect(guard_break.get("after", {}).get("enemyStatuses", []).has("weakened"), "guard_break should apply weakened")
 
-	var lifesteal: Dictionary = _runtime("serpent_guard").smoke_probe_skill_effect("skill_vital_stab", 6, {
+	var lifesteal: Dictionary = combat_smoke.runtime_skill_effect_probe(_runtime("serpent_guard"), "skill_vital_stab", 6, {
 		"partyHp": 10,
 		"enemyHp": 28,
 		"enemyGuardPoints": 0,
@@ -71,7 +73,7 @@ func _probe_skill_effect_ops() -> void:
 	_expect(int(lifesteal.get("after", {}).get("partyHp", 0)) > int(lifesteal.get("before", {}).get("partyHp", 0)), "lifesteal should restore party HP")
 	_expect(int(lifesteal.get("after", {}).get("enemyHp", 99)) < int(lifesteal.get("before", {}).get("enemyHp", 0)), "lifesteal should damage enemy")
 
-	var heal: Dictionary = _runtime("serpent_guard").smoke_probe_skill_effect("mending_chant", 4, {
+	var heal: Dictionary = combat_smoke.runtime_skill_effect_probe(_runtime("serpent_guard"), "mending_chant", 4, {
 		"partyHp": 8,
 		"enemyHp": 28,
 		"enemyGuardPoints": 0
@@ -80,7 +82,7 @@ func _probe_skill_effect_ops() -> void:
 	_expect(int(heal.get("after", {}).get("partyHp", 0)) > int(heal.get("before", {}).get("partyHp", 0)), "heal skill should restore party HP")
 	_expect(int(heal.get("after", {}).get("enemyHp", 0)) == int(heal.get("before", {}).get("enemyHp", -1)), "heal skill should not damage enemy")
 
-	var guard: Dictionary = _runtime("serpent_guard").smoke_probe_skill_effect("skill_bastion_vow", 5, {
+	var guard: Dictionary = combat_smoke.runtime_skill_effect_probe(_runtime("serpent_guard"), "skill_bastion_vow", 5, {
 		"partyHp": 14,
 		"enemyHp": 28,
 		"guardPoints": 0
@@ -90,8 +92,8 @@ func _probe_skill_effect_ops() -> void:
 
 func _probe_item_combat_use() -> void:
 	var fire_runtime := _runtime("serpent_guard")
-	var firebomb: Dictionary = fire_runtime.smoke_use_item("firebomb")
-	var fire_state: Dictionary = fire_runtime.debug_combat_state()
+	var firebomb: Dictionary = combat_smoke.runtime_use_item(fire_runtime, "firebomb")
+	var fire_state: Dictionary = combat_smoke.runtime_combat_state(fire_runtime)
 	_expect(bool(firebomb.get("refresh", false)), "firebomb should resolve without ending combat")
 	_expect(fire_state.get("enemyStatuses", []).has("burning"), "firebomb should apply burning")
 	_expect(int(fire_state.get("enemyHp", 99)) < 28, "firebomb should damage enemy")
@@ -99,8 +101,8 @@ func _probe_item_combat_use() -> void:
 
 	_save_service().call("update_front_state", PROBE_SLOT, 14, 20, ["독"])
 	var antivenom_runtime := _runtime("poisoned_raider")
-	var antivenom: Dictionary = antivenom_runtime.smoke_use_item("antivenom")
-	var antivenom_state: Dictionary = antivenom_runtime.debug_combat_state()
+	var antivenom: Dictionary = combat_smoke.runtime_use_item(antivenom_runtime, "antivenom")
+	var antivenom_state: Dictionary = combat_smoke.runtime_combat_state(antivenom_runtime)
 	_expect(bool(antivenom.get("refresh", false)), "antivenom should resolve without ending combat")
 	_expect(not antivenom_state.get("frontStatuses", []).has("독"), "antivenom should cure poison")
 	_expect(int((_save_service().call("inventory", PROBE_SLOT) as Dictionary).get("antivenom", 0)) == 1, "antivenom should consume one item")
@@ -108,26 +110,26 @@ func _probe_item_combat_use() -> void:
 func _probe_enemy_profiles() -> void:
 	_set_front_state(20, 20, [])
 	var guard_runtime := _runtime("serpent_guard")
-	var guard_probe: Dictionary = guard_runtime.smoke_probe_enemy_turn()
+	var guard_probe: Dictionary = combat_smoke.runtime_enemy_turn_probe(guard_runtime)
 	_expect(bool(guard_probe.get("ok", false)), "guardian profile probe should run")
 	_expect(int(guard_probe.get("after", {}).get("enemyGuardPoints", 0)) >= 2, "guardian profile should add or preserve enemy guard")
 
 	_set_front_state(20, 20, [])
 	var resist_runtime := _runtime("poisoned_raider")
-	var resist_probe: Dictionary = resist_runtime.smoke_probe_enemy_turn()
+	var resist_probe: Dictionary = combat_smoke.runtime_enemy_turn_probe(resist_runtime)
 	_expect(bool(resist_probe.get("ok", false)), "ambusher profile probe should run")
 	_expect(not resist_probe.get("after", {}).get("frontStatuses", []).has("독"), "priest mask should resist ambusher poison")
 
 	var coward_runtime := _runtime("grave_robber")
-	var coward_probe: Dictionary = coward_runtime.smoke_probe_skill_effect("basic_strike", 1, {
+	var coward_probe: Dictionary = combat_smoke.runtime_skill_effect_probe(coward_runtime, "basic_strike", 1, {
 		"enemyHp": 7,
 		"enemyMaxHp": 22,
 		"enemyGuardPoints": 0
 	})
 	coward_runtime.stop_dice()
-	var coward_before: Dictionary = coward_runtime.debug_combat_state()
+	var coward_before: Dictionary = combat_smoke.runtime_combat_state(coward_runtime)
 	coward_runtime.call("_run_enemy_turn")
-	var coward_after: Dictionary = coward_runtime.debug_combat_state()
+	var coward_after: Dictionary = combat_smoke.runtime_combat_state(coward_runtime)
 	_expect(bool(coward_probe.get("ok", false)), "coward setup probe should run")
 	_expect(int(coward_after.get("enemyHp", 0)) > int(coward_before.get("enemyHp", 0)), "coward profile should heal when low")
 	_expect(int(coward_after.get("enemyGuardPoints", 0)) > int(coward_before.get("enemyGuardPoints", 0)), "coward profile should hide behind guard")
