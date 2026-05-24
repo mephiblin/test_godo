@@ -6,6 +6,70 @@ func configure(target_scene: Node) -> RefCounted:
 	scene_ref = target_scene
 	return self
 
+func hud_snapshot() -> Dictionary:
+	var current_slot := int(scene_ref.get("current_slot"))
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	var party_state: Dictionary = slot_data.get("partyState", {})
+	var front: Dictionary = party_state.get("front", {})
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var map_data: Dictionary = scene_ref.get("map_data")
+	var map_profile: Dictionary = scene_ref.get("map_profile")
+	var object_theme: Dictionary = scene_ref.get("object_theme")
+	var compiled_preview: Dictionary = scene_ref.get("compiled_preview")
+	var player_cell: Vector2i = scene_ref.get("player_cell")
+	var facing := int(scene_ref.get("facing"))
+	var route_name := String(scene_ref.get("route_name"))
+	var dungeon_source_mode := String(scene_ref.get("dungeon_source_mode"))
+	var compiled_runtime_active := bool(scene_ref.get("compiled_runtime_active"))
+	var log_lines: Array = scene_ref.get("log_lines")
+	var route_summary_text := route_summary()
+	return {
+		"title": "%s Scene" % route_name.capitalize(),
+		"hudMode": "dungeon",
+		"state": "[b]Cell[/b] %s  [b]Facing[/b] %d\n[b]Map[/b] %s\n[b]Profile[/b] %s\n[b]Theme[/b] %s / props %s\n[b]Chunk[/b] %s\n[b]Dungeon Source[/b] %s\n[b]Generated[/b] active=%s cells=%d placements=%d\n[b]Routes[/b] %s\n[b]Field AI[/b] %s\n[b]Gold[/b] %d\n[b]Supplies[/b] food %d / water %d / torch %d\n[b]Front[/b] HP %d/%d  status %s\n[b]Quest[/b] %s\n[b]Items[/b] %s\n[b]Prompt[/b] %s\n[b]Controls[/b] %s" % [
+			player_cell,
+			facing,
+			map_data.get("id", ""),
+			String(map_profile.get("name", map_data.get("mapProfileId", "-"))),
+			String(map_data.get("themeId", map_profile.get("theme", "-"))),
+			String(object_theme.get("id", "-")),
+			scene_ref.call("_active_chunk_label"),
+			dungeon_source_mode,
+			str(compiled_runtime_active),
+			compiled_preview.get("generatedCells", []).size(),
+			compiled_preview.get("generatedPlacements", []).size(),
+			route_summary_text,
+			field_monster_state_summary(runtime),
+			int(slot_data.get("resources", {}).get("gold", 0)),
+			int(slot_data.get("resources", {}).get("food", 0)),
+			int(slot_data.get("resources", {}).get("water", 0)),
+			int(slot_data.get("resources", {}).get("torch", 0)),
+			int(front.get("hp", 20)),
+			int(front.get("maxHp", 20)),
+			str(front.get("statuses", [])),
+			String(QuestService.current_quest(current_slot).get("status", "none")),
+			str(SaveService.inventory(current_slot)),
+			scene_ref.call("_interaction_prompt_text"),
+			scene_ref.call("_controls_summary")
+		],
+		"log": "\n".join(log_lines.slice(max(log_lines.size() - 5, 0), log_lines.size())),
+		"objective": scene_ref.call("_objective_guide_snapshot"),
+		"interaction": scene_ref.call("_interaction_snapshot"),
+		"minimap": {
+			"mapId": String(map_data.get("id", "")),
+			"cells": map_data.get("cells", []),
+			"currentCell": [player_cell.x, player_cell.y],
+			"visitedKeys": visited_keys_for_map(runtime),
+			"placements": visible_minimap_placements(runtime),
+			"routeStates": route_state_entries(),
+			"fieldMonsterStates": field_monster_snapshot(runtime),
+			"questStatus": String(QuestService.current_quest(current_slot).get("status", "none")),
+			"questTargetKeys": quest_target_keys(),
+			"rewardTurnInKeys": quest_turn_in_keys(),
+			"questSeedObjectiveKeys": quest_seed_objective_keys()
+		}
+	}
+
 func visited_keys_for_map(runtime: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	var visited_cells: Dictionary = runtime.get("visitedCells", {})

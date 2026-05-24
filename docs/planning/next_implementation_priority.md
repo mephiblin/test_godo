@@ -150,6 +150,10 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 runtime snapshot builder pass moved HUD/minimap route state,
   field monster snapshot summaries, visited map cells, and quest marker key
   construction out of `grid_scene.gd` into `runtime_snapshot_builder.gd`.
+- 2026-05-24 runtime HUD snapshot builder pass moved the complete
+  `hud_snapshot()` dictionary assembly out of `grid_scene.gd` into
+  `runtime_snapshot_builder.gd`, leaving the scene method as the stable UI
+  entrypoint.
 
 ## P0
 
@@ -216,6 +220,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move runtime HUD/minimap route, field monster, visited-cell, and
      quest marker snapshot helpers into `runtime_snapshot_builder.gd`, keeping
      existing scene/test methods as delegates.
+   - Done: move the full runtime HUD snapshot dictionary construction into
+     `runtime_snapshot_builder.gd`, with `grid_scene.gd` retaining only the
+     public `hud_snapshot()` delegate used by `grid_hud.gd`.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
