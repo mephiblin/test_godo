@@ -514,23 +514,6 @@ func smoke_probe_secret_door_patrol(monster_id: String, secret_id: String) -> Di
 		"discoveredState": discovered_state
 	}
 
-func debug_benchmark_snapshot() -> Dictionary:
-	var slot_data: Dictionary = SaveService.load_slot(current_slot)
-	var runtime: Dictionary = slot_data.get("runtime", {})
-	return {
-		"mapId": String(map_data.get("id", "")),
-		"playerCell": [player_cell.x, player_cell.y],
-		"facing": facing,
-		"dungeonSource": GameApp.dungeon_runtime_source,
-		"minimap": {
-			"visitedKeys": _visited_keys_for_map(runtime),
-			"questStatus": String(QuestService.current_quest(current_slot).get("status", "none")),
-			"questTargetKeys": _quest_target_keys(),
-			"rewardTurnInKeys": _quest_turn_in_keys(),
-			"questSeedObjectiveKeys": _quest_seed_objective_keys()
-		}
-	}
-
 func _build_world() -> void:
 	for child in world_root.get_children():
 		child.queue_free()

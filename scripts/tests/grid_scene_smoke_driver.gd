@@ -128,6 +128,28 @@ func open_service_by_type(scene: Node, service_type: String) -> void:
 		scene.call("_open_service_overlay", placement)
 		return
 
+func benchmark_snapshot(scene: Node) -> Dictionary:
+	if not _is_ready(scene):
+		return {}
+	var slot := _slot(scene)
+	var slot_data: Dictionary = SaveService.load_slot(slot)
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var player_cell: Vector2i = scene.get("player_cell")
+	var map_data: Dictionary = scene.get("map_data")
+	return {
+		"mapId": String(map_data.get("id", "")),
+		"playerCell": [player_cell.x, player_cell.y],
+		"facing": int(scene.get("facing")),
+		"dungeonSource": GameApp.dungeon_runtime_source,
+		"minimap": {
+			"visitedKeys": scene.call("_visited_keys_for_map", runtime),
+			"questStatus": String(QuestService.current_quest(slot).get("status", "none")),
+			"questTargetKeys": scene.call("_quest_target_keys"),
+			"rewardTurnInKeys": scene.call("_quest_turn_in_keys"),
+			"questSeedObjectiveKeys": scene.call("_quest_seed_objective_keys")
+		}
+	}
+
 func _is_ready(scene: Node) -> bool:
 	return scene != null and scene.has_method("_route_from_placement") and scene.get("map_data") is Dictionary
 

@@ -802,14 +802,12 @@ func _run_benchmark_smoke() -> void:
 	await _await_frames(3)
 	var dungeon_scene := SceneRouter.current_scene
 	benchmark_report["dungeonBuildMs"] = _elapsed_ms(dungeon_start)
-	if dungeon_scene and dungeon_scene.has_method("debug_benchmark_snapshot"):
-		benchmark_report["dungeonSnapshotBeforeMove"] = dungeon_scene.call("debug_benchmark_snapshot")
+	benchmark_report["dungeonSnapshotBeforeMove"] = grid_smoke.benchmark_snapshot(dungeon_scene)
 	var movement_start := Time.get_ticks_usec()
 	grid_smoke.move_forward(dungeon_scene)
 	await _await_frames(1)
 	benchmark_report["movementMs"] = _elapsed_ms(movement_start)
-	if dungeon_scene and dungeon_scene.has_method("debug_benchmark_snapshot"):
-		benchmark_report["dungeonSnapshotAfterMove"] = dungeon_scene.call("debug_benchmark_snapshot")
+	benchmark_report["dungeonSnapshotAfterMove"] = grid_smoke.benchmark_snapshot(dungeon_scene)
 	var combat_start := Time.get_ticks_usec()
 	grid_smoke.enter_combat(dungeon_scene)
 	await _await_frames(1)

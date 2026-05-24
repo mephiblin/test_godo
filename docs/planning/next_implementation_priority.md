@@ -98,6 +98,8 @@ original web-repo `godot-port-plan.md`.
   named `.tscn` scene loaded by both the plugin and editor smoke.
 - 2026-05-24 runtime smoke driver pass moved simple visual/benchmark smoke
   actions out of `grid_scene.gd` into a test-only driver loaded only by smoke.
+- 2026-05-24 runtime benchmark driver pass moved the benchmark snapshot helper
+  out of `grid_scene.gd` into the same test-only smoke driver.
 
 ## P0
 
@@ -147,6 +149,8 @@ original web-repo `godot-port-plan.md`.
    - Done: remove simple dungeon visual-smoke action wrappers from
      `grid_scene.gd`; visual/benchmark smoke now uses a test driver for route,
      event, movement, combat entry, and return-town actions.
+   - Done: remove `debug_benchmark_snapshot()` from `grid_scene.gd`;
+     benchmark smoke now collects that state through the test driver.
    - Next: do manual play tuning for marker size in narrow halls and crowded
      authored encounters.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.
