@@ -144,6 +144,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 field monster tick runtime pass moved field monster runtime
   initialization, tick/update, pathing, LOS, alert propagation, and auto-engage
   checks into `field_monster_runtime.gd`.
+- 2026-05-24 dungeon world presenter pass moved dungeon floor/wall/ceiling,
+  decor, surface material, and compiled chunk overlay construction out of
+  `grid_scene.gd` into `dungeon_world_presenter.gd`.
 
 ## P0
 
@@ -204,6 +207,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move the field monster initialization and tick/update loop into
      `field_monster_runtime.gd`; `grid_scene.gd` now keeps compatibility
      delegates for existing scene and smoke-driver callers.
+   - Done: move dungeon world mesh/decor/material/chunk overlay construction
+     into `dungeon_world_presenter.gd`, leaving `grid_scene.gd` to orchestrate
+     route setup and runtime state.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
