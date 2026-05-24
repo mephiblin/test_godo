@@ -5,6 +5,7 @@ var info_panel: PanelContainer
 var left_column: VBoxContainer
 var right_column: VBoxContainer
 var title_label: Label
+var objective_label: RichTextLabel
 var state_label: RichTextLabel
 var log_label: RichTextLabel
 var minimap_texture: TextureRect
@@ -47,8 +48,14 @@ func _ready() -> void:
 	title_label.add_theme_font_size_override("font_size", 22)
 	left_column.add_child(title_label)
 
+	objective_label = RichTextLabel.new()
+	objective_label.bbcode_enabled = true
+	objective_label.fit_content = true
+	objective_label.custom_minimum_size = Vector2(340, 54)
+	left_column.add_child(objective_label)
+
 	state_label = RichTextLabel.new()
-	state_label.custom_minimum_size = Vector2(340, 90)
+	state_label.custom_minimum_size = Vector2(340, 76)
 	state_label.bbcode_enabled = true
 	state_label.fit_content = true
 	left_column.add_child(state_label)
@@ -123,6 +130,7 @@ func _process(_delta: float) -> void:
 	last_snapshot = snapshot
 	_apply_layout(String(snapshot.get("hudMode", "")))
 	title_label.text = String(snapshot.get("title", ""))
+	_update_objective(snapshot.get("objective", {}))
 	state_label.text = String(snapshot.get("state", ""))
 	log_label.text = String(snapshot.get("log", ""))
 	_update_interaction(snapshot.get("interaction", {}))
@@ -141,7 +149,8 @@ func _apply_dungeon_layout() -> void:
 	info_panel.custom_minimum_size = Vector2(560, 250)
 	left_column.custom_minimum_size = Vector2(360, 220)
 	right_column.custom_minimum_size = Vector2(160, 220)
-	state_label.custom_minimum_size = Vector2(340, 90)
+	objective_label.custom_minimum_size = Vector2(340, 54)
+	state_label.custom_minimum_size = Vector2(340, 76)
 	log_label.custom_minimum_size = Vector2(340, 70)
 	prompt_panel.offset_left = 16
 	prompt_panel.offset_right = -16
@@ -167,6 +176,23 @@ func _update_interaction(interaction: Dictionary) -> void:
 	if selection != "":
 		detail += "\n[color=#8fb7d8]%s[/color]" % selection
 	interaction_detail.text = "%s\n%s" % [status, detail]
+
+func _update_objective(objective: Dictionary) -> void:
+	if objective.is_empty():
+		objective_label.text = "[color=#9aa7b8]Objective[/color]\nExplore and read nearby markers."
+		return
+	var tone := String(objective.get("tone", "neutral"))
+	var color := "d8c36d"
+	match tone:
+		"danger":
+			color = "d8796d"
+		"reward":
+			color = "6fd2b3"
+	objective_label.text = "[color=#%s][b]%s[/b][/color]\n%s" % [
+		color,
+		String(objective.get("title", "Objective")),
+		String(objective.get("detail", ""))
+	]
 
 func _update_intent_chip(interaction: Dictionary) -> void:
 	if interaction.is_empty():

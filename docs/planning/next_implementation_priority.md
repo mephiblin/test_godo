@@ -29,6 +29,10 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 UX/authoring pass added dungeon HUD intent chips/next-step guides,
   combat victory/defeat outcome overlays, and placement quick-author actions in
   the editor preview panel.
+- 2026-05-24 playability pass listed the remaining porting backlog by gameplay
+  risk, added objective/gate guidance to HUD snapshots, added dungeon world
+  path markers for active interactions, and added guided event/NPC placement
+  selectors in the editor preview panel.
 
 ## P0
 
@@ -44,7 +48,11 @@ original web-repo `godot-port-plan.md`.
    - Done: dungeon placements now render with type-specific 3D marker shapes,
      rings, animated intent nodes, and a focused target marker.
    - Done: dungeon HUD now renders active intent chips and next-step guidance.
-   - Next: add optional path-to-object guidance where useful.
+   - Done: active dungeon interactions now draw short world-space path markers
+     from the player to the focused object where a route can be found.
+   - Done: HUD snapshots now expose current objective, quest seed, and blocked
+     gate guidance as an in-game objective panel.
+   - Next: tune path marker density/occlusion after manual play sessions.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.
 
 3. `editor-authoring-parity`
@@ -99,6 +107,8 @@ original web-repo `godot-port-plan.md`.
 4. `editor-authoring-ux`
    - Done: placement preview includes quick-author actions for traps, rest points,
      field monsters, NPC services, route links, and loot caches.
+   - Done: event/rest/trap/NPC placements now include guided event/NPC selectors
+     and label-sync actions in the preview authoring panel.
    - Next: convert event graph and NPC service editing from preview-only into
      direct guided field editors.
 

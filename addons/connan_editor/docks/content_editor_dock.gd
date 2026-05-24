@@ -868,6 +868,7 @@ func _render_placement_affordances(placement: Dictionary) -> void:
 	summary.custom_minimum_size = Vector2(0, 70)
 	summary.text = _placement_affordance_summary(placement)
 	placement_affordance_box.add_child(summary)
+	_add_guided_placement_fields(placement)
 	_add_placement_quick_actions(placement)
 
 	var placement_type := String(placement.get("type", ""))
@@ -2119,6 +2120,84 @@ func _apply_placement_quick_action(fields: Dictionary) -> void:
 			break
 	_show_placement_editor(updated)
 	status_label.text = "[b]Quick Author Applied[/b] %s" % current_placement_id
+
+func _add_guided_placement_fields(placement: Dictionary) -> void:
+	var placement_type := String(placement.get("type", ""))
+	if placement_type not in ["event", "rest", "trap", "npc_service"]:
+		return
+	var panel := PanelContainer.new()
+	placement_affordance_box.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	panel.add_child(box)
+	var title := Label.new()
+	title.text = "Guided authoring"
+	title.add_theme_font_size_override("font_size", 14)
+	box.add_child(title)
+	if placement_type in ["event", "rest", "trap"]:
+		_add_guided_reference_row(box, "Event", "eventId", "events", String(placement.get("eventId", "")))
+		_add_guided_label_button(box, "Use Event Title", "events", String(placement.get("eventId", "")))
+	if placement_type == "npc_service":
+		_add_guided_reference_row(box, "NPC", "npcId", "npcs", String(placement.get("npcId", "")))
+		_add_guided_label_button(box, "Use NPC Name", "npcs", String(placement.get("npcId", "")))
+
+func _add_guided_reference_row(parent: VBoxContainer, label_text: String, key: String, definition_kind: String, current_value: String) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	parent.add_child(row)
+	var label := Label.new()
+	label.text = "%s:" % label_text
+	label.custom_minimum_size = Vector2(72, 0)
+	row.add_child(label)
+	var picker := OptionButton.new()
+	picker.custom_minimum_size = Vector2(260, 0)
+	var selected_index := 0
+	var index := 0
+	for definition in definitions_cache.get(definition_kind, []):
+		if typeof(definition) != TYPE_DICTIONARY:
+			continue
+		var definition_id := String(definition.get("id", ""))
+		if definition_id == "":
+			continue
+		picker.add_item(definition_id)
+		if definition_id == current_value:
+			selected_index = index
+		index += 1
+	if picker.item_count == 0:
+		picker.add_item(current_value if current_value != "" else "-")
+	picker.select(selected_index)
+	picker.item_selected.connect(func(selected: int) -> void:
+		var value := picker.get_item_text(selected)
+		_apply_placement_quick_action({key: value})
+	)
+	row.add_child(picker)
+
+func _add_guided_label_button(parent: VBoxContainer, button_text: String, definition_kind: String, definition_id: String) -> void:
+	if definition_id == "":
+		return
+	var definition := _definition_by_id(definition_kind, definition_id)
+	if definition.is_empty():
+		return
+	var label_value := String(definition.get("name", definition.get("title", definition_id)))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	parent.add_child(row)
+	var preview := Label.new()
+	preview.text = "Label: %s" % label_value
+	preview.custom_minimum_size = Vector2(240, 0)
+	row.add_child(preview)
+	var button := Button.new()
+	button.text = button_text
+	button.pressed.connect(func() -> void:
+		_apply_placement_quick_action({"label": label_value})
+	)
+	row.add_child(button)
+
+func _definition_by_id(definition_kind: String, definition_id: String) -> Dictionary:
+	for definition in definitions_cache.get(definition_kind, []):
+		if typeof(definition) == TYPE_DICTIONARY and String(definition.get("id", "")) == definition_id:
+			return definition
+	return {}
 
 func _validate() -> void:
 	var result := ContentTools.validate_definitions(definitions_cache)

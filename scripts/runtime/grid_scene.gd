@@ -19,6 +19,7 @@ var placement_nodes: Dictionary = {}
 var placement_rings: Dictionary = {}
 var placement_intent_nodes: Dictionary = {}
 var dungeon_focus_node: MeshInstance3D
+var dungeon_focus_path_nodes: Array[MeshInstance3D] = []
 var town_focus_anchor_node: MeshInstance3D
 var town_focus_path_nodes: Array[MeshInstance3D] = []
 var active_overlay: Control
@@ -117,6 +118,7 @@ func hud_snapshot() -> Dictionary:
 			_controls_summary()
 		],
 		"log": "\n".join(log_lines.slice(max(log_lines.size() - 5, 0), log_lines.size())),
+		"objective": _objective_guide_snapshot(),
 		"interaction": _interaction_snapshot(),
 		"minimap": {
 			"mapId": String(map_data.get("id", "")),
@@ -2066,6 +2068,47 @@ func _interaction_guide_text(placement: Dictionary, source: String, distance: in
 		_:
 			return "Space interacts with the highlighted object."
 
+func _objective_guide_snapshot() -> Dictionary:
+	var quest_state := QuestService.current_quest(current_slot)
+	var quest_status := String(quest_state.get("status", "none"))
+	var title := "Explore"
+	var detail := "Map unknowns, read nearby markers, and push toward open routes."
+	var tone := "neutral"
+	if quest_status == "accepted":
+		title = "Quest Target"
+		var target_monster_id := String(quest_state.get("targetMonsterId", ""))
+		var monster_def := ContentRegistry.get_definition("monsters", target_monster_id)
+		detail = "Find and defeat %s. Quest targets are marked on the minimap when visible." % String(monster_def.get("name", target_monster_id))
+		tone = "danger"
+	elif quest_status == "complete_ready":
+		title = "Turn In Reward"
+		detail = "Return to a quest board or eligible NPC service to claim the completed quest reward."
+		tone = "reward"
+	for route in _route_state_entries():
+		if typeof(route) != TYPE_DICTIONARY:
+			continue
+		if not bool(route.get("blocked", false)):
+			continue
+		var blocked_message := String(route.get("blockedMessage", ""))
+		if blocked_message != "":
+			detail += "\nGate: %s" % blocked_message
+			break
+	var active_seeds: Array[String] = []
+	var quest_seeds := QuestService.quest_seed_states(current_slot)
+	for seed_id in quest_seeds.keys():
+		var state: Dictionary = quest_seeds.get(seed_id, {})
+		if String(state.get("status", "")) == "active":
+			active_seeds.append(String(state.get("title", seed_id)))
+	if not active_seeds.is_empty():
+		title = "Quest Seed"
+		detail += "\nSeed: %s" % ", ".join(active_seeds)
+		tone = "reward" if quest_status == "complete_ready" else "neutral"
+	return {
+		"title": title,
+		"detail": detail,
+		"tone": tone
+	}
+
 func _interaction_intent_label(placement: Dictionary, source: String, distance: int) -> String:
 	var kind := String(placement.get("type", ""))
 	if source == "selected" and distance > 1:
@@ -2225,6 +2268,7 @@ func _refresh_interaction_focus() -> void:
 			var focus_cell := _placement_runtime_cell(focus_placement) if not focus_placement.is_empty() else player_cell
 			dungeon_focus_node.position = Vector3(focus_cell.x, 0.09, focus_cell.y)
 			dungeon_focus_node.scale = Vector3.ONE * (1.4 if bool(interaction.get("blocked", false)) else 1.15)
+	_update_dungeon_focus_path(interaction)
 	_update_town_focus_anchor(selected_id)
 	_update_town_focus_path(selected_id)
 
@@ -2440,6 +2484,12 @@ func _clear_town_focus_path_nodes() -> void:
 			node.queue_free()
 	town_focus_path_nodes.clear()
 
+func _clear_dungeon_focus_path_nodes() -> void:
+	for node in dungeon_focus_path_nodes:
+		if node and is_instance_valid(node):
+			node.queue_free()
+	dungeon_focus_path_nodes.clear()
+
 func _update_town_focus_anchor(selected_id: String) -> void:
 	if not _is_town_map():
 		return
@@ -2495,6 +2545,63 @@ func _update_town_focus_path(selected_id: String) -> void:
 			world_root.add_child(node)
 			town_focus_path_nodes.append(node)
 		return
+
+func _update_dungeon_focus_path(interaction: Dictionary) -> void:
+	_clear_dungeon_focus_path_nodes()
+	if _is_town_map() or not bool(interaction.get("available", false)):
+		return
+	var focus_id := String(interaction.get("id", ""))
+	if focus_id == "":
+		return
+	var placement := _placement_by_id(focus_id)
+	if placement.is_empty():
+		return
+	var target := _placement_runtime_cell(placement)
+	var path := _dungeon_path_to_cell(target)
+	if path.size() <= 1:
+		return
+	var color := _placement_runtime_color(placement).lightened(0.18)
+	for idx in range(1, path.size()):
+		var cell: Vector2i = path[idx]
+		var node := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.07 if idx < path.size() - 1 else 0.14
+		mesh.bottom_radius = 0.12 if idx < path.size() - 1 else 0.22
+		mesh.height = 0.05 if idx < path.size() - 1 else 0.1
+		node.mesh = mesh
+		node.material_override = _flat_color_material(color)
+		node.position = Vector3(cell.x, 0.07 + float(idx) * 0.002, cell.y)
+		world_root.add_child(node)
+		dungeon_focus_path_nodes.append(node)
+
+func _dungeon_path_to_cell(target: Vector2i) -> Array[Vector2i]:
+	if target == player_cell:
+		return [player_cell]
+	var queue: Array[Vector2i] = [player_cell]
+	var came_from := {player_cell: player_cell}
+	var found := false
+	while not queue.is_empty():
+		var current: Vector2i = queue.pop_front()
+		if current == target:
+			found = true
+			break
+		for dir in DIRS:
+			var candidate: Vector2i = current + dir
+			if came_from.has(candidate):
+				continue
+			if candidate != target and _cell_hard_blocked(candidate):
+				continue
+			came_from[candidate] = current
+			queue.append(candidate)
+	if not found:
+		return [player_cell]
+	var reversed_path: Array[Vector2i] = [target]
+	var step: Vector2i = target
+	while step != player_cell:
+		step = came_from.get(step, player_cell)
+		reversed_path.append(step)
+	reversed_path.reverse()
+	return reversed_path
 
 func _town_path_to_anchor(anchor: Vector2i) -> Array[Vector2i]:
 	if anchor == player_cell:
