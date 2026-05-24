@@ -13,7 +13,96 @@ func clear() -> void:
 func build_world() -> void:
 	if scene_ref == null:
 		return
-	scene_ref.call("_build_town_world_content")
+	_configure_lighting()
+	var map_data: Dictionary = scene_ref.get("map_data")
+	var cells: Array = map_data.get("cells", [])
+	for y in range(cells.size()):
+		var row := String(cells[y])
+		for x in range(row.length()):
+			var cell := Vector2i(x, y)
+			if row[x] == "#":
+				_spawn_boundary(cell)
+			else:
+				_spawn_ground(cell)
+	for placement in map_data.get("placements", []):
+		scene_ref.call("_spawn_town_placement", placement)
+	scene_ref.call("_spawn_town_ambient_dressing")
+
+func _configure_lighting() -> void:
+	var sun: DirectionalLight3D = scene_ref.get("sun")
+	if sun == null:
+		return
+	sun.light_color = Color("fff1d5")
+	sun.light_energy = 1.55
+
+func _spawn_ground(cell: Vector2i) -> void:
+	var world_root: Node3D = scene_ref.get("world_root")
+	if world_root == null:
+		return
+	var base := MeshInstance3D.new()
+	var base_mesh := BoxMesh.new()
+	base_mesh.size = Vector3(1.0, 0.08, 1.0)
+	base.mesh = base_mesh
+	base.material_override = _ground_material(cell)
+	base.position = Vector3(cell.x, -0.04, cell.y)
+	world_root.add_child(base)
+	if _path_cells().has(_cell_key(cell)):
+		var path := MeshInstance3D.new()
+		var path_mesh := BoxMesh.new()
+		path_mesh.size = Vector3(0.76, 0.03, 0.76)
+		path.mesh = path_mesh
+		path.material_override = _flat_color_material(Color("9f8964"))
+		path.position = Vector3(cell.x, 0.005, cell.y)
+		world_root.add_child(path)
+
+func _spawn_boundary(cell: Vector2i) -> void:
+	var world_root: Node3D = scene_ref.get("world_root")
+	if world_root == null:
+		return
+	var wall := MeshInstance3D.new()
+	var wall_mesh := BoxMesh.new()
+	wall_mesh.size = Vector3(1.0, 1.0, 1.0)
+	wall.mesh = wall_mesh
+	wall.material_override = _flat_color_material(Color("6d5842"))
+	wall.position = Vector3(cell.x, 0.48, cell.y)
+	world_root.add_child(wall)
+	var cap := MeshInstance3D.new()
+	var cap_mesh := BoxMesh.new()
+	cap_mesh.size = Vector3(1.04, 0.12, 1.04)
+	cap.mesh = cap_mesh
+	cap.material_override = _flat_color_material(Color("9f835f"))
+	cap.position = Vector3(cell.x, 1.02, cell.y)
+	world_root.add_child(cap)
+
+func _ground_material(cell: Vector2i) -> StandardMaterial3D:
+	var color := Color("5e6e53")
+	if cell == Vector2i(2, 5):
+		color = Color("708262")
+	elif cell.y <= 3:
+		color = Color("667758")
+	elif cell.x >= 5:
+		color = Color("5b694f")
+	return _flat_color_material(color)
+
+func _path_cells() -> Dictionary:
+	var keys := {}
+	for cell in [
+		Vector2i(2, 5), Vector2i(2, 4), Vector2i(2, 3), Vector2i(2, 2),
+		Vector2i(3, 3), Vector2i(4, 3), Vector2i(5, 3), Vector2i(5, 2),
+		Vector2i(3, 4), Vector2i(4, 4), Vector2i(5, 4), Vector2i(6, 4),
+		Vector2i(3, 2), Vector2i(4, 2), Vector2i(6, 2)
+	]:
+		keys[_cell_key(cell)] = true
+	return keys
+
+func _cell_key(cell: Vector2i) -> String:
+	return "%d,%d" % [cell.x, cell.y]
+
+func _flat_color_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return material
 
 func register_ambient_node(node: Node3D, kind: String, data: Dictionary = {}) -> void:
 	if node == null:

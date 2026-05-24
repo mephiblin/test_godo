@@ -66,6 +66,8 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 dungeon route breadcrumb tuning pass sampled long interaction
   paths, lifted/pulsed breadcrumbs above the floor, and color-coded blocked,
   danger, reward, rest/service, and route targets.
+- 2026-05-24 town world ground builder pass moved town cell build looping,
+  lighting, ground/path tiles, and boundary meshes into `town_world_presenter.gd`.
 
 ## P0
 
@@ -76,8 +78,10 @@ original web-repo `godot-port-plan.md`.
      generic dungeon runtime surface into `town_focus_runtime.gd`.
    - Done: move town ambient presentation state/animation and town world build
      entrypoint into `town_world_presenter.gd`.
-   - Next: split the remaining town landmark mesh construction helpers out of
-     `grid_scene.gd`.
+   - Done: move town world cell looping, lighting, ground/path tile meshes, and
+     boundary meshes into `town_world_presenter.gd`.
+   - Next: split the remaining town landmark/actor mesh construction helpers out
+     of `grid_scene.gd`.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
