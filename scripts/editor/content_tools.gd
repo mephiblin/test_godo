@@ -584,6 +584,8 @@ static func export_build_bundle() -> Dictionary:
 		compiled_maps.append({
 			"id": map_id,
 			"path": target_path,
+			"sourcePath": source_path,
+			"sourceHash": _file_content_hash(source_path),
 			"kind": String(entry.get("kind", map_data.get("kind", "")))
 		})
 	var build_manifest := {
@@ -612,6 +614,14 @@ static func _load_json_dict(path: String) -> Dictionary:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return {}
 	return parsed
+
+static func _file_content_hash(path: String) -> int:
+	if path == "" or not FileAccess.file_exists(path):
+		return 0
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return 0
+	return file.get_as_text().hash()
 
 static func _load_json_array(path: String) -> Array:
 	if path == "" or not FileAccess.file_exists(path):

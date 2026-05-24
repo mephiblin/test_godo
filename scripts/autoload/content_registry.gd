@@ -83,6 +83,17 @@ func _select_manifest_path() -> String:
 	if source_version > 0 and imported_version < source_version:
 		load_warnings.append("Imported content manifest is stale (%d < %d); using source manifest." % [imported_version, source_version])
 		return SOURCE_MANIFEST_PATH
+	for entry in imported_manifest.get("compiledMaps", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var source_path := String(entry.get("sourcePath", ""))
+		var expected_hash := int(entry.get("sourceHash", 0))
+		if source_path == "" or expected_hash == 0:
+			continue
+		var actual_hash := _file_content_hash(source_path)
+		if actual_hash != 0 and actual_hash != expected_hash:
+			load_warnings.append("Imported compiled map %s is stale; source hash changed." % String(entry.get("id", source_path)))
+			return SOURCE_MANIFEST_PATH
 	return IMPORTED_MANIFEST_PATH
 
 func resolve_loot_items(table_id: String) -> Array[Dictionary]:
@@ -143,6 +154,14 @@ func _load_json(path: String) -> Dictionary:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return {}
 	return parsed
+
+func _file_content_hash(path: String) -> int:
+	if path == "" or not FileAccess.file_exists(path):
+		return 0
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return 0
+	return file.get_as_text().hash()
 
 func _load_json_rows(path: String) -> Array:
 	if not FileAccess.file_exists(path):

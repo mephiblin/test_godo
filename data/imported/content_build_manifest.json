@@ -4,22 +4,30 @@
 		{
 			"id": "town_square",
 			"kind": "town",
-			"path": "res://data/imported/maps/town_square.json"
+			"path": "res://data/imported/maps/town_square.json",
+			"sourceHash": 1548327055,
+			"sourcePath": "res://data/source_json/maps/town_square.json"
 		},
 		{
 			"id": "dungeon_floor_01",
 			"kind": "dungeon",
-			"path": "res://data/imported/maps/dungeon_floor_01.json"
+			"path": "res://data/imported/maps/dungeon_floor_01.json",
+			"sourceHash": 2098818037,
+			"sourcePath": "res://data/source_json/maps/dungeon_floor_01.json"
 		},
 		{
 			"id": "dungeon_floor_02",
 			"kind": "dungeon",
-			"path": "res://data/imported/maps/dungeon_floor_02.json"
+			"path": "res://data/imported/maps/dungeon_floor_02.json",
+			"sourceHash": 3453520692,
+			"sourcePath": "res://data/source_json/maps/dungeon_floor_02.json"
 		},
 		{
 			"id": "dungeon_floor_03",
 			"kind": "dungeon",
-			"path": "res://data/imported/maps/dungeon_floor_03.json"
+			"path": "res://data/imported/maps/dungeon_floor_03.json",
+			"sourceHash": 434403040,
+			"sourcePath": "res://data/source_json/maps/dungeon_floor_03.json"
 		}
 	],
 	"contentVersion": 1,

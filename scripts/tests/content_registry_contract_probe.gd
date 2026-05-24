@@ -15,6 +15,9 @@ func _initialize() -> void:
 	_probe_stale_imported_fallback(registry)
 	_restore_text(IMPORTED_MANIFEST_PATH, imported_backup)
 	registry.load_all()
+	_probe_stale_map_hash_fallback(registry)
+	_restore_text(IMPORTED_MANIFEST_PATH, imported_backup)
+	registry.load_all()
 	var restored: Dictionary = registry.validate_content()
 	_expect(String(restored.get("manifestPath", "")) == IMPORTED_MANIFEST_PATH, "registry should return to imported manifest after restore")
 	for failure in failures:
@@ -41,6 +44,37 @@ func _probe_stale_imported_fallback(registry: Node) -> void:
 	var warning_text := "\n".join(stale.get("warnings", []))
 	_expect(warning_text.contains("stale"), "stale imported fallback should expose warning")
 	_expect(int(stale.get("contentVersion", 0)) == int(source.get("contentVersion", 0)), "fallback should expose source contentVersion")
+
+func _probe_stale_map_hash_fallback(registry: Node) -> void:
+	var imported := _read_json_dict(IMPORTED_MANIFEST_PATH)
+	var source := _read_json_dict(SOURCE_MANIFEST_PATH)
+	var compiled_maps: Array = imported.get("compiledMaps", [])
+	_expect(not compiled_maps.is_empty(), "imported manifest should list compiled maps")
+	if compiled_maps.is_empty():
+		return
+	var stale_entry: Dictionary = (compiled_maps[0] as Dictionary).duplicate(true)
+	var source_path := String(stale_entry.get("sourcePath", ""))
+	if source_path == "":
+		source_path = _source_map_path(String(stale_entry.get("id", "")), source)
+	stale_entry["sourcePath"] = source_path
+	stale_entry["sourceHash"] = 123456789
+	compiled_maps[0] = stale_entry
+	imported["compiledMaps"] = compiled_maps
+	_write_text(IMPORTED_MANIFEST_PATH, JSON.stringify(imported, "\t"))
+	registry.load_all()
+	var stale: Dictionary = registry.validate_content()
+	_expect(bool(stale.get("ok", false)), "stale compiled map hash fallback should still load valid content")
+	_expect(String(stale.get("manifestPath", "")) == SOURCE_MANIFEST_PATH, "stale compiled map hash should fall back to source manifest")
+	var warning_text := "\n".join(stale.get("warnings", []))
+	_expect(warning_text.contains("source hash changed"), "stale compiled map hash fallback should expose warning")
+
+func _source_map_path(map_id: String, source: Dictionary) -> String:
+	for entry in source.get("maps", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		if String(entry.get("id", "")) == map_id:
+			return String(entry.get("path", ""))
+	return ""
 
 func _registry() -> Node:
 	return root.get_node("ContentRegistry")

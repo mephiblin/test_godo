@@ -48,6 +48,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 editor guided contract pass let placement authors apply selected
   event step/choice and NPC service preview rows into authored placement
   metadata, with editor smoke proving source/imported round-trip.
+- 2026-05-24 imported map hash contract pass made build bundles record source
+  path/hash metadata per compiled map and made runtime fall back to source JSON
+  when imported map hashes no longer match.
 
 ## P0
 
@@ -89,8 +92,11 @@ original web-repo `godot-port-plan.md`.
      validator errors.
    - Done: runtime registry now treats source JSON as authority when imported
      cache contentVersion is stale, and exposes warnings in content validation.
-   - Tighten map-level source/imported hash or timestamp contracts.
-   - Broaden stale bundle and content-version mismatch handling.
+   - Done: imported build bundles now record compiled map `sourcePath` and
+     `sourceHash`, and runtime falls back to source JSON if a compiled map hash
+     is stale.
+   - Broaden stale bundle and content-version mismatch handling to definition
+     families and exported build metadata.
 
 5. `technology-direction-sync`
    - Current decision: stay GDScript-first for the vertical-slice hardening pass.
@@ -156,6 +162,8 @@ original web-repo `godot-port-plan.md`.
      boundaries stricter.
    - Done: stale imported manifest fallback now prevents runtime from silently
      loading an older cache over newer source JSON.
+   - Done: stale imported map-hash fallback now prevents runtime from silently
+     loading compiled maps generated from older source JSON.
    - Document data paths runtime must never mutate.
    - Clarify fallback editor versus real plugin authoring contracts.
    - Define canonical JSON write-back behavior for inspector edits.
