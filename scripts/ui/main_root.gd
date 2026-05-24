@@ -1,7 +1,5 @@
 extends Node
 
-const EDITOR_WORKSPACE_SCENE := preload("res://scenes/editor_tools/EditorWorkspace.tscn")
-
 @onready var scene_host: Node = $SceneHost
 @onready var hud_layer: CanvasLayer = $HudLayer
 @onready var modal_layer: CanvasLayer = $ModalLayer
@@ -509,14 +507,15 @@ func _run_save_migration_smoke() -> void:
 	var current_content_version := int(ContentRegistry.get_manifest().get("contentVersion", 0))
 	var legacy_ok := _run_legacy_save_migration_check(current_content_version)
 	var future_ok := _run_future_content_block_check(current_content_version)
-	var editor_fallback_dungeon: Dictionary = await _capture_editor_fallback_snapshot("dungeon_floor_01", "townGateToDungeonEvent", "", {
+	var editor_fallback_smoke := _editor_fallback_smoke_driver()
+	var editor_fallback_dungeon: Dictionary = await editor_fallback_smoke.snapshot("dungeon_floor_01", "townGateToDungeonEvent", "", {
 		"eventChoiceIndices": [1],
 		"eventStepIds": ["altar_end"]
-	})
-	var editor_fallback_town: Dictionary = await _capture_editor_fallback_snapshot("town_square", "tempTownRouteTrainer", "")
-	var editor_fallback_town_gatekeeper: Dictionary = await _capture_editor_fallback_snapshot("town_square", "tempTownRouteGatekeeper", "", {
+	}, Callable(self, "_capture"))
+	var editor_fallback_town: Dictionary = await editor_fallback_smoke.snapshot("town_square", "tempTownRouteTrainer", "", {}, Callable(self, "_capture"))
+	var editor_fallback_town_gatekeeper: Dictionary = await editor_fallback_smoke.snapshot("town_square", "tempTownRouteGatekeeper", "", {
 		"npcServiceIndices": [1, 0]
-	})
+	}, Callable(self, "_capture"))
 	for slot in test_slots:
 		_restore_slot(slot, backups.get(slot, null))
 	var report := {
@@ -545,10 +544,10 @@ func _run_save_migration_smoke() -> void:
 		and bool(editor_fallback_dungeon.get("ok", false)) \
 		and bool(editor_fallback_town.get("ok", false)) \
 		and bool(editor_fallback_town_gatekeeper.get("ok", false)) \
-		and _fallback_variant_contains(editor_fallback_dungeon, "eventChoice:1", "Selected choice: 피를 바친다") \
-		and _fallback_variant_contains(editor_fallback_dungeon, "eventStep:altar_end", "Selected step: altar_end") \
-		and _fallback_variant_contains(editor_fallback_town_gatekeeper, "npcService:1", "Selected service: talk:청동 문에 대해 묻는다") \
-		and _fallback_variant_contains(editor_fallback_town_gatekeeper, "npcService:0", "Selected service: route_info:문 상태를 확인한다") else 1)
+		and editor_fallback_smoke.variant_contains(editor_fallback_dungeon, "eventChoice:1", "Selected choice: 피를 바친다") \
+		and editor_fallback_smoke.variant_contains(editor_fallback_dungeon, "eventStep:altar_end", "Selected step: altar_end") \
+		and editor_fallback_smoke.variant_contains(editor_fallback_town_gatekeeper, "npcService:1", "Selected service: talk:청동 문에 대해 묻는다") \
+		and editor_fallback_smoke.variant_contains(editor_fallback_town_gatekeeper, "npcService:0", "Selected service: route_info:문 상태를 확인한다") else 1)
 
 func _run_smoke() -> void:
 	print("SMOKE: title")
@@ -720,14 +719,15 @@ func _run_smoke() -> void:
 	if town_scene and town_scene.has_method("_close_service_overlay"):
 		town_scene.call("_close_service_overlay")
 	await _capture("06_reward.png")
-	var editor_fallback_dungeon: Dictionary = await _capture_editor_fallback_snapshot("dungeon_floor_01", "townGateToDungeonEvent", "07_editor_fallback_dungeon.png", {
+	var editor_fallback_smoke := _editor_fallback_smoke_driver()
+	var editor_fallback_dungeon: Dictionary = await editor_fallback_smoke.snapshot("dungeon_floor_01", "townGateToDungeonEvent", "07_editor_fallback_dungeon.png", {
 		"eventChoiceIndices": [1],
 		"eventStepIds": ["altar_end"]
-	})
-	var editor_fallback_town: Dictionary = await _capture_editor_fallback_snapshot("town_square", "tempTownRouteTrainer", "07_editor_fallback_town.png")
-	var editor_fallback_town_gatekeeper: Dictionary = await _capture_editor_fallback_snapshot("town_square", "tempTownRouteGatekeeper", "", {
+	}, Callable(self, "_capture"))
+	var editor_fallback_town: Dictionary = await editor_fallback_smoke.snapshot("town_square", "tempTownRouteTrainer", "07_editor_fallback_town.png", {}, Callable(self, "_capture"))
+	var editor_fallback_town_gatekeeper: Dictionary = await editor_fallback_smoke.snapshot("town_square", "tempTownRouteGatekeeper", "", {
 		"npcServiceIndices": [1, 0]
-	})
+	}, Callable(self, "_capture"))
 	var smoke_slot := SaveService.load_slot(1)
 	var report := {
 		"content": ContentRegistry.validate_content(),
@@ -802,14 +802,15 @@ func _run_benchmark_smoke() -> void:
 	await _await_frames(2)
 	benchmark_report["combatLoopMs"] = _elapsed_ms(combat_start)
 	benchmark_report["routeAfterCombat"] = GameApp.current_mode
-	benchmark_report["editorFallbackDungeon"] = await _capture_editor_fallback_snapshot("dungeon_floor_01", "townGateToDungeonEvent", "", {
+	var editor_fallback_smoke := _editor_fallback_smoke_driver()
+	benchmark_report["editorFallbackDungeon"] = await editor_fallback_smoke.snapshot("dungeon_floor_01", "townGateToDungeonEvent", "", {
 		"eventChoiceIndices": [1],
 		"eventStepIds": ["altar_end"]
-	})
-	benchmark_report["editorFallbackTown"] = await _capture_editor_fallback_snapshot("town_square", "tempTownRouteTrainer", "")
-	benchmark_report["editorFallbackTownGatekeeper"] = await _capture_editor_fallback_snapshot("town_square", "tempTownRouteGatekeeper", "", {
+	}, Callable(self, "_capture"))
+	benchmark_report["editorFallbackTown"] = await editor_fallback_smoke.snapshot("town_square", "tempTownRouteTrainer", "", {}, Callable(self, "_capture"))
+	benchmark_report["editorFallbackTownGatekeeper"] = await editor_fallback_smoke.snapshot("town_square", "tempTownRouteGatekeeper", "", {
 		"npcServiceIndices": [1, 0]
-	})
+	}, Callable(self, "_capture"))
 	var before_move: Dictionary = benchmark_report.get("dungeonSnapshotBeforeMove", {})
 	var after_move: Dictionary = benchmark_report.get("dungeonSnapshotAfterMove", {})
 	benchmark_report["ok"] = float(benchmark_report.get("dungeonBuildMs", -1.0)) >= 0.0 \
@@ -819,10 +820,10 @@ func _run_benchmark_smoke() -> void:
 		and bool((benchmark_report.get("editorFallbackDungeon", {}) as Dictionary).get("ok", false)) \
 		and bool((benchmark_report.get("editorFallbackTown", {}) as Dictionary).get("ok", false)) \
 		and bool((benchmark_report.get("editorFallbackTownGatekeeper", {}) as Dictionary).get("ok", false)) \
-		and _fallback_variant_contains(benchmark_report.get("editorFallbackDungeon", {}) as Dictionary, "eventChoice:1", "Selected choice: 피를 바친다") \
-		and _fallback_variant_contains(benchmark_report.get("editorFallbackDungeon", {}) as Dictionary, "eventStep:altar_end", "Selected step: altar_end") \
-		and _fallback_variant_contains(benchmark_report.get("editorFallbackTownGatekeeper", {}) as Dictionary, "npcService:1", "Selected service: talk:청동 문에 대해 묻는다") \
-		and _fallback_variant_contains(benchmark_report.get("editorFallbackTownGatekeeper", {}) as Dictionary, "npcService:0", "Selected service: route_info:문 상태를 확인한다") \
+		and editor_fallback_smoke.variant_contains(benchmark_report.get("editorFallbackDungeon", {}) as Dictionary, "eventChoice:1", "Selected choice: 피를 바친다") \
+		and editor_fallback_smoke.variant_contains(benchmark_report.get("editorFallbackDungeon", {}) as Dictionary, "eventStep:altar_end", "Selected step: altar_end") \
+		and editor_fallback_smoke.variant_contains(benchmark_report.get("editorFallbackTownGatekeeper", {}) as Dictionary, "npcService:1", "Selected service: talk:청동 문에 대해 묻는다") \
+		and editor_fallback_smoke.variant_contains(benchmark_report.get("editorFallbackTownGatekeeper", {}) as Dictionary, "npcService:0", "Selected service: route_info:문 상태를 확인한다") \
 		and String(benchmark_report.get("routeAfterCombat", "")) == GameApp.MODE_DUNGEON
 	var out_dir := _output_dir()
 	DirAccess.make_dir_recursive_absolute(out_dir)
@@ -876,14 +877,15 @@ func _run_content_import_smoke() -> void:
 		"compiledMapPreviewCounts": compiled_maps.map(func(row: Dictionary) -> int: return row.get("compiledPreview", {}).get("generatedCells", []).size()),
 		"definitionCounts": definition_counts
 	}
-	report["editorFallbackDungeon"] = await _capture_editor_fallback_snapshot("dungeon_floor_01", "townGateToDungeonEvent", "", {
+	var editor_fallback_smoke := _editor_fallback_smoke_driver()
+	report["editorFallbackDungeon"] = await editor_fallback_smoke.snapshot("dungeon_floor_01", "townGateToDungeonEvent", "", {
 		"eventChoiceIndices": [1],
 		"eventStepIds": ["altar_end"]
-	})
-	report["editorFallbackTown"] = await _capture_editor_fallback_snapshot("town_square", "tempTownRouteTrainer", "")
-	report["editorFallbackTownGatekeeper"] = await _capture_editor_fallback_snapshot("town_square", "tempTownRouteGatekeeper", "", {
+	}, Callable(self, "_capture"))
+	report["editorFallbackTown"] = await editor_fallback_smoke.snapshot("town_square", "tempTownRouteTrainer", "", {}, Callable(self, "_capture"))
+	report["editorFallbackTownGatekeeper"] = await editor_fallback_smoke.snapshot("town_square", "tempTownRouteGatekeeper", "", {
 		"npcServiceIndices": [1, 0]
-	})
+	}, Callable(self, "_capture"))
 	report["ok"] = bool(validation.get("ok", false)) \
 		and bool(report["importedManifestExists"]) \
 		and bool(report["importedRoutePreviewExists"]) \
@@ -896,10 +898,10 @@ func _run_content_import_smoke() -> void:
 		and bool((report.get("editorFallbackDungeon", {}) as Dictionary).get("ok", false)) \
 		and bool((report.get("editorFallbackTown", {}) as Dictionary).get("ok", false)) \
 		and bool((report.get("editorFallbackTownGatekeeper", {}) as Dictionary).get("ok", false)) \
-		and _fallback_variant_contains(report.get("editorFallbackDungeon", {}) as Dictionary, "eventChoice:1", "Selected choice: 피를 바친다") \
-		and _fallback_variant_contains(report.get("editorFallbackDungeon", {}) as Dictionary, "eventStep:altar_end", "Selected step: altar_end") \
-		and _fallback_variant_contains(report.get("editorFallbackTownGatekeeper", {}) as Dictionary, "npcService:1", "Selected service: talk:청동 문에 대해 묻는다") \
-		and _fallback_variant_contains(report.get("editorFallbackTownGatekeeper", {}) as Dictionary, "npcService:0", "Selected service: route_info:문 상태를 확인한다") \
+		and editor_fallback_smoke.variant_contains(report.get("editorFallbackDungeon", {}) as Dictionary, "eventChoice:1", "Selected choice: 피를 바친다") \
+		and editor_fallback_smoke.variant_contains(report.get("editorFallbackDungeon", {}) as Dictionary, "eventStep:altar_end", "Selected step: altar_end") \
+		and editor_fallback_smoke.variant_contains(report.get("editorFallbackTownGatekeeper", {}) as Dictionary, "npcService:1", "Selected service: talk:청동 문에 대해 묻는다") \
+		and editor_fallback_smoke.variant_contains(report.get("editorFallbackTownGatekeeper", {}) as Dictionary, "npcService:0", "Selected service: route_info:문 상태를 확인한다") \
 		and required_ok
 	var out_dir := _output_dir()
 	DirAccess.make_dir_recursive_absolute(out_dir)
@@ -959,86 +961,9 @@ func _route_smoke_driver() -> RefCounted:
 	var script: Script = load("res://scripts/tests/route_smoke_driver.gd")
 	return script.new()
 
-func _capture_editor_fallback_snapshot(map_id: String, route_entry: String, file_name: String, options: Dictionary = {}) -> Dictionary:
-	var packed: PackedScene = EDITOR_WORKSPACE_SCENE
-	if packed == null:
-		return {"ok": false, "message": "Missing EditorWorkspace scene."}
-	var workspace: Control = packed.instantiate()
-	SceneRouter.scene_host.add_child(workspace)
-	await get_tree().process_frame
-	if workspace.has_method("smoke_set_selected_map"):
-		workspace.call("smoke_set_selected_map", map_id)
-	await get_tree().process_frame
-	var selected_ok := false
-	if workspace.has_method("smoke_set_route_preview_entry"):
-		selected_ok = bool(workspace.call("smoke_set_route_preview_entry", route_entry))
-	await get_tree().process_frame
-	if file_name != "":
-		await _capture(file_name)
-	var result := {
-		"ok": selected_ok,
-		"mapId": map_id,
-		"routeEntry": route_entry,
-		"summary": "",
-		"detail": "",
-		"variants": {}
-	}
-	if workspace.has_method("smoke_get_summary_text"):
-		result["summary"] = String(workspace.call("smoke_get_summary_text"))
-	if workspace.has_method("smoke_get_route_preview_detail_text"):
-		result["detail"] = String(workspace.call("smoke_get_route_preview_detail_text"))
-	var variants: Dictionary = {}
-	var event_choice_indices: Array = options.get("eventChoiceIndices", [])
-	for index_variant in event_choice_indices:
-		var index := int(index_variant)
-		var variant_key := "eventChoice:%d" % index
-		var switch_ok := false
-		if workspace.has_method("smoke_set_route_target_event_choice_index"):
-			switch_ok = bool(workspace.call("smoke_set_route_target_event_choice_index", index))
-		await get_tree().process_frame
-		variants[variant_key] = {
-			"ok": switch_ok,
-			"detail": String(workspace.call("smoke_get_route_preview_detail_text")) if workspace.has_method("smoke_get_route_preview_detail_text") else ""
-		}
-	var event_step_ids: Array = options.get("eventStepIds", [])
-	for step_variant in event_step_ids:
-		var step_id := String(step_variant)
-		var variant_key := "eventStep:%s" % step_id
-		var switch_ok := false
-		if workspace.has_method("smoke_set_route_target_event_step_id"):
-			switch_ok = bool(workspace.call("smoke_set_route_target_event_step_id", step_id))
-		await get_tree().process_frame
-		variants[variant_key] = {
-			"ok": switch_ok,
-			"detail": String(workspace.call("smoke_get_route_preview_detail_text")) if workspace.has_method("smoke_get_route_preview_detail_text") else ""
-		}
-	var npc_service_indices: Array = options.get("npcServiceIndices", [])
-	for index_variant in npc_service_indices:
-		var index := int(index_variant)
-		var variant_key := "npcService:%d" % index
-		var switch_ok := false
-		if workspace.has_method("smoke_set_route_target_service_index"):
-			switch_ok = bool(workspace.call("smoke_set_route_target_service_index", index))
-		await get_tree().process_frame
-		variants[variant_key] = {
-			"ok": switch_ok,
-			"detail": String(workspace.call("smoke_get_route_preview_detail_text")) if workspace.has_method("smoke_get_route_preview_detail_text") else ""
-		}
-	if not variants.is_empty():
-		result["variants"] = variants
-		for variant in variants.values():
-			if typeof(variant) == TYPE_DICTIONARY:
-				result["ok"] = bool(result["ok"]) and bool((variant as Dictionary).get("ok", false))
-	workspace.queue_free()
-	await get_tree().process_frame
-	return result
-
-func _fallback_variant_contains(snapshot: Dictionary, variant_key: String, expected_text: String) -> bool:
-	var variants: Dictionary = snapshot.get("variants", {})
-	if expected_text == "":
-		return bool((variants.get(variant_key, {}) as Dictionary).get("ok", false))
-	var variant: Dictionary = variants.get(variant_key, {})
-	return bool(variant.get("ok", false)) and String(variant.get("detail", "")).contains(expected_text)
+func _editor_fallback_smoke_driver() -> RefCounted:
+	var script: Script = load("res://scripts/tests/editor_fallback_smoke_driver.gd")
+	return script.new()
 
 func _find_service_by_type(services: Array[Dictionary], service_type: String) -> Dictionary:
 	for service in services:

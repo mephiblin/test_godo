@@ -114,6 +114,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 main root route smoke driver pass moved domain-smoke route
   snapshot/transition scene probes out of `main_root.gd` into a test-only
   driver.
+- 2026-05-24 editor fallback smoke driver pass moved editor fallback workspace
+  smoke manipulation and variant checks out of `main_root.gd` into a test-only
+  driver while preserving visual capture.
 
 ## P0
 
@@ -140,6 +143,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move domain-smoke route snapshot/transition helpers out of
      `main_root.gd`; domain smoke now uses `route_smoke_driver.gd` for those
      temporary probe scenes.
+   - Done: move editor fallback route-preview workspace smoke manipulation and
+     variant text checks out of `main_root.gd`; save/content/benchmark/visual
+     smoke now uses `editor_fallback_smoke_driver.gd`.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
