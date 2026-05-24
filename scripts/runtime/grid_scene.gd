@@ -14,6 +14,7 @@ const TOWN_FOCUS_RUNTIME_SCRIPT := preload("res://scripts/runtime/town_focus_run
 const TOWN_WORLD_PRESENTER_SCRIPT := preload("res://scripts/runtime/town_world_presenter.gd")
 const DUNGEON_AFFORDANCE_PRESENTER_SCRIPT := preload("res://scripts/runtime/dungeon_affordance_presenter.gd")
 const INTERACTION_SNAPSHOT_BUILDER_SCRIPT := preload("res://scripts/runtime/interaction_snapshot_builder.gd")
+const FIELD_MONSTER_RUNTIME_SCRIPT := preload("res://scripts/runtime/field_monster_runtime.gd")
 
 var map_data: Dictionary = {}
 var current_slot := 1
@@ -38,6 +39,7 @@ var town_focus_runtime: RefCounted
 var town_world_presenter: RefCounted
 var dungeon_affordance_presenter: RefCounted
 var interaction_snapshot_builder: RefCounted
+var field_monster_runtime: RefCounted
 
 @onready var world_root: Node3D = $WorldRoot
 @onready var player_rig: Node3D = $PlayerRig3D
@@ -68,11 +70,12 @@ func setup(payload: Dictionary) -> void:
 		player_cell = Vector2i(saved_cell[0], saved_cell[1])
 		facing = int(runtime.get("facing", facing))
 	log_lines = []
-	_ensure_field_monster_runtime()
 	town_focus_runtime = TOWN_FOCUS_RUNTIME_SCRIPT.new().configure(self)
 	town_world_presenter = TOWN_WORLD_PRESENTER_SCRIPT.new().configure(self)
 	dungeon_affordance_presenter = DUNGEON_AFFORDANCE_PRESENTER_SCRIPT.new().configure(self)
 	interaction_snapshot_builder = INTERACTION_SNAPSHOT_BUILDER_SCRIPT.new().configure(self)
+	field_monster_runtime = FIELD_MONSTER_RUNTIME_SCRIPT.new().configure(self)
+	_ensure_field_monster_runtime()
 	_build_world()
 	_refresh_town_focus_targets()
 	_apply_player_transform()
@@ -1459,28 +1462,9 @@ func _placement_runtime_cell(placement: Dictionary, runtime: Dictionary = {}) ->
 	return Vector2i(int(pos[0]), int(pos[1]))
 
 func _field_ai_config(placement: Dictionary) -> Dictionary:
-	var field_ai: Dictionary = placement.get("fieldAi", {})
-	var patrol_points: Array = []
-	for point_variant in field_ai.get("patrolPoints", []):
-		if typeof(point_variant) != TYPE_ARRAY:
-			continue
-		var point: Array = point_variant
-		if point.size() != 2:
-			continue
-		patrol_points.append([int(point[0]), int(point[1])])
-	return {
-		"behavior": _field_ai_behavior(placement),
-		"approachRange": maxi(int(field_ai.get("approachRange", 4)), 0),
-		"chaseRange": maxi(int(field_ai.get("chaseRange", 2)), 0),
-		"hearingRange": maxi(int(field_ai.get("hearingRange", 1)), 0),
-		"leashRange": maxi(int(field_ai.get("leashRange", 5)), 0),
-		"wakeRange": maxi(int(field_ai.get("wakeRange", 0)), 0),
-		"loseSightTurns": maxi(int(field_ai.get("loseSightTurns", 1)), 0),
-		"alertGroup": String(field_ai.get("alertGroup", "")),
-		"alertRadius": maxi(int(field_ai.get("alertRadius", 0)), 0),
-		"warningTurns": maxi(int(field_ai.get("warningTurns", 0)), 0),
-		"patrolPoints": patrol_points
-	}
+	if field_monster_runtime == null:
+		return {}
+	return field_monster_runtime.call("ai_config", placement)
 
 func _has_cardinal_line_of_sight(from: Vector2i, to: Vector2i) -> bool:
 	if from.x != to.x and from.y != to.y:
@@ -1500,11 +1484,9 @@ func _has_cardinal_line_of_sight(from: Vector2i, to: Vector2i) -> bool:
 	return true
 
 func _field_alert_group_id(placement: Dictionary) -> String:
-	var config := _field_ai_config(placement)
-	var explicit_group := String(config.get("alertGroup", ""))
-	if explicit_group != "":
-		return explicit_group
-	return String(placement.get("encounterId", ""))
+	if field_monster_runtime == null:
+		return ""
+	return String(field_monster_runtime.call("alert_group_id", placement))
 
 func _broadcast_field_alert(source_placement: Dictionary, field_monsters: Dictionary) -> void:
 	var group_id := _field_alert_group_id(source_placement)
@@ -1544,31 +1526,19 @@ func _broadcast_field_alert(source_placement: Dictionary, field_monsters: Dictio
 		field_monsters[placement_id] = state
 
 func _field_ai_behavior(placement: Dictionary) -> String:
-	var field_ai: Dictionary = placement.get("fieldAi", {})
-	var behavior := String(field_ai.get("behavior", "guard"))
-	return behavior if behavior in ["guard", "patrol", "ambush"] else "guard"
+	if field_monster_runtime == null:
+		return "guard"
+	return String(field_monster_runtime.call("ai_behavior", placement))
 
 func _field_patrol_route(placement: Dictionary) -> Array[Vector2i]:
-	var result: Array[Vector2i] = []
-	var base_cell := _state_cell({}, "currentCell", placement)
-	result.append(base_cell)
-	for point in _field_ai_config(placement).get("patrolPoints", []):
-		if typeof(point) != TYPE_ARRAY:
-			continue
-		var point_array: Array = point
-		if point_array.size() != 2:
-			continue
-		var patrol_cell := Vector2i(int(point_array[0]), int(point_array[1]))
-		if patrol_cell not in result:
-			result.append(patrol_cell)
-	return result
+	if field_monster_runtime == null:
+		return []
+	return field_monster_runtime.call("patrol_route", placement)
 
 func _field_patrol_target(state: Dictionary, placement: Dictionary) -> Vector2i:
-	var route := _field_patrol_route(placement)
-	if route.is_empty():
+	if field_monster_runtime == null:
 		return _state_cell(state, "startCell", placement)
-	var index := clampi(int(state.get("patrolIndex", 0)), 0, route.size() - 1)
-	return route[index]
+	return field_monster_runtime.call("patrol_target", state, placement)
 
 func _field_monster_should_auto_engage(monster_cell: Vector2i, placement: Dictionary) -> bool:
 	if not bool(placement.get("blocking", false)):
@@ -1576,28 +1546,16 @@ func _field_monster_should_auto_engage(monster_cell: Vector2i, placement: Dictio
 	return abs(monster_cell.x - player_cell.x) + abs(monster_cell.y - player_cell.y) <= 1
 
 func _field_monster_marker_color(state: Dictionary) -> Color:
-	match String(state.get("aiState", "idle")):
-		"ambushing":
-			return Color("6f5a8e")
-		"warning":
-			return Color("d8a84e")
-		"approaching":
-			return Color("d47f4a")
-		"chasing":
-			return Color("d04f4f")
-		"returning":
-			return Color("8f79c9")
-		"giving_up":
-			return Color("8d6767")
-		"patrolling":
-			return Color("c25ac2")
-		_:
-			return Color("d04f4f")
+	if field_monster_runtime == null:
+		return Color("d04f4f")
+	return field_monster_runtime.call("marker_color", state)
 
 func _state_cell(state: Dictionary, key: String, placement: Dictionary) -> Vector2i:
-	var fallback: Array = placement.get("position", [0, 0])
-	var raw: Array = state.get(key, fallback)
-	return Vector2i(int(raw[0]), int(raw[1]))
+	if field_monster_runtime == null:
+		var fallback: Array = placement.get("position", [0, 0])
+		var raw: Array = state.get(key, fallback)
+		return Vector2i(int(raw[0]), int(raw[1]))
+	return field_monster_runtime.call("state_cell", state, key, placement)
 
 func _log(message: String) -> void:
 	log_lines.append(message)

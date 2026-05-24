@@ -138,6 +138,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 interaction snapshot builder pass moved HUD interaction snapshot,
   prompt, intent, next-step, and guide text construction out of `grid_scene.gd`
   into `interaction_snapshot_builder.gd`.
+- 2026-05-24 field monster runtime helper pass moved field AI config,
+  behavior, alert group, patrol route/target, marker color, and state-cell
+  helper contracts into `field_monster_runtime.gd`.
 
 ## P0
 
@@ -192,6 +195,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move mixed town/dungeon interaction HUD snapshot and prompt
      construction out of `grid_scene.gd` into a dedicated runtime helper while
      preserving the current interaction dictionary contract.
+   - Done: move field monster AI helper contracts into
+     `field_monster_runtime.gd`, keeping the current scene/test call surface as
+     thin delegates ahead of a future full tick-loop split.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
