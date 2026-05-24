@@ -18,6 +18,7 @@ const FIELD_MONSTER_RUNTIME_SCRIPT := preload("res://scripts/runtime/field_monst
 const DUNGEON_WORLD_PRESENTER_SCRIPT := preload("res://scripts/runtime/dungeon_world_presenter.gd")
 const RUNTIME_SNAPSHOT_BUILDER_SCRIPT := preload("res://scripts/runtime/runtime_snapshot_builder.gd")
 const DUNGEON_INTERACTION_RUNTIME_SCRIPT := preload("res://scripts/runtime/dungeon_interaction_runtime.gd")
+const RUNTIME_MAP_QUERY_SCRIPT := preload("res://scripts/runtime/runtime_map_query.gd")
 
 var map_data: Dictionary = {}
 var current_slot := 1
@@ -43,6 +44,7 @@ var field_monster_runtime: RefCounted
 var dungeon_world_presenter: RefCounted
 var runtime_snapshot_builder: RefCounted
 var dungeon_interaction_runtime: RefCounted
+var runtime_map_query: RefCounted
 
 @onready var world_root: Node3D = $WorldRoot
 @onready var player_rig: Node3D = $PlayerRig3D
@@ -81,6 +83,7 @@ func setup(payload: Dictionary) -> void:
 	dungeon_world_presenter = DUNGEON_WORLD_PRESENTER_SCRIPT.new().configure(self)
 	runtime_snapshot_builder = RUNTIME_SNAPSHOT_BUILDER_SCRIPT.new().configure(self)
 	dungeon_interaction_runtime = DUNGEON_INTERACTION_RUNTIME_SCRIPT.new().configure(self)
+	runtime_map_query = RUNTIME_MAP_QUERY_SCRIPT.new().configure(self)
 	_ensure_field_monster_runtime()
 	_build_world()
 	_refresh_town_focus_targets()
@@ -380,38 +383,9 @@ func _try_move(direction: Vector2i) -> void:
 		_enter_combat(combat_trigger)
 
 func _is_blocked(cell: Vector2i) -> bool:
-	var cells: Array = map_data.get("cells", [])
-	if cell.y < 0 or cell.y >= cells.size():
+	if runtime_map_query == null:
 		return true
-	var row := String(cells[cell.y])
-	if cell.x < 0 or cell.x >= row.length():
-		return true
-	if row[cell.x] == "#":
-		return true
-	for placement in map_data.get("placements", []):
-		var placement_cell := _placement_runtime_cell(placement)
-		if placement_cell != cell:
-			continue
-		if String(placement.get("type", "")) == "locked_door" and bool(placement.get("blocking", false)):
-			var slot_data: Dictionary = SaveService.load_slot(current_slot)
-			var runtime: Dictionary = slot_data.get("runtime", {})
-			var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
-			if not bool(unlocked_doors.get(String(placement.get("id", "")), false)):
-				return true
-		if String(placement.get("type", "")) == "secret_door":
-			var slot_data: Dictionary = SaveService.load_slot(current_slot)
-			var runtime: Dictionary = slot_data.get("runtime", {})
-			var discovered_secrets: Dictionary = runtime.get("discoveredSecrets", {})
-			if not bool(discovered_secrets.get(String(placement.get("id", "")), false)):
-				return true
-		if String(placement.get("type", "")) == "field_monster" and bool(placement.get("blocking", false)):
-			var slot_data: Dictionary = SaveService.load_slot(current_slot)
-			var runtime: Dictionary = slot_data.get("runtime", {})
-			var field_monsters: Dictionary = runtime.get("fieldMonsters", {})
-			var state: Dictionary = field_monsters.get(String(placement.get("id", "")), {})
-			if not bool(state.get("defeated", false)):
-				return true
-	return false
+	return bool(runtime_map_query.call("is_blocked", cell))
 
 func _interact_forward() -> void:
 	var front_placement := _front_interaction_placement()
@@ -421,11 +395,9 @@ func _interact_forward() -> void:
 	_log("Nothing to interact with.")
 
 func _front_interaction_placement() -> Dictionary:
-	var target_cell: Vector2i = player_cell + DIRS[facing]
-	for placement in map_data.get("placements", []):
-		if _placement_runtime_cell(placement) == target_cell:
-			return placement
-	return {}
+	if runtime_map_query == null:
+		return {}
+	return runtime_map_query.call("front_interaction_placement")
 
 func _trigger_interaction_placement(placement: Dictionary) -> void:
 	if dungeon_interaction_runtime != null:
@@ -573,33 +545,9 @@ func _update_dungeon_focus_path(interaction: Dictionary) -> void:
 	dungeon_affordance_presenter.call("spawn_focus_path", path, placement, interaction)
 
 func _dungeon_path_to_cell(target: Vector2i) -> Array[Vector2i]:
-	if target == player_cell:
+	if runtime_map_query == null:
 		return [player_cell]
-	var queue: Array[Vector2i] = [player_cell]
-	var came_from := {player_cell: player_cell}
-	var found := false
-	while not queue.is_empty():
-		var current: Vector2i = queue.pop_front()
-		if current == target:
-			found = true
-			break
-		for dir in DIRS:
-			var candidate: Vector2i = current + dir
-			if came_from.has(candidate):
-				continue
-			if candidate != target and _cell_hard_blocked(candidate):
-				continue
-			came_from[candidate] = current
-			queue.append(candidate)
-	if not found:
-		return [player_cell]
-	var reversed_path: Array[Vector2i] = [target]
-	var step: Vector2i = target
-	while step != player_cell:
-		step = came_from.get(step, player_cell)
-		reversed_path.append(step)
-	reversed_path.reverse()
-	return reversed_path
+	return runtime_map_query.call("dungeon_path_to_cell", target)
 
 func _route_from_placement(placement: Dictionary) -> void:
 	if dungeon_interaction_runtime != null:
@@ -682,70 +630,20 @@ func _monster_path_next_step(current: Vector2i, goal: Vector2i, occupied: Dictio
 	return field_monster_runtime.call("monster_path_next_step", current, goal, occupied, placement_id)
 
 func _cell_hard_blocked(cell: Vector2i) -> bool:
-	var cells: Array = map_data.get("cells", [])
-	if cell.y < 0 or cell.y >= cells.size():
+	if runtime_map_query == null:
 		return true
-	var row := String(cells[cell.y])
-	if cell.x < 0 or cell.x >= row.length():
-		return true
-	if row[cell.x] == "#":
-		return true
-	for placement in map_data.get("placements", []):
-		var placement_type := String(placement.get("type", ""))
-		if placement_type == "field_monster":
-			continue
-		if _placement_runtime_cell(placement) != cell:
-			continue
-		if placement_type == "locked_door" and bool(placement.get("blocking", false)):
-			var slot_data: Dictionary = SaveService.load_slot(current_slot)
-			var runtime: Dictionary = slot_data.get("runtime", {})
-			var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
-			if not bool(unlocked_doors.get(String(placement.get("id", "")), false)):
-				return true
-		if placement_type == "secret_door":
-			var slot_data: Dictionary = SaveService.load_slot(current_slot)
-			var runtime: Dictionary = slot_data.get("runtime", {})
-			var discovered_secrets: Dictionary = runtime.get("discoveredSecrets", {})
-			if not bool(discovered_secrets.get(String(placement.get("id", "")), false)):
-				return true
-	return false
+	return bool(runtime_map_query.call("cell_hard_blocked", cell))
 
 func _cell_blocks_vision(cell: Vector2i) -> bool:
-	var cells: Array = map_data.get("cells", [])
-	if cell.y < 0 or cell.y >= cells.size():
+	if runtime_map_query == null:
 		return true
-	var row := String(cells[cell.y])
-	if cell.x < 0 or cell.x >= row.length():
-		return true
-	if row[cell.x] == "#":
-		return true
-	var slot_data: Dictionary = SaveService.load_slot(current_slot)
-	var runtime: Dictionary = slot_data.get("runtime", {})
-	var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
-	var discovered_secrets: Dictionary = runtime.get("discoveredSecrets", {})
-	for placement in map_data.get("placements", []):
-		var placement_type := String(placement.get("type", ""))
-		if placement_type not in ["locked_door", "secret_door"]:
-			continue
-		var pos := _placement_runtime_cell(placement, runtime)
-		if pos != cell:
-			continue
-		if placement_type == "locked_door" and bool(placement.get("blocking", false)):
-			if not bool(unlocked_doors.get(String(placement.get("id", "")), false)):
-				return true
-		elif placement_type == "secret_door":
-			if not bool(discovered_secrets.get(String(placement.get("id", "")), false)):
-				return true
-	return false
+	return bool(runtime_map_query.call("cell_blocks_vision", cell))
 
 func _placement_runtime_cell(placement: Dictionary, runtime: Dictionary = {}) -> Vector2i:
-	if runtime.is_empty():
-		runtime = SaveService.load_slot(current_slot).get("runtime", {})
-	if String(placement.get("type", "")) == "field_monster":
-		var state: Dictionary = runtime.get("fieldMonsters", {}).get(String(placement.get("id", "")), {})
-		return _state_cell(state, "currentCell", placement)
-	var pos: Array = placement.get("position", [0, 0])
-	return Vector2i(int(pos[0]), int(pos[1]))
+	if runtime_map_query == null:
+		var pos: Array = placement.get("position", [0, 0])
+		return Vector2i(int(pos[0]), int(pos[1]))
+	return runtime_map_query.call("placement_runtime_cell", placement, runtime)
 
 func _field_ai_config(placement: Dictionary) -> Dictionary:
 	if field_monster_runtime == null:
@@ -803,7 +701,9 @@ func _log(message: String) -> void:
 	_persist_runtime()
 
 func _cell_visit_key(cell: Vector2i) -> String:
-	return "%s:%d,%d" % [String(map_data.get("id", default_map_id)), cell.x, cell.y]
+	if runtime_map_query == null:
+		return "%s:%d,%d" % [String(map_data.get("id", default_map_id)), cell.x, cell.y]
+	return String(runtime_map_query.call("cell_visit_key", cell))
 
 func _visited_keys_for_map(runtime: Dictionary) -> Array[String]:
 	if runtime_snapshot_builder == null:

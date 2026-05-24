@@ -160,6 +160,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 interaction guide builder pass moved objective guide and
   route/monster/event/door/secret/loot/trap affordance detail construction out
   of `grid_scene.gd` into `interaction_snapshot_builder.gd`.
+- 2026-05-24 runtime map query pass moved movement blocking, vision blocking,
+  front interaction lookup, dungeon focus path, placement runtime cell, and
+  visited-cell key logic out of `grid_scene.gd` into `runtime_map_query.gd`.
 
 ## P0
 
@@ -235,6 +238,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move objective guide and interaction affordance detail text builders
      into `interaction_snapshot_builder.gd`, leaving `grid_scene.gd`
      compatibility delegates for current helper callers.
+   - Done: move runtime map/cell query bodies into `runtime_map_query.gd`,
+     keeping movement, minimap, focus path, and field-monster callers on stable
+     `grid_scene.gd` delegates for now.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
