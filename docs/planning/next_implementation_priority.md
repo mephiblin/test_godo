@@ -58,6 +58,9 @@ original web-repo `godot-port-plan.md`.
   and service previews into `town_focus_runtime.gd`.
 - 2026-05-24 combat domain probe pass added direct headless assertions for skill
   effectOps, item combatUse, enemy combatProfile turns, and equipment resistance.
+- 2026-05-24 definition hash contract pass made imported build manifests record
+  source hashes for every definition family and made runtime fall back to source
+  JSON when those hashes are stale.
 
 ## P0
 
@@ -105,8 +108,10 @@ original web-repo `godot-port-plan.md`.
    - Done: imported build bundles now record compiled map `sourcePath` and
      `sourceHash`, and runtime falls back to source JSON if a compiled map hash
      is stale.
-   - Broaden stale bundle and content-version mismatch handling to definition
-     families and exported build metadata.
+   - Done: imported build bundles now record definition-family source hashes,
+     and runtime falls back to source JSON if any definition hash is stale.
+   - Broaden stale bundle and content-version mismatch handling to exported
+     build metadata and CI artifact reports.
 
 5. `technology-direction-sync`
    - Current decision: stay GDScript-first for the vertical-slice hardening pass.
@@ -180,6 +185,8 @@ original web-repo `godot-port-plan.md`.
      loading an older cache over newer source JSON.
    - Done: stale imported map-hash fallback now prevents runtime from silently
      loading compiled maps generated from older source JSON.
+   - Done: stale imported definition-hash fallback now prevents runtime from
+     silently loading definition families generated from older source JSON.
    - Document data paths runtime must never mutate.
    - Clarify fallback editor versus real plugin authoring contracts.
    - Define canonical JSON write-back behavior for inspector edits.

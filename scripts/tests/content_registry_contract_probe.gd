@@ -18,6 +18,9 @@ func _initialize() -> void:
 	_probe_stale_map_hash_fallback(registry)
 	_restore_text(IMPORTED_MANIFEST_PATH, imported_backup)
 	registry.load_all()
+	_probe_stale_definition_hash_fallback(registry)
+	_restore_text(IMPORTED_MANIFEST_PATH, imported_backup)
+	registry.load_all()
 	var restored: Dictionary = registry.validate_content()
 	_expect(String(restored.get("manifestPath", "")) == IMPORTED_MANIFEST_PATH, "registry should return to imported manifest after restore")
 	for failure in failures:
@@ -68,6 +71,39 @@ func _probe_stale_map_hash_fallback(registry: Node) -> void:
 	var warning_text := "\n".join(stale.get("warnings", []))
 	_expect(warning_text.contains("source hash changed"), "stale compiled map hash fallback should expose warning")
 
+func _probe_stale_definition_hash_fallback(registry: Node) -> void:
+	var imported := _read_json_dict(IMPORTED_MANIFEST_PATH)
+	var source := _read_json_dict(SOURCE_MANIFEST_PATH)
+	var definition_hashes: Dictionary = imported.get("definitionHashes", {})
+	if definition_hashes.is_empty():
+		definition_hashes = _definition_hash_fixture_from_source(source)
+	_expect(not definition_hashes.is_empty(), "imported manifest should list definition hashes")
+	if definition_hashes.is_empty():
+		return
+	var target_kind := String(definition_hashes.keys()[0])
+	var stale_entry: Dictionary = (definition_hashes[target_kind] as Dictionary).duplicate(true)
+	stale_entry["sourceHash"] = 123456789
+	definition_hashes[target_kind] = stale_entry
+	imported["definitionHashes"] = definition_hashes
+	_write_text(IMPORTED_MANIFEST_PATH, JSON.stringify(imported, "\t"))
+	registry.load_all()
+	var stale: Dictionary = registry.validate_content()
+	_expect(bool(stale.get("ok", false)), "stale definition hash fallback should still load valid content")
+	_expect(String(stale.get("manifestPath", "")) == SOURCE_MANIFEST_PATH, "stale definition hash should fall back to source manifest")
+	var warning_text := "\n".join(stale.get("warnings", []))
+	_expect(warning_text.contains("definition") and warning_text.contains("source hash changed"), "stale definition hash fallback should expose warning")
+
+func _definition_hash_fixture_from_source(source: Dictionary) -> Dictionary:
+	var result := {}
+	var definitions: Dictionary = source.get("definitions", {})
+	for kind in definitions.keys():
+		var path := String(definitions[kind])
+		result[String(kind)] = {
+			"path": path,
+			"sourceHash": _file_content_hash(path)
+		}
+	return result
+
 func _source_map_path(map_id: String, source: Dictionary) -> String:
 	for entry in source.get("maps", []):
 		if typeof(entry) != TYPE_DICTIONARY:
@@ -95,6 +131,14 @@ func _read_json_dict(path: String) -> Dictionary:
 	var text := _read_text(path)
 	var parsed: Variant = JSON.parse_string(text)
 	return parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+
+func _file_content_hash(path: String) -> int:
+	if path == "" or not FileAccess.file_exists(path):
+		return 0
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return 0
+	return file.get_as_text().hash()
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:

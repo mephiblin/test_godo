@@ -83,6 +83,10 @@ func _select_manifest_path() -> String:
 	if source_version > 0 and imported_version < source_version:
 		load_warnings.append("Imported content manifest is stale (%d < %d); using source manifest." % [imported_version, source_version])
 		return SOURCE_MANIFEST_PATH
+	var definition_stale_warning := _definition_hash_stale_warning(imported_manifest)
+	if definition_stale_warning != "":
+		load_warnings.append(definition_stale_warning)
+		return SOURCE_MANIFEST_PATH
 	for entry in imported_manifest.get("compiledMaps", []):
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
@@ -95,6 +99,23 @@ func _select_manifest_path() -> String:
 			load_warnings.append("Imported compiled map %s is stale; source hash changed." % String(entry.get("id", source_path)))
 			return SOURCE_MANIFEST_PATH
 	return IMPORTED_MANIFEST_PATH
+
+func _definition_hash_stale_warning(imported_manifest: Dictionary) -> String:
+	var definition_hashes: Dictionary = imported_manifest.get("definitionHashes", {})
+	if definition_hashes.is_empty():
+		return ""
+	for kind in definition_hashes.keys():
+		var entry: Variant = definition_hashes[kind]
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var source_path := String((entry as Dictionary).get("path", ""))
+		var expected_hash := int((entry as Dictionary).get("sourceHash", 0))
+		if source_path == "" or expected_hash == 0:
+			continue
+		var actual_hash := _file_content_hash(source_path)
+		if actual_hash != 0 and actual_hash != expected_hash:
+			return "Imported definition %s is stale; source hash changed." % String(kind)
+	return ""
 
 func resolve_loot_items(table_id: String) -> Array[Dictionary]:
 	var table := get_definition("loot_tables", table_id)

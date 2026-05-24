@@ -31,6 +31,76 @@
 		}
 	],
 	"contentVersion": 1,
+	"definitionHashes": {
+		"backgrounds": {
+			"path": "res://data/source_json/backgrounds.json",
+			"sourceHash": 962468768
+		},
+		"classes": {
+			"path": "res://data/source_json/classes.json",
+			"sourceHash": 718963540
+		},
+		"encounters": {
+			"path": "res://data/source_json/encounters.json",
+			"sourceHash": 3693619365
+		},
+		"events": {
+			"path": "res://data/source_json/events.json",
+			"sourceHash": 298992952
+		},
+		"items": {
+			"path": "res://data/source_json/items.json",
+			"sourceHash": 3861445502
+		},
+		"loot_tables": {
+			"path": "res://data/source_json/loot_tables.json",
+			"sourceHash": 1017863761
+		},
+		"map_chunks": {
+			"path": "res://data/source_json/map_chunks.json",
+			"sourceHash": 1104490257
+		},
+		"map_profiles": {
+			"path": "res://data/source_json/map_profiles.json",
+			"sourceHash": 1418942490
+		},
+		"materials": {
+			"path": "res://data/source_json/materials.json",
+			"sourceHash": 3592320591
+		},
+		"monsters": {
+			"path": "res://data/source_json/monsters.json",
+			"sourceHash": 3525611266
+		},
+		"npcs": {
+			"path": "res://data/source_json/npcs.json",
+			"sourceHash": 3597485375
+		},
+		"object_themes": {
+			"path": "res://data/source_json/object_themes.json",
+			"sourceHash": 396786332
+		},
+		"quests": {
+			"path": "res://data/source_json/quests.json",
+			"sourceHash": 753959399
+		},
+		"skills": {
+			"path": "res://data/source_json/skills.json",
+			"sourceHash": 2052700448
+		},
+		"start_supplies": {
+			"path": "res://data/source_json/start_supplies.json",
+			"sourceHash": 3493255276
+		},
+		"tile_substitutions": {
+			"path": "res://data/source_json/tile_substitutions.json",
+			"sourceHash": 4138833544
+		},
+		"vendors": {
+			"path": "res://data/source_json/vendors.json",
+			"sourceHash": 3518024717
+		}
+	},
 	"definitions": {
 		"backgrounds": "res://data/source_json/backgrounds.json",
 		"classes": "res://data/source_json/classes.json",

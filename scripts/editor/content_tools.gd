@@ -593,6 +593,7 @@ static func export_build_bundle() -> Dictionary:
 		"buildVersion": Time.get_datetime_string_from_system(),
 		"contentVersion": int(manifest().get("contentVersion", 0)),
 		"definitions": definition_paths(),
+		"definitionHashes": _definition_source_hashes(),
 		"compiledMaps": compiled_maps
 	}
 	var build_file := FileAccess.open(IMPORTED_MANIFEST_PATH, FileAccess.WRITE)
@@ -603,6 +604,16 @@ static func export_build_bundle() -> Dictionary:
 		"compiledMaps": compiled_maps.size(),
 		"manifestPath": IMPORTED_MANIFEST_PATH
 	}
+
+static func _definition_source_hashes() -> Dictionary:
+	var hashes := {}
+	for kind in definition_paths().keys():
+		var path := String(definition_paths()[kind])
+		hashes[String(kind)] = {
+			"path": path,
+			"sourceHash": _file_content_hash(path)
+		}
+	return hashes
 
 static func _load_json_dict(path: String) -> Dictionary:
 	if path == "" or not FileAccess.file_exists(path):
