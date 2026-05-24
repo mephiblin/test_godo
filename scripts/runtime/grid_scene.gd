@@ -437,125 +437,44 @@ func _interaction_snapshot() -> Dictionary:
 	return interaction_snapshot_builder.call("snapshot")
 
 func _objective_guide_snapshot() -> Dictionary:
-	var quest_state := QuestService.current_quest(current_slot)
-	var quest_status := String(quest_state.get("status", "none"))
-	var title := "Explore"
-	var detail := "Map unknowns, read nearby markers, and push toward open routes."
-	var tone := "neutral"
-	if quest_status == "accepted":
-		title = "Quest Target"
-		var target_monster_id := String(quest_state.get("targetMonsterId", ""))
-		var monster_def := ContentRegistry.get_definition("monsters", target_monster_id)
-		detail = "Find and defeat %s. Quest targets are marked on the minimap when visible." % String(monster_def.get("name", target_monster_id))
-		tone = "danger"
-	elif quest_status == "complete_ready":
-		title = "Turn In Reward"
-		detail = "Return to a quest board or eligible NPC service to claim the completed quest reward."
-		tone = "reward"
-	for route in _route_state_entries():
-		if typeof(route) != TYPE_DICTIONARY:
-			continue
-		if not bool(route.get("blocked", false)):
-			continue
-		var blocked_message := String(route.get("blockedMessage", ""))
-		if blocked_message != "":
-			detail += "\nGate: %s" % blocked_message
-			break
-	var active_seeds: Array[String] = []
-	var quest_seeds := QuestService.quest_seed_states(current_slot)
-	for seed_id in quest_seeds.keys():
-		var state: Dictionary = quest_seeds.get(seed_id, {})
-		if String(state.get("status", "")) == "active":
-			active_seeds.append(String(state.get("title", seed_id)))
-	if not active_seeds.is_empty():
-		title = "Quest Seed"
-		detail += "\nSeed: %s" % ", ".join(active_seeds)
-		tone = "reward" if quest_status == "complete_ready" else "neutral"
-	return {
-		"title": title,
-		"detail": detail,
-		"tone": tone
-	}
+	if interaction_snapshot_builder == null:
+		return {}
+	return interaction_snapshot_builder.call("objective_guide_snapshot")
 
 func _route_affordance_detail(placement: Dictionary, blocked_message: String) -> String:
-	var target_route := String(placement.get("targetRoute", ""))
-	var target_map_id := String(placement.get("targetMapId", ""))
-	var lines: Array[String] = []
-	if blocked_message != "":
-		lines.append("[color=#d89a6d]%s[/color]" % blocked_message)
-	else:
-		lines.append("[color=#9fd6a5]열림[/color] 다음 지역으로 이동한다.")
-	if target_route != "" or target_map_id != "":
-		lines.append("목적지: %s / %s" % [target_route, target_map_id])
-	var required_flag := String(placement.get("requiredFlag", ""))
-	if required_flag != "":
-		lines.append("필요 flag: %s" % required_flag)
-	var required_seed_id := String(placement.get("requiredQuestSeedId", ""))
-	if required_seed_id != "":
-		lines.append("필요 quest seed: %s = %s" % [required_seed_id, String(placement.get("requiredQuestSeedStatus", "rewarded"))])
-	return "\n".join(lines)
+	if interaction_snapshot_builder == null:
+		return ""
+	return String(interaction_snapshot_builder.call("route_affordance_detail", placement, blocked_message))
 
 func _field_monster_affordance_detail(placement: Dictionary) -> String:
-	var monster_id := String(placement.get("monsterId", placement.get("id", "")))
-	var monster_def := ContentRegistry.get_definition("monsters", monster_id)
-	var ai := _field_ai_config(placement)
-	var profile: Dictionary = monster_def.get("combatProfile", {})
-	var lines := [
-		"전방 몬스터와 즉시 전투를 시작한다.",
-		"대상: %s / encounter %s" % [String(monster_def.get("name", monster_id)), String(placement.get("encounterId", ""))],
-		"AI: %s alert=%s faction=%s" % [String(ai.get("behavior", "guard")), String(ai.get("alertGroup", "")), String(ai.get("faction", ""))]
-	]
-	if not profile.is_empty():
-		lines.append("전투 성향: %s" % String(profile.get("behavior", profile.get("role", "profile"))))
-	return "\n".join(lines)
+	if interaction_snapshot_builder == null:
+		return ""
+	return String(interaction_snapshot_builder.call("field_monster_affordance_detail", placement))
 
 func _event_affordance_detail(placement: Dictionary) -> String:
-	var event_id := String(placement.get("eventId", ""))
-	var event_def := ContentRegistry.get_definition("events", event_id)
-	var entry_step := String(event_def.get("entryStepId", ""))
-	var effect_count := int(event_def.get("effects", []).size())
-	var step_count := int(event_def.get("steps", []).size())
-	return "이벤트 정의와 분기를 실행한다.\n%s / entry %s / steps %d / effects %d" % [
-		String(event_def.get("name", event_id)),
-		entry_step if entry_step != "" else "direct",
-		step_count,
-		effect_count
-	]
+	if interaction_snapshot_builder == null:
+		return ""
+	return String(interaction_snapshot_builder.call("event_affordance_detail", placement))
 
 func _door_affordance_detail(placement: Dictionary) -> String:
-	var key_item := String(placement.get("keyItemId", ""))
-	var has_key := key_item != "" and SaveService.inventory(current_slot).has(key_item)
-	if key_item == "":
-		return "잠금 상태와 차단 이유를 확인한다."
-	return "잠긴 통로다.\n필요 열쇠: %s / 보유 %s" % [key_item, "yes" if has_key else "no"]
+	if interaction_snapshot_builder == null:
+		return ""
+	return String(interaction_snapshot_builder.call("door_affordance_detail", placement))
 
 func _secret_affordance_detail(placement: Dictionary) -> String:
-	var contains_item := String(placement.get("containsItemId", ""))
-	if contains_item != "":
-		return "발견된 경우 통로와 보상이 열린다.\n단서 보상: %s" % contains_item
-	return "발견된 경우에만 통로가 열린다."
+	if interaction_snapshot_builder == null:
+		return ""
+	return String(interaction_snapshot_builder.call("secret_affordance_detail", placement))
 
 func _loot_affordance_detail(placement: Dictionary) -> String:
-	var loot_table_id := String(placement.get("lootTableId", ""))
-	var item_id := String(placement.get("itemId", ""))
-	var parts: Array[String] = ["획득 가능한 보상이나 아이템을 챙긴다."]
-	if loot_table_id != "":
-		parts.append("loot table: %s" % loot_table_id)
-	if item_id != "":
-		parts.append("fallback item: %s" % item_id)
-	return "\n".join(parts)
+	if interaction_snapshot_builder == null:
+		return ""
+	return String(interaction_snapshot_builder.call("loot_affordance_detail", placement))
 
 func _trap_affordance_detail(placement: Dictionary) -> String:
-	var event_id := String(placement.get("eventId", ""))
-	var event_def := ContentRegistry.get_definition("events", event_id)
-	var detection: Dictionary = event_def.get("detection", {})
-	var disarm: Dictionary = event_def.get("disarm", {})
-	var lines: Array[String] = ["주의하지 않으면 즉시 효과가 발동한다."]
-	if not detection.is_empty():
-		lines.append("탐지: %s DC %d" % [String(detection.get("check", "")), int(detection.get("difficulty", 0))])
-	if not disarm.is_empty():
-		lines.append("해제: %s DC %d" % [String(disarm.get("check", "")), int(disarm.get("difficulty", 0))])
-	return "\n".join(lines)
+	if interaction_snapshot_builder == null:
+		return ""
+	return String(interaction_snapshot_builder.call("trap_affordance_detail", placement))
 
 func _interaction_prompt_text() -> String:
 	if interaction_snapshot_builder == null:

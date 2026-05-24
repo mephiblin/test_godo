@@ -157,6 +157,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 dungeon interaction runtime pass moved placement interaction
   dispatch and route/combat/event/door/secret/loot/rest/trap execution bodies
   out of `grid_scene.gd` into `dungeon_interaction_runtime.gd`.
+- 2026-05-24 interaction guide builder pass moved objective guide and
+  route/monster/event/door/secret/loot/trap affordance detail construction out
+  of `grid_scene.gd` into `interaction_snapshot_builder.gd`.
 
 ## P0
 
@@ -229,6 +232,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move placement interaction execution bodies into
      `dungeon_interaction_runtime.gd`, leaving `grid_scene.gd` compatibility
      delegates for current scene, UI, and smoke-driver callers.
+   - Done: move objective guide and interaction affordance detail text builders
+     into `interaction_snapshot_builder.gd`, leaving `grid_scene.gd`
+     compatibility delegates for current helper callers.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
