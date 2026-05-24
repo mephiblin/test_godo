@@ -100,6 +100,8 @@ original web-repo `godot-port-plan.md`.
   actions out of `grid_scene.gd` into a test-only driver loaded only by smoke.
 - 2026-05-24 runtime benchmark driver pass moved the benchmark snapshot helper
   out of `grid_scene.gd` into the same test-only smoke driver.
+- 2026-05-24 runtime route probe driver pass moved route transition probe
+  checks out of `grid_scene.gd` into the test-only smoke driver.
 
 ## P0
 
@@ -151,6 +153,8 @@ original web-repo `godot-port-plan.md`.
      event, movement, combat entry, and return-town actions.
    - Done: remove `debug_benchmark_snapshot()` from `grid_scene.gd`;
      benchmark smoke now collects that state through the test driver.
+   - Done: remove `smoke_probe_route_to_map()` from `grid_scene.gd`;
+     domain smoke now evaluates route gate state through the test driver.
    - Next: do manual play tuning for marker size in narrow halls and crowded
      authored encounters.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.

@@ -176,26 +176,6 @@ func _try_forward_move() -> void:
 func _try_backward_move() -> void:
 	_try_move(-DIRS[facing])
 
-func smoke_probe_route_to_map(target_map_id: String) -> Dictionary:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("targetMapId", "")) != target_map_id:
-			continue
-		if String(placement.get("type", "")) not in ["gate", "stairs"]:
-			continue
-		var blocked_message := _route_block_message(placement)
-		if blocked_message != "":
-			return {
-				"ok": false,
-				"blockedMessage": blocked_message,
-				"targetMapId": target_map_id
-			}
-		return {
-			"ok": true,
-			"blockedMessage": "",
-			"targetMapId": target_map_id
-		}
-	return {"ok": false, "blockedMessage": "Missing route placement.", "targetMapId": target_map_id}
-
 func smoke_probe_field_monster_ai(monster_id: String) -> Dictionary:
 	var slot_before: Dictionary = SaveService.load_slot(current_slot).duplicate(true)
 	var matches: Array[Dictionary] = []

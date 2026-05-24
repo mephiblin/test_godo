@@ -46,6 +46,28 @@ func route_to_map(scene: Node, target_map_id: String) -> void:
 			scene.call("_route_from_placement", placement)
 			return
 
+func route_probe(scene: Node, target_map_id: String) -> Dictionary:
+	if not _is_ready(scene):
+		return {"ok": false, "blockedMessage": "Scene is not ready.", "targetMapId": target_map_id}
+	for placement in _placements(scene):
+		if String(placement.get("targetMapId", "")) != target_map_id:
+			continue
+		if String(placement.get("type", "")) not in ["gate", "stairs"]:
+			continue
+		var blocked_message := String(scene.call("_route_block_message", placement))
+		if blocked_message != "":
+			return {
+				"ok": false,
+				"blockedMessage": blocked_message,
+				"targetMapId": target_map_id
+			}
+		return {
+			"ok": true,
+			"blockedMessage": "",
+			"targetMapId": target_map_id
+		}
+	return {"ok": false, "blockedMessage": "Missing route placement.", "targetMapId": target_map_id}
+
 func enter_combat(scene: Node) -> void:
 	if not _is_ready(scene):
 		return

@@ -998,9 +998,8 @@ func _debug_route_transition(slot: int, start_map_id: String, target_map_id: Str
 			"map_id": start_map_id,
 			"dungeon_source": dungeon_source
 		})
-	var result: Dictionary = {}
-	if scene.has_method("smoke_probe_route_to_map"):
-		result = scene.call("smoke_probe_route_to_map", target_map_id)
+	var grid_smoke := _grid_scene_smoke_driver()
+	var result: Dictionary = grid_smoke.route_probe(scene, target_map_id)
 	if SceneRouter.current_scene != null and SceneRouter.current_scene != scene and SceneRouter.current_scene.has_method("hud_snapshot"):
 		result["snapshot"] = SceneRouter.current_scene.call("hud_snapshot")
 	if is_instance_valid(scene):
