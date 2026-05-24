@@ -68,6 +68,9 @@ original web-repo `godot-port-plan.md`.
   danger, reward, rest/service, and route targets.
 - 2026-05-24 town world ground builder pass moved town cell build looping,
   lighting, ground/path tiles, and boundary meshes into `town_world_presenter.gd`.
+- 2026-05-24 play-view HUD occlusion pass reduced the in-game grid/town HUD
+  footprint so actual 3D play view, markers, and authored props remain visible
+  during smoke-tested town and dungeon routes.
 
 ## P0
 
@@ -100,8 +103,10 @@ original web-repo `godot-port-plan.md`.
    - Done: active dungeon path markers now sample long routes, lift/pulse above
      the floor, and use intent-specific colors/shapes for blocked, danger,
      reward, rest/service, and route targets.
-   - Next: do manual play tuning for marker size/occlusion in narrow halls and
-     crowded authored encounters.
+   - Done: actual visual-smoke captures now use a compact HUD presentation that
+     no longer covers most of the town/dungeon 3D play view.
+   - Next: do manual play tuning for marker size in narrow halls and crowded
+     authored encounters.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.
 
 3. `editor-authoring-parity`

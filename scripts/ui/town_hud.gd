@@ -10,33 +10,36 @@ func _ready() -> void:
 	super._ready()
 	town_focus_panel = PanelContainer.new()
 	town_focus_panel.offset_left = 16
-	town_focus_panel.offset_top = 292
-	town_focus_panel.custom_minimum_size = Vector2(460, 74)
+	town_focus_panel.offset_top = 236
+	town_focus_panel.custom_minimum_size = Vector2(420, 70)
+	town_focus_panel.add_theme_stylebox_override("panel", _panel_style(0.6))
 	add_child(town_focus_panel)
 
 	var focus_layout := VBoxContainer.new()
-	focus_layout.custom_minimum_size = Vector2(430, 64)
+	focus_layout.custom_minimum_size = Vector2(392, 62)
 	town_focus_panel.add_child(focus_layout)
 
 	town_focus_title = Label.new()
-	town_focus_title.add_theme_font_size_override("font_size", 17)
+	town_focus_title.add_theme_font_size_override("font_size", 15)
 	focus_layout.add_child(town_focus_title)
 
 	town_focus_radial = HBoxContainer.new()
 	town_focus_radial.alignment = BoxContainer.ALIGNMENT_CENTER
 	town_focus_radial.add_theme_constant_override("separation", 8)
-	town_focus_radial.custom_minimum_size = Vector2(430, 34)
+	town_focus_radial.custom_minimum_size = Vector2(392, 30)
 	focus_layout.add_child(town_focus_radial)
 
 	town_focus_strip = HBoxContainer.new()
 	town_focus_strip.add_theme_constant_override("separation", 6)
-	town_focus_strip.custom_minimum_size = Vector2(430, 28)
+	town_focus_strip.custom_minimum_size = Vector2(392, 24)
 	focus_layout.add_child(town_focus_strip)
 
 	town_focus_detail = RichTextLabel.new()
 	town_focus_detail.bbcode_enabled = true
-	town_focus_detail.fit_content = true
-	town_focus_detail.custom_minimum_size = Vector2(420, 38)
+	town_focus_detail.fit_content = false
+	town_focus_detail.scroll_active = false
+	town_focus_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	town_focus_detail.custom_minimum_size = Vector2(392, 32)
 	focus_layout.add_child(town_focus_detail)
 
 func _process(delta: float) -> void:
@@ -44,14 +47,15 @@ func _process(delta: float) -> void:
 	_update_town_focus(last_snapshot.get("townFocus", {}))
 
 func _apply_town_layout() -> void:
-	info_panel.custom_minimum_size = Vector2(460, 214)
-	left_column.custom_minimum_size = Vector2(270, 190)
-	right_column.custom_minimum_size = Vector2(150, 190)
-	state_label.custom_minimum_size = Vector2(250, 84)
-	log_label.custom_minimum_size = Vector2(250, 58)
+	info_panel.custom_minimum_size = Vector2(420, 188)
+	left_column.custom_minimum_size = Vector2(250, 164)
+	right_column.custom_minimum_size = Vector2(130, 164)
+	objective_label.custom_minimum_size = Vector2(242, 42)
+	state_label.custom_minimum_size = Vector2(242, 68)
+	log_label.custom_minimum_size = Vector2(242, 40)
 	prompt_panel.offset_left = 16
-	prompt_panel.offset_right = -260
-	interaction_detail.custom_minimum_size = Vector2(620, 40)
+	prompt_panel.offset_right = -430
+	interaction_detail.custom_minimum_size = Vector2(520, 40)
 	if town_focus_panel != null:
 		town_focus_panel.visible = true
 
@@ -114,7 +118,7 @@ func _rebuild_town_focus_radial(entries: Array) -> void:
 
 func _town_focus_radial_chip(entry: Dictionary, marker: String) -> Control:
 	var segment := PanelContainer.new()
-	segment.custom_minimum_size = Vector2(106, 30)
+	segment.custom_minimum_size = Vector2(96, 28)
 	segment.modulate = _town_focus_chip_color(String(entry.get("type", "")), bool(entry.get("selected", false)))
 	var label := Label.new()
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -131,7 +135,7 @@ func _rebuild_town_focus_strip(entries: Array) -> void:
 			continue
 		var segment := PanelContainer.new()
 		segment.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		segment.custom_minimum_size = Vector2(88, 26)
+		segment.custom_minimum_size = Vector2(76, 22)
 		segment.modulate = _town_focus_chip_color(String(entry.get("type", "")), bool(entry.get("selected", false)))
 		var label := Label.new()
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

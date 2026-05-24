@@ -33,7 +33,8 @@ func _ready() -> void:
 	info_panel = PanelContainer.new()
 	info_panel.offset_left = 16
 	info_panel.offset_top = 16
-	info_panel.custom_minimum_size = Vector2(560, 250)
+	info_panel.custom_minimum_size = Vector2(430, 204)
+	info_panel.add_theme_stylebox_override("panel", _panel_style(0.58))
 	add_child(info_panel)
 
 	var layout := HBoxContainer.new()
@@ -41,33 +42,39 @@ func _ready() -> void:
 	info_panel.add_child(layout)
 
 	left_column = VBoxContainer.new()
-	left_column.custom_minimum_size = Vector2(360, 220)
+	left_column.custom_minimum_size = Vector2(260, 176)
 	layout.add_child(left_column)
 
 	title_label = Label.new()
-	title_label.add_theme_font_size_override("font_size", 22)
+	title_label.add_theme_font_size_override("font_size", 18)
 	left_column.add_child(title_label)
 
 	objective_label = RichTextLabel.new()
 	objective_label.bbcode_enabled = true
-	objective_label.fit_content = true
-	objective_label.custom_minimum_size = Vector2(340, 54)
+	objective_label.fit_content = false
+	objective_label.scroll_active = false
+	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	objective_label.custom_minimum_size = Vector2(252, 44)
 	left_column.add_child(objective_label)
 
 	state_label = RichTextLabel.new()
-	state_label.custom_minimum_size = Vector2(340, 76)
+	state_label.custom_minimum_size = Vector2(252, 72)
 	state_label.bbcode_enabled = true
-	state_label.fit_content = true
+	state_label.fit_content = false
+	state_label.scroll_active = false
+	state_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	left_column.add_child(state_label)
 
 	log_label = RichTextLabel.new()
-	log_label.custom_minimum_size = Vector2(340, 70)
+	log_label.custom_minimum_size = Vector2(252, 48)
 	log_label.bbcode_enabled = true
-	log_label.fit_content = true
+	log_label.fit_content = false
+	log_label.scroll_active = false
+	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	left_column.add_child(log_label)
 
 	right_column = VBoxContainer.new()
-	right_column.custom_minimum_size = Vector2(160, 220)
+	right_column.custom_minimum_size = Vector2(134, 176)
 	layout.add_child(right_column)
 
 	minimap_caption = Label.new()
@@ -76,26 +83,30 @@ func _ready() -> void:
 	right_column.add_child(minimap_caption)
 
 	minimap_texture = TextureRect.new()
-	minimap_texture.custom_minimum_size = Vector2(144, 144)
+	minimap_texture.custom_minimum_size = Vector2(120, 120)
 	minimap_texture.stretch_mode = TextureRect.STRETCH_SCALE
 	right_column.add_child(minimap_texture)
 
 	minimap_legend = RichTextLabel.new()
 	minimap_legend.bbcode_enabled = true
-	minimap_legend.fit_content = true
-	minimap_legend.custom_minimum_size = Vector2(144, 52)
+	minimap_legend.fit_content = false
+	minimap_legend.scroll_active = false
+	minimap_legend.custom_minimum_size = Vector2(120, 40)
 	right_column.add_child(minimap_legend)
 
 	prompt_panel = PanelContainer.new()
 	prompt_panel.offset_left = 16
 	prompt_panel.offset_right = -16
 	prompt_panel.anchor_right = 1.0
+	prompt_panel.anchor_top = 1.0
 	prompt_panel.anchor_bottom = 1.0
+	prompt_panel.offset_top = -112
 	prompt_panel.offset_bottom = -16
+	prompt_panel.add_theme_stylebox_override("panel", _panel_style(0.66))
 	add_child(prompt_panel)
 
 	var prompt_layout := VBoxContainer.new()
-	prompt_layout.custom_minimum_size = Vector2(820, 104)
+	prompt_layout.custom_minimum_size = Vector2(620, 92)
 	prompt_panel.add_child(prompt_layout)
 
 	intent_row = HBoxContainer.new()
@@ -114,13 +125,15 @@ func _ready() -> void:
 	intent_row.add_child(next_step_label)
 
 	interaction_title = Label.new()
-	interaction_title.add_theme_font_size_override("font_size", 18)
+	interaction_title.add_theme_font_size_override("font_size", 16)
 	prompt_layout.add_child(interaction_title)
 
 	interaction_detail = RichTextLabel.new()
 	interaction_detail.bbcode_enabled = true
-	interaction_detail.fit_content = true
-	interaction_detail.custom_minimum_size = Vector2(780, 42)
+	interaction_detail.fit_content = false
+	interaction_detail.scroll_active = false
+	interaction_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	interaction_detail.custom_minimum_size = Vector2(600, 42)
 	prompt_layout.add_child(interaction_detail)
 
 func _process(_delta: float) -> void:
@@ -131,8 +144,8 @@ func _process(_delta: float) -> void:
 	_apply_layout(String(snapshot.get("hudMode", "")))
 	title_label.text = String(snapshot.get("title", ""))
 	_update_objective(snapshot.get("objective", {}))
-	state_label.text = String(snapshot.get("state", ""))
-	log_label.text = String(snapshot.get("log", ""))
+	state_label.text = _play_state_text(String(snapshot.get("state", "")))
+	log_label.text = _tail_lines(String(snapshot.get("log", "")), 3)
 	_update_interaction(snapshot.get("interaction", {}))
 	_update_minimap(snapshot.get("minimap", {}))
 
@@ -146,15 +159,15 @@ func _apply_layout(hud_mode: String) -> void:
 		_apply_dungeon_layout()
 
 func _apply_dungeon_layout() -> void:
-	info_panel.custom_minimum_size = Vector2(560, 250)
-	left_column.custom_minimum_size = Vector2(360, 220)
-	right_column.custom_minimum_size = Vector2(160, 220)
-	objective_label.custom_minimum_size = Vector2(340, 54)
-	state_label.custom_minimum_size = Vector2(340, 76)
-	log_label.custom_minimum_size = Vector2(340, 70)
+	info_panel.custom_minimum_size = Vector2(430, 204)
+	left_column.custom_minimum_size = Vector2(260, 176)
+	right_column.custom_minimum_size = Vector2(134, 176)
+	objective_label.custom_minimum_size = Vector2(252, 44)
+	state_label.custom_minimum_size = Vector2(252, 72)
+	log_label.custom_minimum_size = Vector2(252, 48)
 	prompt_panel.offset_left = 16
-	prompt_panel.offset_right = -16
-	interaction_detail.custom_minimum_size = Vector2(780, 54)
+	prompt_panel.offset_right = -360
+	interaction_detail.custom_minimum_size = Vector2(600, 42)
 
 func _apply_town_layout() -> void:
 	_apply_dungeon_layout()
@@ -176,6 +189,54 @@ func _update_interaction(interaction: Dictionary) -> void:
 	if selection != "":
 		detail += "\n[color=#8fb7d8]%s[/color]" % selection
 	interaction_detail.text = "%s\n%s" % [status, detail]
+
+func _panel_style(alpha: float) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.03, 0.035, 0.04, alpha)
+	style.border_color = Color(0.18, 0.19, 0.21, alpha + 0.12)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	return style
+
+func _play_state_text(raw_state: String) -> String:
+	var keep_prefixes := [
+		"[b]Cell[/b]",
+		"[b]Map[/b]",
+		"[b]Routes[/b]",
+		"[b]Field AI[/b]",
+		"[b]Gold[/b]",
+		"[b]Supplies[/b]",
+		"[b]Front[/b]",
+		"[b]Quest[/b]",
+		"[b]Prompt[/b]"
+	]
+	var lines := raw_state.split("\n", false)
+	var kept: Array[String] = []
+	for line in lines:
+		for prefix in keep_prefixes:
+			if line.begins_with(prefix):
+				kept.append(_truncate_line(line, 92))
+				break
+		if kept.size() >= 6:
+			break
+	return "\n".join(kept)
+
+func _tail_lines(text: String, count: int) -> String:
+	var lines := text.split("\n", false)
+	var start_index = max(lines.size() - count, 0)
+	var kept: Array[String] = []
+	for idx in range(start_index, lines.size()):
+		kept.append(_truncate_line(lines[idx], 86))
+	return "\n".join(kept)
+
+func _truncate_line(text: String, limit: int) -> String:
+	if text.length() <= limit:
+		return text
+	return text.substr(0, max(limit - 1, 0)) + "…"
 
 func _update_objective(objective: Dictionary) -> void:
 	if objective.is_empty():
