@@ -92,6 +92,8 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 dungeon focus path presenter pass moved focus path marker sampling,
   color, mesh, height, scale, and node creation into
   `dungeon_affordance_presenter.gd`.
+- 2026-05-24 town focus visual presenter pass moved town focus anchor/path
+  visual node construction and anchor animation into `town_world_presenter.gd`.
 
 ## P0
 
@@ -107,6 +109,8 @@ original web-repo `godot-port-plan.md`.
    - Done: move town landmark, actor, service prop, campfire, gate, and ambient
      dressing mesh construction helpers out of `grid_scene.gd` into
      `town_world_presenter.gd`.
+   - Done: move town focus anchor/path visual node construction and anchor
+     animation out of `grid_scene.gd` into `town_world_presenter.gd`.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 

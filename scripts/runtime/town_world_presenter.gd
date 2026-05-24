@@ -2,6 +2,8 @@ extends RefCounted
 
 var scene_ref: Node
 var ambient_nodes: Array[Dictionary] = []
+var focus_anchor_node: MeshInstance3D
+var focus_path_nodes: Array[MeshInstance3D] = []
 
 func configure(target_scene: Node) -> RefCounted:
 	scene_ref = target_scene
@@ -9,6 +11,8 @@ func configure(target_scene: Node) -> RefCounted:
 
 func clear() -> void:
 	ambient_nodes.clear()
+	focus_anchor_node = null
+	focus_path_nodes.clear()
 
 func _world_root() -> Node3D:
 	return scene_ref.get("world_root")
@@ -81,6 +85,136 @@ func spawn_ambient_dressing() -> void:
 				"drift": 0.09 + float(index) * 0.02,
 				"speed": 0.65 + float(index) * 0.18
 			})
+
+func update_focus_visuals(selected_id: String) -> void:
+	_update_focus_anchor(selected_id)
+	_update_focus_path(selected_id)
+
+func animate_focus_anchor() -> void:
+	if not focus_anchor_node or not is_instance_valid(focus_anchor_node) or not focus_anchor_node.visible:
+		return
+	var pulse := 1.0 + 0.1 * sin(Time.get_ticks_msec() / 160.0)
+	var base_scale: Vector3 = focus_anchor_node.get_meta("base_scale", Vector3.ONE)
+	focus_anchor_node.scale = Vector3(base_scale.x * pulse, base_scale.y, base_scale.z * pulse)
+	focus_anchor_node.position.y = 0.03 + 0.01 * sin(Time.get_ticks_msec() / 220.0)
+
+func _ensure_focus_anchor_node() -> void:
+	if focus_anchor_node and is_instance_valid(focus_anchor_node):
+		return
+	var node := MeshInstance3D.new()
+	node.mesh = _focus_anchor_mesh("")
+	node.material_override = _flat_color_material(Color("f3e7b3"))
+	node.visible = false
+	_world_root().add_child(node)
+	focus_anchor_node = node
+
+func _clear_focus_path_nodes() -> void:
+	for node in focus_path_nodes:
+		if node and is_instance_valid(node):
+			node.queue_free()
+	focus_path_nodes.clear()
+
+func _update_focus_anchor(selected_id: String) -> void:
+	_ensure_focus_anchor_node()
+	if not focus_anchor_node or not is_instance_valid(focus_anchor_node):
+		return
+	if selected_id == "":
+		focus_anchor_node.visible = false
+		return
+	var map_data: Dictionary = scene_ref.get("map_data")
+	for placement in map_data.get("placements", []):
+		if String(placement.get("id", "")) != selected_id:
+			continue
+		var kind := String(placement.get("type", ""))
+		var anchor: Vector2i = scene_ref.call("_town_interaction_anchor_cell", placement)
+		focus_anchor_node.visible = true
+		focus_anchor_node.mesh = _focus_anchor_mesh(kind)
+		focus_anchor_node.position = Vector3(anchor.x, 0.03, anchor.y)
+		focus_anchor_node.material_override = _focus_anchor_material(kind)
+		var base_scale := _focus_anchor_scale(kind)
+		focus_anchor_node.scale = base_scale
+		focus_anchor_node.set_meta("base_scale", base_scale)
+		return
+	focus_anchor_node.visible = false
+
+func _update_focus_path(selected_id: String) -> void:
+	_clear_focus_path_nodes()
+	if selected_id == "":
+		return
+	var map_data: Dictionary = scene_ref.get("map_data")
+	for placement in map_data.get("placements", []):
+		if String(placement.get("id", "")) != selected_id:
+			continue
+		var anchor: Vector2i = scene_ref.call("_town_interaction_anchor_cell", placement)
+		var path: Array = scene_ref.call("_town_path_to_anchor", anchor)
+		if path.size() <= 1:
+			return
+		var color: Color = scene_ref.call("_placement_runtime_color", placement)
+		color = color.lightened(0.08)
+		for idx in range(1, path.size()):
+			var cell: Vector2i = path[idx]
+			var node := MeshInstance3D.new()
+			var mesh := SphereMesh.new()
+			mesh.radius = 0.08 if idx < path.size() - 1 else 0.12
+			mesh.height = 0.16 if idx < path.size() - 1 else 0.24
+			node.mesh = mesh
+			node.material_override = _flat_color_material(color)
+			node.position = Vector3(cell.x, 0.08, cell.y)
+			_world_root().add_child(node)
+			focus_path_nodes.append(node)
+		return
+
+func _focus_anchor_material(kind: String) -> StandardMaterial3D:
+	var color: Color = scene_ref.call("_placement_runtime_color", {"type": kind})
+	return _flat_color_material(color.lightened(0.18))
+
+func _focus_anchor_scale(kind: String) -> Vector3:
+	match kind:
+		"quest_board":
+			return Vector3(1.18, 1.0, 1.18)
+		"skill_shop", "trade":
+			return Vector3(1.06, 1.0, 1.06)
+		"npc_service":
+			return Vector3(0.98, 1.0, 0.98)
+		"healer", "rest":
+			return Vector3(0.9, 1.0, 0.9)
+		_:
+			return Vector3.ONE
+
+func _focus_anchor_mesh(kind: String) -> PrimitiveMesh:
+	match kind:
+		"quest_board":
+			var mesh := BoxMesh.new()
+			mesh.size = Vector3(0.7, 0.03, 0.7)
+			return mesh
+		"healer", "rest":
+			var mesh := SphereMesh.new()
+			mesh.radius = 0.22
+			mesh.height = 0.12
+			return mesh
+		"skill_shop":
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = 0.18
+			mesh.bottom_radius = 0.34
+			mesh.height = 0.05
+			return mesh
+		"trade":
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = 0.34
+			mesh.bottom_radius = 0.18
+			mesh.height = 0.05
+			return mesh
+		"npc_service":
+			var mesh := SphereMesh.new()
+			mesh.radius = 0.16
+			mesh.height = 0.3
+			return mesh
+		_:
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = 0.34
+			mesh.bottom_radius = 0.34
+			mesh.height = 0.03
+			return mesh
 
 func _spawn_board(cell: Vector2i, wood_color: Color, face_color: Color) -> void:
 	_spawn_post_pair(cell, wood_color)

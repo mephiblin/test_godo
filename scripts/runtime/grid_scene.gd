@@ -24,8 +24,6 @@ var placement_rings: Dictionary = {}
 var placement_intent_nodes: Dictionary = {}
 var dungeon_focus_node: MeshInstance3D
 var dungeon_focus_path_nodes: Array[MeshInstance3D] = []
-var town_focus_anchor_node: MeshInstance3D
-var town_focus_path_nodes: Array[MeshInstance3D] = []
 var active_overlay: Control
 var cached_materials: Dictionary = {}
 var map_profile: Dictionary = {}
@@ -655,8 +653,6 @@ func _build_world() -> void:
 	placement_rings.clear()
 	placement_intent_nodes.clear()
 	dungeon_focus_node = null
-	town_focus_anchor_node = null
-	town_focus_path_nodes.clear()
 	chunk_overlay_nodes.clear()
 	if town_world_presenter != null:
 		town_world_presenter.call("clear")
@@ -1649,7 +1645,6 @@ func _refresh_interaction_focus() -> void:
 			dungeon_focus_node.scale = Vector3.ONE * (1.4 if bool(interaction.get("blocked", false)) else 1.15)
 	_update_dungeon_focus_path(interaction)
 	_update_town_focus_anchor(selected_id)
-	_update_town_focus_path(selected_id)
 
 func _dungeon_marker_always_shows_intent(placement: Dictionary) -> bool:
 	var kind := String(placement.get("type", ""))
@@ -1721,81 +1716,17 @@ func _selected_town_focus_id() -> String:
 		return ""
 	return String(town_focus_runtime.call("selected_id"))
 
-func _ensure_town_focus_anchor_node() -> void:
-	if town_focus_anchor_node and is_instance_valid(town_focus_anchor_node):
-		return
-	var node := MeshInstance3D.new()
-	node.mesh = _town_focus_anchor_mesh("")
-	node.material_override = _flat_color_material(Color("f3e7b3"))
-	node.visible = false
-	world_root.add_child(node)
-	town_focus_anchor_node = node
-
-func _clear_town_focus_path_nodes() -> void:
-	for node in town_focus_path_nodes:
-		if node and is_instance_valid(node):
-			node.queue_free()
-	town_focus_path_nodes.clear()
-
 func _clear_dungeon_focus_path_nodes() -> void:
 	if dungeon_affordance_presenter != null:
 		dungeon_affordance_presenter.call("clear_focus_path")
 
 func _update_town_focus_anchor(selected_id: String) -> void:
-	if not _is_town_map():
-		return
-	_ensure_town_focus_anchor_node()
-	if not town_focus_anchor_node or not is_instance_valid(town_focus_anchor_node):
-		return
-	if selected_id == "":
-		town_focus_anchor_node.visible = false
-		return
-	for placement in map_data.get("placements", []):
-		if String(placement.get("id", "")) != selected_id:
-			continue
-		var kind := String(placement.get("type", ""))
-		var anchor := _town_interaction_anchor_cell(placement)
-		town_focus_anchor_node.visible = true
-		town_focus_anchor_node.mesh = _town_focus_anchor_mesh(kind)
-		town_focus_anchor_node.position = Vector3(anchor.x, 0.03, anchor.y)
-		town_focus_anchor_node.material_override = _town_focus_anchor_material(kind)
-		var base_scale := _town_focus_anchor_scale(kind)
-		town_focus_anchor_node.scale = base_scale
-		town_focus_anchor_node.set_meta("base_scale", base_scale)
-		return
-	town_focus_anchor_node.visible = false
+	if _is_town_map() and town_world_presenter != null:
+		town_world_presenter.call("update_focus_visuals", selected_id)
 
 func _animate_town_focus_anchor(_delta: float) -> void:
-	if not town_focus_anchor_node or not is_instance_valid(town_focus_anchor_node) or not town_focus_anchor_node.visible:
-		return
-	var pulse := 1.0 + 0.1 * sin(Time.get_ticks_msec() / 160.0)
-	var base_scale: Vector3 = town_focus_anchor_node.get_meta("base_scale", Vector3.ONE)
-	town_focus_anchor_node.scale = Vector3(base_scale.x * pulse, base_scale.y, base_scale.z * pulse)
-	town_focus_anchor_node.position.y = 0.03 + 0.01 * sin(Time.get_ticks_msec() / 220.0)
-
-func _update_town_focus_path(selected_id: String) -> void:
-	_clear_town_focus_path_nodes()
-	if not _is_town_map() or selected_id == "":
-		return
-	for placement in map_data.get("placements", []):
-		if String(placement.get("id", "")) != selected_id:
-			continue
-		var path := _town_path_to_anchor(_town_interaction_anchor_cell(placement))
-		if path.size() <= 1:
-			return
-		var color := _placement_runtime_color(placement).lightened(0.08)
-		for idx in range(1, path.size()):
-			var cell: Vector2i = path[idx]
-			var node := MeshInstance3D.new()
-			var mesh := SphereMesh.new()
-			mesh.radius = 0.08 if idx < path.size() - 1 else 0.12
-			mesh.height = 0.16 if idx < path.size() - 1 else 0.24
-			node.mesh = mesh
-			node.material_override = _flat_color_material(color)
-			node.position = Vector3(cell.x, 0.08, cell.y)
-			world_root.add_child(node)
-			town_focus_path_nodes.append(node)
-		return
+	if town_world_presenter != null:
+		town_world_presenter.call("animate_focus_anchor")
 
 func _update_dungeon_focus_path(interaction: Dictionary) -> void:
 	_clear_dungeon_focus_path_nodes()
@@ -1844,57 +1775,6 @@ func _town_path_to_anchor(anchor: Vector2i) -> Array[Vector2i]:
 	if town_focus_runtime == null:
 		return [player_cell]
 	return town_focus_runtime.call("path_to_anchor", anchor)
-
-func _town_focus_anchor_material(kind: String) -> StandardMaterial3D:
-	return _flat_color_material(_placement_runtime_color({"type": kind}).lightened(0.18))
-
-func _town_focus_anchor_scale(kind: String) -> Vector3:
-	match kind:
-		"quest_board":
-			return Vector3(1.18, 1.0, 1.18)
-		"skill_shop", "trade":
-			return Vector3(1.06, 1.0, 1.06)
-		"npc_service":
-			return Vector3(0.98, 1.0, 0.98)
-		"healer", "rest":
-			return Vector3(0.9, 1.0, 0.9)
-		_:
-			return Vector3.ONE
-
-func _town_focus_anchor_mesh(kind: String) -> PrimitiveMesh:
-	match kind:
-		"quest_board":
-			var mesh := BoxMesh.new()
-			mesh.size = Vector3(0.7, 0.03, 0.7)
-			return mesh
-		"healer", "rest":
-			var mesh := SphereMesh.new()
-			mesh.radius = 0.22
-			mesh.height = 0.12
-			return mesh
-		"skill_shop":
-			var mesh := CylinderMesh.new()
-			mesh.top_radius = 0.18
-			mesh.bottom_radius = 0.34
-			mesh.height = 0.05
-			return mesh
-		"trade":
-			var mesh := CylinderMesh.new()
-			mesh.top_radius = 0.34
-			mesh.bottom_radius = 0.18
-			mesh.height = 0.05
-			return mesh
-		"npc_service":
-			var mesh := SphereMesh.new()
-			mesh.radius = 0.16
-			mesh.height = 0.3
-			return mesh
-		_:
-			var mesh := CylinderMesh.new()
-			mesh.top_radius = 0.34
-			mesh.bottom_radius = 0.34
-			mesh.height = 0.03
-			return mesh
 
 func _town_service_preview(placement: Dictionary) -> String:
 	if town_focus_runtime == null:
