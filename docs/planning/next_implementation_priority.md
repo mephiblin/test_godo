@@ -121,6 +121,9 @@ original web-repo `godot-port-plan.md`.
   workspace script out of `scripts/runtime` into `scripts/editor_tools`.
 - 2026-05-24 editor playtest payload boundary pass moved custom play payload
   storage out of `GameApp` into `EditorPlaytestBridge`.
+- 2026-05-24 town hub interaction controller pass moved selected/nearby town hub
+  Space/Enter interaction decisions out of `grid_scene.gd` into
+  `town_hub_controller.gd`.
 
 ## P0
 
@@ -156,6 +159,9 @@ original web-repo `godot-port-plan.md`.
    - Done: remove editor custom-play payload storage/accessors from `GameApp`;
      explicit playtest scenes now consume `EditorPlaytestBridge` only when their
      `allow_editor_test_payload` flag is enabled.
+   - Done: move selected/nearby town hub interaction handling out of
+     `grid_scene.gd`; `town_hub_controller.gd` now owns town Space/Enter
+     approach and fallback service interaction behavior.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 

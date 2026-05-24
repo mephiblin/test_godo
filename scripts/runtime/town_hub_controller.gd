@@ -31,9 +31,30 @@ func handle_key(keycode: Key) -> bool:
 			scene_ref.call("_turn_player", 1)
 			return true
 		KEY_SPACE, KEY_ENTER:
-			scene_ref.call("_interact_forward")
+			interact()
 			return true
 	return false
+
+func interact() -> void:
+	if scene_ref == null or not is_instance_valid(scene_ref):
+		return
+	var front_placement: Dictionary = scene_ref.call("_front_interaction_placement")
+	if not front_placement.is_empty():
+		scene_ref.call("_trigger_interaction_placement", front_placement)
+		return
+	var selected: Dictionary = scene_ref.call("_selected_town_focus_placement", 2)
+	if not selected.is_empty():
+		if bool(scene_ref.call("_try_approach_town_focus", selected)):
+			return
+		scene_ref.call("_log", "%s 쪽으로 손을 뻗었다." % String(selected.get("label", selected.get("id", "거점"))))
+		scene_ref.call("_trigger_interaction_placement", selected)
+		return
+	var nearby: Dictionary = scene_ref.call("_town_nearby_interaction_placement", 1)
+	if not nearby.is_empty():
+		scene_ref.call("_log", "%s 쪽으로 손을 뻗었다." % String(nearby.get("label", nearby.get("id", "거점"))))
+		scene_ref.call("_trigger_interaction_placement", nearby)
+		return
+	scene_ref.call("_log", "Nothing to interact with.")
 
 func controls_summary() -> String:
 	return "W path advance, A/D or Q/E hub focus, Left/Right turn, Space interact, I inventory, R rest, T title"

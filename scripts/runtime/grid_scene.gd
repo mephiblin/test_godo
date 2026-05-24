@@ -766,19 +766,6 @@ func _interact_forward() -> void:
 	if not front_placement.is_empty():
 		_trigger_interaction_placement(front_placement)
 		return
-	if _is_town_map():
-		var selected := _selected_town_focus_placement(2)
-		if not selected.is_empty():
-			if _try_approach_town_focus(selected):
-				return
-			_log("%s 쪽으로 손을 뻗었다." % String(selected.get("label", selected.get("id", "거점"))))
-			_trigger_interaction_placement(selected)
-			return
-		var nearby := _town_nearby_interaction_placement(1)
-		if not nearby.is_empty():
-			_log("%s 쪽으로 손을 뻗었다." % String(nearby.get("label", nearby.get("id", "거점"))))
-			_trigger_interaction_placement(nearby)
-			return
 	_log("Nothing to interact with.")
 
 func _front_interaction_placement() -> Dictionary:
