@@ -105,6 +105,8 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 runtime field probe driver pass moved field monster and
   secret-door domain probes out of `grid_scene.gd` into the test-only smoke
   driver.
+- 2026-05-24 combat scene smoke driver pass moved combat scene public
+  smoke/debug wrappers into a test-only driver used by smoke flows.
 
 ## P0
 
@@ -234,6 +236,8 @@ original web-repo `godot-port-plan.md`.
    - Done: dedicated combat domain probe now directly checks armor break,
      lifesteal, healing, party guard, item damage/status/cure, guardian/coward
      combatProfile behavior, and poison resistance.
+   - Done: `combat_scene.gd` no longer exposes public smoke/debug wrappers;
+     smoke flows drive its runtime through `combat_smoke_driver.gd`.
    - Move additional combat tests beyond smoke-only coverage into smaller direct
      domain probes as multi-enemy and party-role systems expand.
    - Expand skill/item/effect authoring coverage.

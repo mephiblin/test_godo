@@ -226,52 +226,6 @@ func _queue_throwing_knife() -> void:
 func _queue_firebomb() -> void:
 	_handle_outcome(runtime.pick_item("firebomb"))
 
-func smoke_win() -> void:
-	var outcome := runtime.smoke_win()
-	if bool(outcome.get("exit", false)) and bool(outcome.get("victory", false)):
-		GameApp.exit_combat(true)
-		return
-	_handle_outcome(outcome)
-
-func smoke_use_item(item_id: String) -> void:
-	_handle_outcome(runtime.smoke_use_item(item_id))
-
-func smoke_probe_target_and_cooldown() -> Dictionary:
-	return runtime.smoke_probe_target_and_cooldown()
-
-func smoke_probe_item_commands(item_id: String) -> Dictionary:
-	return runtime.smoke_probe_item_commands(item_id)
-
-func smoke_probe_selection_commands() -> Dictionary:
-	return runtime.smoke_probe_selection_commands()
-
-func smoke_probe_enemy_turn() -> Dictionary:
-	return runtime.smoke_probe_enemy_turn()
-
-func debug_combat_state() -> Dictionary:
-	return runtime.debug_combat_state()
-
-func debug_skill_ids() -> Array[String]:
-	return runtime.debug_skill_ids()
-
-func debug_roll_rows() -> Array[Dictionary]:
-	return runtime.debug_roll_rows()
-
-func smoke_lose() -> void:
-	_handle_outcome(runtime.smoke_lose())
-
-func smoke_recover_in_town() -> void:
-	SaveService.record_defeat(runtime.slot, runtime.build_defeat_summary(), false)
-	SceneRouter.change_route(GameApp.MODE_TOWN, {
-		"slot": runtime.slot,
-		"map_id": "town_square",
-		"dungeon_source": GameApp.dungeon_runtime_source
-	})
-
-func smoke_return_title_after_defeat() -> void:
-	SaveService.record_defeat(runtime.slot, runtime.build_defeat_summary(), true)
-	SceneRouter.change_route(GameApp.MODE_TITLE, {})
-
 func _show_defeat_overlay(summary: Dictionary) -> void:
 	if defeat_overlay != null:
 		defeat_overlay.queue_free()

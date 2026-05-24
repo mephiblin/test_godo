@@ -187,27 +187,20 @@ func _run_domain_smoke() -> void:
 		GameApp.enter_combat(fight_context)
 		await get_tree().process_frame
 		var combat_scene := SceneRouter.current_scene
-		if combat_scene and combat_scene.has_method("debug_skill_ids"):
-			combat_skill_ids = combat_scene.call("debug_skill_ids")
-		if combat_scene and combat_scene.has_method("debug_roll_rows"):
-			combat_roll_rows = combat_scene.call("debug_roll_rows")
-		if combat_scene and combat_scene.has_method("smoke_use_item"):
-			combat_scene.call("smoke_use_item", "firebomb")
-			combat_item_results.append({"itemId": "firebomb"})
-			combat_scene.call("smoke_use_item", "antivenom")
-			combat_item_results.append({"itemId": "antivenom"})
-		if combat_scene and combat_scene.has_method("smoke_probe_item_commands"):
-			combat_item_command_probe = combat_scene.call("smoke_probe_item_commands", "throwing_knife")
-		if combat_scene and combat_scene.has_method("debug_combat_state"):
-			combat_state_after_items = combat_scene.call("debug_combat_state")
-		if combat_scene and combat_scene.has_method("smoke_probe_selection_commands"):
-			combat_selection_probe = combat_scene.call("smoke_probe_selection_commands")
-		if combat_scene and combat_scene.has_method("smoke_probe_target_and_cooldown"):
-			var probe: Dictionary = combat_scene.call("smoke_probe_target_and_cooldown")
-			combat_state_before_target_confirm = probe.get("before", {})
-			combat_state_after_target_confirm = probe.get("after", {})
-		if combat_scene and combat_scene.has_method("smoke_win"):
-			combat_scene.call("smoke_win")
+		var combat_smoke := _combat_smoke_driver()
+		combat_skill_ids = combat_smoke.skill_ids(combat_scene)
+		combat_roll_rows = combat_smoke.roll_rows(combat_scene)
+		combat_smoke.use_item(combat_scene, "firebomb")
+		combat_item_results.append({"itemId": "firebomb"})
+		combat_smoke.use_item(combat_scene, "antivenom")
+		combat_item_results.append({"itemId": "antivenom"})
+		combat_item_command_probe = combat_smoke.item_commands_probe(combat_scene, "throwing_knife")
+		combat_state_after_items = combat_smoke.combat_state(combat_scene)
+		combat_selection_probe = combat_smoke.selection_commands_probe(combat_scene)
+		var probe: Dictionary = combat_smoke.target_and_cooldown_probe(combat_scene)
+		combat_state_before_target_confirm = probe.get("before", {})
+		combat_state_after_target_confirm = probe.get("after", {})
+		combat_smoke.win(combat_scene)
 		await get_tree().process_frame
 		await get_tree().process_frame
 		fight_victory = bool(SaveService.load_slot(slot).get("flags", {}).get(String(fight_context.get("victory_flag", "")), false))
@@ -227,11 +220,10 @@ func _run_domain_smoke() -> void:
 	})
 	await get_tree().process_frame
 	var defeat_scene := SceneRouter.current_scene
-	if defeat_scene and defeat_scene.has_method("smoke_lose"):
-		defeat_scene.call("smoke_lose")
+	var combat_smoke := _combat_smoke_driver()
+	combat_smoke.lose(defeat_scene)
 	await get_tree().process_frame
-	if defeat_scene and defeat_scene.has_method("smoke_recover_in_town"):
-		defeat_scene.call("smoke_recover_in_town")
+	combat_smoke.recover_in_town(defeat_scene)
 	await get_tree().process_frame
 	var defeat_data := SaveService.load_slot(aux_slot)
 	defeat_probe = {
@@ -584,11 +576,10 @@ func _run_smoke() -> void:
 			})
 		scene_host.add_child(defeat_scene)
 		await get_tree().process_frame
-		if defeat_scene.has_method("smoke_lose"):
-			defeat_scene.call("smoke_lose")
+		var combat_smoke := _combat_smoke_driver()
+		combat_smoke.lose(defeat_scene)
 		await get_tree().process_frame
-		if defeat_scene.has_method("smoke_recover_in_town"):
-			defeat_scene.call("smoke_recover_in_town")
+		combat_smoke.recover_in_town(defeat_scene)
 		await get_tree().process_frame
 		defeat_probe_snapshot = SaveService.load_slot(defeat_probe_slot).get("meta", {}).get("lastDefeat", {})
 		await _capture("05_defeat.png")
@@ -673,8 +664,8 @@ func _run_smoke() -> void:
 	print("SMOKE: combat route")
 	await _capture("05_combat.png")
 	var combat_scene := SceneRouter.current_scene
-	if combat_scene and combat_scene.has_method("smoke_win"):
-		combat_scene.call("smoke_win")
+	var combat_smoke := _combat_smoke_driver()
+	combat_smoke.win(combat_scene)
 	await get_tree().process_frame
 	dungeon_scene = SceneRouter.current_scene
 	grid_smoke.return_town(dungeon_scene)
@@ -704,8 +695,7 @@ func _run_smoke() -> void:
 	grid_smoke.enter_combat_by_monster(post_reward_floor_03_scene, "blind_priest")
 	await get_tree().process_frame
 	var final_combat_scene := SceneRouter.current_scene
-	if final_combat_scene and final_combat_scene.has_method("smoke_win"):
-		final_combat_scene.call("smoke_win")
+	combat_smoke.win(final_combat_scene)
 	await get_tree().process_frame
 	post_reward_floor_03_scene = SceneRouter.current_scene
 	if post_reward_floor_03_scene and post_reward_floor_03_scene.has_method("hud_snapshot"):
@@ -807,10 +797,9 @@ func _run_benchmark_smoke() -> void:
 	grid_smoke.enter_combat(dungeon_scene)
 	await _await_frames(1)
 	var combat_scene := SceneRouter.current_scene
-	if combat_scene and combat_scene.has_method("debug_combat_state"):
-		benchmark_report["combatSnapshot"] = combat_scene.call("debug_combat_state")
-	if combat_scene and combat_scene.has_method("smoke_win"):
-		combat_scene.call("smoke_win")
+	var combat_smoke := _combat_smoke_driver()
+	benchmark_report["combatSnapshot"] = combat_smoke.combat_state(combat_scene)
+	combat_smoke.win(combat_scene)
 	await _await_frames(2)
 	benchmark_report["combatLoopMs"] = _elapsed_ms(combat_start)
 	benchmark_report["routeAfterCombat"] = GameApp.current_mode
@@ -957,6 +946,10 @@ func _elapsed_ms(start_usec: int) -> float:
 
 func _grid_scene_smoke_driver() -> RefCounted:
 	var script: Script = load("res://scripts/tests/grid_scene_smoke_driver.gd")
+	return script.new()
+
+func _combat_smoke_driver() -> RefCounted:
+	var script: Script = load("res://scripts/tests/combat_smoke_driver.gd")
 	return script.new()
 
 func _debug_route_snapshot(slot: int, map_id: String, route: String, dungeon_source: String) -> Dictionary:
