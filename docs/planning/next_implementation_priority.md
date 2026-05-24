@@ -126,6 +126,8 @@ original web-repo `godot-port-plan.md`.
   `town_hub_controller.gd`.
 - 2026-05-24 town presenter wrapper cleanup pass removed trivial town world
   presenter pass-through wrappers from `grid_scene.gd`.
+- 2026-05-24 town focus wrapper prune pass removed unused town focus
+  pass-through wrappers from `grid_scene.gd`.
 
 ## P0
 
@@ -167,6 +169,8 @@ original web-repo `godot-port-plan.md`.
    - Done: remove trivial town world presenter pass-through wrappers from
      `grid_scene.gd`; town scene/presenter code now calls the presenter directly
      for world build, ambient animation, and focus visuals.
+   - Done: prune unused town focus wrappers from `grid_scene.gd` after their
+     callers moved into town-specific runtime/controller code.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 

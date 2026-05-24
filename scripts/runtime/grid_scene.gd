@@ -795,11 +795,6 @@ func _selected_town_focus_placement(max_distance: int = -1) -> Dictionary:
 		return {}
 	return town_focus_runtime.call("selected_placement", max_distance)
 
-func _placement_supports_town_proximity(placement: Dictionary) -> bool:
-	if town_focus_runtime == null:
-		return false
-	return bool(town_focus_runtime.call("supports_proximity", placement))
-
 func _try_approach_town_focus(placement: Dictionary) -> bool:
 	if town_focus_runtime == null:
 		return false
@@ -1176,19 +1171,9 @@ func _interaction_alignment_hint(placement: Dictionary, source: String, distance
 		return ""
 	return String(town_focus_runtime.call("alignment_hint", placement, source, distance))
 
-func _town_focus_direction_hint(placement: Dictionary, distance: int) -> String:
-	if town_focus_runtime == null:
-		return ""
-	return String(town_focus_runtime.call("direction_hint", placement, distance))
-
 func _refresh_town_focus_targets() -> void:
 	if town_focus_runtime != null:
 		town_focus_runtime.call("refresh_targets")
-
-func _town_focus_direction_score(cell: Vector2i) -> int:
-	if town_focus_runtime == null:
-		return 4
-	return int(town_focus_runtime.call("_direction_score", cell))
 
 func _cycle_town_focus(step: int) -> void:
 	if town_focus_runtime != null:
@@ -1203,10 +1188,6 @@ func _town_anchor_snapshot(placement: Dictionary, source: String) -> Array:
 	if town_focus_runtime == null:
 		return []
 	return town_focus_runtime.call("anchor_snapshot", placement, source)
-
-func _orient_toward_town_focus(placement: Dictionary) -> void:
-	if town_focus_runtime != null:
-		town_focus_runtime.call("orient_toward", placement)
 
 func _town_focus_snapshot() -> Dictionary:
 	if town_focus_runtime == null:
