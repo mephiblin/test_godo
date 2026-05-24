@@ -86,6 +86,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 editor playtest scene boundary pass made real town/dungeon runtime
   scenes ignore editor test payload by default and moved editor custom play into
   explicit `scenes/editor_tools/Playtest*.tscn` scenes.
+- 2026-05-24 dungeon affordance presenter pass moved dungeon placement marker,
+  intent marker, focus marker, shape sizing, and affordance animation
+  presentation into `dungeon_affordance_presenter.gd`.
 
 ## P0
 
@@ -121,6 +124,9 @@ original web-repo `godot-port-plan.md`.
      reward, rest/service, and route targets.
    - Done: actual visual-smoke captures now use a compact HUD presentation that
      no longer covers most of the town/dungeon 3D play view.
+   - Done: dungeon marker/intent/focus shape construction and affordance
+     animation moved out of `grid_scene.gd` into
+     `dungeon_affordance_presenter.gd`.
    - Next: do manual play tuning for marker size in narrow halls and crowded
      authored encounters.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.

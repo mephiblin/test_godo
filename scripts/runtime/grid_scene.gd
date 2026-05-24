@@ -12,6 +12,7 @@ const DIRS := [
 ]
 const TOWN_FOCUS_RUNTIME_SCRIPT := preload("res://scripts/runtime/town_focus_runtime.gd")
 const TOWN_WORLD_PRESENTER_SCRIPT := preload("res://scripts/runtime/town_world_presenter.gd")
+const DUNGEON_AFFORDANCE_PRESENTER_SCRIPT := preload("res://scripts/runtime/dungeon_affordance_presenter.gd")
 
 var map_data: Dictionary = {}
 var current_slot := 1
@@ -36,6 +37,7 @@ var compiled_runtime_active := false
 var dungeon_source_mode := GameApp.DUNGEON_SOURCE_COMPILED
 var town_focus_runtime: RefCounted
 var town_world_presenter: RefCounted
+var dungeon_affordance_presenter: RefCounted
 
 @onready var world_root: Node3D = $WorldRoot
 @onready var player_rig: Node3D = $PlayerRig3D
@@ -69,6 +71,7 @@ func setup(payload: Dictionary) -> void:
 	_ensure_field_monster_runtime()
 	town_focus_runtime = TOWN_FOCUS_RUNTIME_SCRIPT.new().configure(self)
 	town_world_presenter = TOWN_WORLD_PRESENTER_SCRIPT.new().configure(self)
+	dungeon_affordance_presenter = DUNGEON_AFFORDANCE_PRESENTER_SCRIPT.new().configure(self)
 	_build_world()
 	_refresh_town_focus_targets()
 	_apply_player_transform()
@@ -703,151 +706,33 @@ func _build_world() -> void:
 	_refresh_field_monsters()
 
 func _spawn_dungeon_placement(placement: Dictionary) -> void:
-	var placement_id := String(placement.get("id", ""))
-	if placement_id == "":
-		return
-	var kind := String(placement.get("type", ""))
-	var pos: Array = placement.get("position", [0, 0])
-	var marker := MeshInstance3D.new()
-	marker.mesh = _dungeon_marker_mesh(kind)
-	marker.position = Vector3(float(pos[0]), _dungeon_marker_height(kind), float(pos[1]))
-	marker.scale = _dungeon_marker_scale(kind)
-	marker.material_override = _marker_material(_placement_runtime_color(placement))
-	world_root.add_child(marker)
-	placement_nodes[placement_id] = marker
-
-	var ring := MeshInstance3D.new()
-	var ring_mesh := CylinderMesh.new()
-	ring_mesh.top_radius = _dungeon_ring_radius(kind)
-	ring_mesh.bottom_radius = _dungeon_ring_radius(kind) + 0.08
-	ring_mesh.height = 0.035
-	ring.mesh = ring_mesh
-	ring.position = Vector3(float(pos[0]), 0.035, float(pos[1]))
-	ring.material_override = _flat_color_material(_placement_runtime_color(placement).darkened(0.22))
-	world_root.add_child(ring)
-	placement_rings[placement_id] = ring
-
-	var intent := MeshInstance3D.new()
-	intent.mesh = _dungeon_intent_mesh(kind)
-	intent.position = Vector3(float(pos[0]), _dungeon_intent_height(kind), float(pos[1]))
-	intent.scale = _dungeon_intent_scale(kind)
-	intent.material_override = _marker_material(_placement_runtime_color(placement).lightened(0.18))
-	world_root.add_child(intent)
-	placement_intent_nodes[placement_id] = intent
+	if dungeon_affordance_presenter != null:
+		dungeon_affordance_presenter.call("spawn_placement", placement)
 
 func _spawn_dungeon_focus_marker() -> void:
-	var marker := MeshInstance3D.new()
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = 0.18
-	mesh.bottom_radius = 0.34
-	mesh.height = 0.12
-	marker.mesh = mesh
-	marker.visible = false
-	marker.material_override = _flat_color_material(Color("f3e7b3"))
-	world_root.add_child(marker)
-	dungeon_focus_node = marker
+	if dungeon_affordance_presenter != null:
+		dungeon_affordance_presenter.call("spawn_focus_marker")
 
 func _dungeon_marker_mesh(kind: String) -> Mesh:
-	match kind:
-		"gate", "stairs":
-			var mesh := PrismMesh.new()
-			mesh.size = Vector3(0.58, 0.72, 0.58)
-			return mesh
-		"locked_door", "secret_door":
-			var mesh := BoxMesh.new()
-			mesh.size = Vector3(0.16, 0.78, 0.64)
-			return mesh
-		"field_monster":
-			var mesh := CylinderMesh.new()
-			mesh.top_radius = 0.2
-			mesh.bottom_radius = 0.26
-			mesh.height = 0.86
-			return mesh
-		"event", "trap":
-			var mesh := CylinderMesh.new()
-			mesh.top_radius = 0.28
-			mesh.bottom_radius = 0.28
-			mesh.height = 0.18
-			return mesh
-		"loot":
-			var mesh := BoxMesh.new()
-			mesh.size = Vector3(0.46, 0.32, 0.34)
-			return mesh
-		"rest":
-			var mesh := SphereMesh.new()
-			mesh.radius = 0.24
-			mesh.height = 0.36
-			return mesh
-		"npc_service":
-			var mesh := CylinderMesh.new()
-			mesh.top_radius = 0.16
-			mesh.bottom_radius = 0.2
-			mesh.height = 0.72
-			return mesh
-		_:
-			var mesh := SphereMesh.new()
-			mesh.radius = 0.24
-			mesh.height = 0.42
-			return mesh
+	return dungeon_affordance_presenter.call("marker_mesh", kind)
 
 func _dungeon_intent_mesh(kind: String) -> Mesh:
-	match kind:
-		"gate", "stairs", "locked_door", "secret_door":
-			var mesh := PrismMesh.new()
-			mesh.size = Vector3(0.34, 0.34, 0.34)
-			return mesh
-		"trap":
-			var mesh := BoxMesh.new()
-			mesh.size = Vector3(0.38, 0.08, 0.38)
-			return mesh
-		_:
-			var mesh := SphereMesh.new()
-			mesh.radius = 0.12
-			mesh.height = 0.22
-			return mesh
+	return dungeon_affordance_presenter.call("intent_mesh", kind)
 
 func _dungeon_marker_height(kind: String) -> float:
-	match kind:
-		"locked_door", "secret_door", "field_monster", "npc_service":
-			return 0.42
-		"gate", "stairs":
-			return 0.46
-		"event", "trap", "loot", "rest":
-			return 0.18
-		_:
-			return 0.3
+	return float(dungeon_affordance_presenter.call("marker_height", kind))
 
 func _dungeon_intent_height(kind: String) -> float:
-	match kind:
-		"field_monster", "npc_service", "gate", "stairs":
-			return 1.02
-		"locked_door", "secret_door":
-			return 0.92
-		_:
-			return 0.58
+	return float(dungeon_affordance_presenter.call("intent_height", kind))
 
 func _dungeon_marker_scale(kind: String) -> Vector3:
-	match kind:
-		"trap":
-			return Vector3(1.0, 0.7, 1.0)
-		"loot":
-			return Vector3.ONE
-		_:
-			return Vector3.ONE
+	return dungeon_affordance_presenter.call("marker_scale", kind)
 
 func _dungeon_intent_scale(kind: String) -> Vector3:
-	if kind == "trap":
-		return Vector3(1.0, 1.0, 1.0)
-	return Vector3.ONE
+	return dungeon_affordance_presenter.call("intent_scale", kind)
 
 func _dungeon_ring_radius(kind: String) -> float:
-	match kind:
-		"gate", "stairs", "field_monster":
-			return 0.52
-		"trap", "event":
-			return 0.44
-		_:
-			return 0.38
+	return float(dungeon_affordance_presenter.call("ring_radius", kind))
 
 func _is_town_map() -> bool:
 	return String(map_data.get("kind", "")) == "town"
@@ -1783,28 +1668,8 @@ func _placement_by_id(placement_id: String) -> Dictionary:
 	return {}
 
 func _animate_dungeon_affordances() -> void:
-	var time := float(Time.get_ticks_msec()) / 1000.0
-	for placement in map_data.get("placements", []):
-		if typeof(placement) != TYPE_DICTIONARY:
-			continue
-		var placement_id := String(placement.get("id", ""))
-		var intent_node: MeshInstance3D = placement_intent_nodes.get(placement_id)
-		if intent_node and is_instance_valid(intent_node) and intent_node.visible:
-			var base_y := _dungeon_intent_height(String(placement.get("type", "")))
-			intent_node.position.y = base_y + sin(time * 3.0 + float(abs(hash(placement_id)) % 7)) * 0.08
-			intent_node.rotation_degrees.y = fposmod(time * 70.0, 360.0)
-	if dungeon_focus_node and is_instance_valid(dungeon_focus_node) and dungeon_focus_node.visible:
-		dungeon_focus_node.rotation_degrees.y = fposmod(time * 90.0, 360.0)
-	for index in range(dungeon_focus_path_nodes.size()):
-		var path_node := dungeon_focus_path_nodes[index]
-		if not path_node or not is_instance_valid(path_node):
-			continue
-		var base_y := float(path_node.get_meta("base_y", path_node.position.y))
-		var pulse := float(path_node.get_meta("pulse", 0.025))
-		var offset := float(path_node.get_meta("offset", index)) * 0.45
-		path_node.position.y = base_y + sin(time * 4.2 + offset) * pulse
-		if bool(path_node.get_meta("rotate", false)):
-			path_node.rotation_degrees.y = fposmod(time * 110.0 + offset * 20.0, 360.0)
+	if dungeon_affordance_presenter != null:
+		dungeon_affordance_presenter.call("animate_affordances")
 
 func _interaction_alignment_hint(placement: Dictionary, source: String, distance: int) -> String:
 	if town_focus_runtime == null:
