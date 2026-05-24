@@ -77,6 +77,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 editor dock engineizing pass renamed the content editor dock root
   and split the monolithic generated `VBoxContainer` stack into Definition,
   Map/Placement, Grid, and Build/Status tabs.
+- 2026-05-24 imported runtime boundary probe added a direct headless contract
+  that new-game runtime state uses the imported manifest and compiled dungeon
+  source without editor-only payload.
 
 ## P0
 
@@ -145,6 +148,9 @@ original web-repo `godot-port-plan.md`.
    - Done: editor smoke now asserts the imported build manifest path,
      validation report, definition hashes, and compiled map source hash metadata
      remain intact across the editor/game file boundary.
+   - Done: imported runtime probe now asserts normal new-game state uses the
+     imported manifest, compiled map metadata, and compiled dungeon source while
+     keeping editor-only keys out of save data.
    - Broaden stale bundle and content-version mismatch handling to exported
      build metadata and CI artifact reports.
 
@@ -215,6 +221,8 @@ original web-repo `godot-port-plan.md`.
    - Done: validation fixtures now have a dedicated headless probe command.
    - Done: editor smoke has direct assertions for dock root naming and
      build/imported manifest boundary metadata.
+   - Done: imported runtime probe directly checks imported-only startup
+     contracts without relying on screenshots.
    - Reduce reliance on screenshot artifacts where direct assertions are possible.
    - Standardize headless commands for future CI.
 
