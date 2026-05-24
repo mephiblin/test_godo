@@ -135,6 +135,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 town focus wrapper direct pass routed town HUD focus snapshots and
   focus anchor/path presentation through `town_focus_runtime` directly and
   removed remaining pass-through focus wrapper methods from `grid_scene.gd`.
+- 2026-05-24 interaction snapshot builder pass moved HUD interaction snapshot,
+  prompt, intent, next-step, and guide text construction out of `grid_scene.gd`
+  into `interaction_snapshot_builder.gd`.
 
 ## P0
 
@@ -186,6 +189,9 @@ original web-repo `godot-port-plan.md`.
      through `town_focus_runtime` directly, removing the remaining focus
      snapshot/anchor/path/service-preview pass-through wrappers from
      `grid_scene.gd`.
+   - Done: move mixed town/dungeon interaction HUD snapshot and prompt
+     construction out of `grid_scene.gd` into a dedicated runtime helper while
+     preserving the current interaction dictionary contract.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
