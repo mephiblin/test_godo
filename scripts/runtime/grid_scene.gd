@@ -16,6 +16,7 @@ const DUNGEON_AFFORDANCE_PRESENTER_SCRIPT := preload("res://scripts/runtime/dung
 const INTERACTION_SNAPSHOT_BUILDER_SCRIPT := preload("res://scripts/runtime/interaction_snapshot_builder.gd")
 const FIELD_MONSTER_RUNTIME_SCRIPT := preload("res://scripts/runtime/field_monster_runtime.gd")
 const DUNGEON_WORLD_PRESENTER_SCRIPT := preload("res://scripts/runtime/dungeon_world_presenter.gd")
+const RUNTIME_SNAPSHOT_BUILDER_SCRIPT := preload("res://scripts/runtime/runtime_snapshot_builder.gd")
 
 var map_data: Dictionary = {}
 var current_slot := 1
@@ -39,6 +40,7 @@ var dungeon_affordance_presenter: RefCounted
 var interaction_snapshot_builder: RefCounted
 var field_monster_runtime: RefCounted
 var dungeon_world_presenter: RefCounted
+var runtime_snapshot_builder: RefCounted
 
 @onready var world_root: Node3D = $WorldRoot
 @onready var player_rig: Node3D = $PlayerRig3D
@@ -75,6 +77,7 @@ func setup(payload: Dictionary) -> void:
 	interaction_snapshot_builder = INTERACTION_SNAPSHOT_BUILDER_SCRIPT.new().configure(self)
 	field_monster_runtime = FIELD_MONSTER_RUNTIME_SCRIPT.new().configure(self)
 	dungeon_world_presenter = DUNGEON_WORLD_PRESENTER_SCRIPT.new().configure(self)
+	runtime_snapshot_builder = RUNTIME_SNAPSHOT_BUILDER_SCRIPT.new().configure(self)
 	_ensure_field_monster_runtime()
 	_build_world()
 	_refresh_town_focus_targets()
@@ -970,215 +973,64 @@ func _cell_visit_key(cell: Vector2i) -> String:
 	return "%s:%d,%d" % [String(map_data.get("id", default_map_id)), cell.x, cell.y]
 
 func _visited_keys_for_map(runtime: Dictionary) -> Array[String]:
-	var result: Array[String] = []
-	var visited_cells: Dictionary = runtime.get("visitedCells", {})
-	var prefix := "%s:" % String(map_data.get("id", default_map_id))
-	for key in visited_cells.keys():
-		var cell_key := String(key)
-		if cell_key.begins_with(prefix) and bool(visited_cells.get(key, false)):
-			result.append(cell_key.substr(prefix.length()))
-	return result
+	if runtime_snapshot_builder == null:
+		return []
+	return runtime_snapshot_builder.call("visited_keys_for_map", runtime)
 
 func _visible_minimap_placements(runtime: Dictionary) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	var field_monsters: Dictionary = runtime.get("fieldMonsters", {})
-	var discovered_secrets: Dictionary = runtime.get("discoveredSecrets", {})
-	var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
-	var claimed_loot: Dictionary = runtime.get("claimedLoot", {})
-	for placement in map_data.get("placements", []):
-		if typeof(placement) != TYPE_DICTIONARY:
-			continue
-		var placement_id := String(placement.get("id", ""))
-		var placement_type := String(placement.get("type", ""))
-		if placement_type == "field_monster":
-			var field_state: Dictionary = field_monsters.get(placement_id, {})
-			if bool(field_state.get("defeated", false)):
-				continue
-			if _field_ai_behavior(placement) == "ambush" and not bool(field_state.get("revealed", false)):
-				continue
-		if placement_type == "secret_door" and not bool(discovered_secrets.get(placement_id, false)):
-			continue
-		if placement_type == "locked_door" and bool(unlocked_doors.get(placement_id, false)):
-			continue
-		if placement_type == "loot" and bool(claimed_loot.get(placement_id, false)):
-			continue
-		var cell := _placement_runtime_cell(placement, runtime)
-		var row := {
-			"id": placement_id,
-			"type": placement_type,
-			"position": [cell.x, cell.y]
-		}
-		if placement_type in ["gate", "stairs"]:
-			var blocked_message := _route_block_message(placement)
-			row["routeBlocked"] = blocked_message != ""
-			row["blockedMessage"] = blocked_message
-			row["targetMapId"] = String(placement.get("targetMapId", ""))
-			row["targetRoute"] = String(placement.get("targetRoute", ""))
-		result.append(row)
-	return result
+	if runtime_snapshot_builder == null:
+		return []
+	return runtime_snapshot_builder.call("visible_minimap_placements", runtime)
 
 func _route_state_entries() -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for placement in map_data.get("placements", []):
-		if typeof(placement) != TYPE_DICTIONARY:
-			continue
-		var placement_type := String(placement.get("type", ""))
-		if placement_type not in ["gate", "stairs"]:
-			continue
-		var pos: Array = placement.get("position", [0, 0])
-		var blocked_message := _route_block_message(placement)
-		result.append({
-			"id": String(placement.get("id", "")),
-			"type": placement_type,
-			"label": String(placement.get("label", placement.get("id", ""))),
-			"position": [int(pos[0]), int(pos[1])],
-			"targetMapId": String(placement.get("targetMapId", "")),
-			"targetRoute": String(placement.get("targetRoute", "")),
-			"blocked": blocked_message != "",
-			"blockedMessage": blocked_message
-		})
-	return result
+	if runtime_snapshot_builder == null:
+		return []
+	return runtime_snapshot_builder.call("route_state_entries")
 
 func _field_monster_snapshot(runtime: Dictionary) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for placement in map_data.get("placements", []):
-		if String(placement.get("type", "")) != "field_monster":
-			continue
-		var placement_id := String(placement.get("id", ""))
-		var state: Dictionary = runtime.get("fieldMonsters", {}).get(placement_id, {})
-		var cell := _placement_runtime_cell(placement, runtime)
-		result.append({
-			"id": placement_id,
-			"monsterId": String(state.get("monsterId", placement.get("monsterId", placement_id))),
-			"aiState": String(state.get("aiState", "idle")),
-			"currentCell": [cell.x, cell.y],
-			"startCell": state.get("startCell", placement.get("position", [0, 0])),
-			"fieldAi": _field_ai_config(placement),
-			"lastKnownPlayerCell": state.get("lastKnownPlayerCell", placement.get("position", [0, 0])),
-			"revealed": bool(state.get("revealed", _field_ai_behavior(placement) != "ambush")),
-			"defeated": bool(state.get("defeated", false))
-		})
-	return result
+	if runtime_snapshot_builder == null:
+		return []
+	return runtime_snapshot_builder.call("field_monster_snapshot", runtime)
 
 func _field_monster_state_summary(runtime: Dictionary) -> String:
-	var rows: Array[String] = []
-	for row in _field_monster_snapshot(runtime):
-		if bool(row.get("defeated", false)):
-			continue
-		var cell: Array = row.get("currentCell", [0, 0])
-		rows.append("%s:%s@%d,%d" % [
-			String(row.get("monsterId", row.get("id", ""))),
-			String(row.get("aiState", "idle")),
-			int(cell[0]),
-			int(cell[1])
-		])
-	if rows.is_empty():
+	if runtime_snapshot_builder == null:
 		return "-"
-	return ", ".join(rows)
+	return String(runtime_snapshot_builder.call("field_monster_state_summary", runtime))
 
 func _route_summary() -> String:
-	var route_entries := _route_state_entries()
-	if route_entries.is_empty():
+	if runtime_snapshot_builder == null:
 		return "-"
-	var labels: Array[String] = []
-	for entry in route_entries:
-		labels.append("%s:%s" % [
-			String(entry.get("label", entry.get("id", ""))),
-			"locked" if bool(entry.get("blocked", false)) else "open"
-		])
-	return ", ".join(labels)
+	return String(runtime_snapshot_builder.call("route_summary"))
 
 func _quest_target_keys() -> Array[String]:
-	var result: Array[String] = []
-	var quest_state := QuestService.current_quest(current_slot)
-	var quest_status := String(quest_state.get("status", ""))
-	if quest_status not in ["accepted", "complete_ready"]:
-		return result
-	var target_monster_id := String(quest_state.get("targetMonsterId", ""))
-	if target_monster_id == "":
-		return result
-	for placement in map_data.get("placements", []):
-		if typeof(placement) != TYPE_DICTIONARY:
-			continue
-		if String(placement.get("type", "")) != "field_monster":
-			continue
-		var placement_monster_id := String(placement.get("monsterId", placement.get("id", "")))
-		if placement_monster_id != target_monster_id and String(placement.get("id", "")) != target_monster_id:
-			continue
-		var pos: Array = placement.get("position", [0, 0])
-		result.append("%d,%d" % [int(pos[0]), int(pos[1])])
-	return result
+	if runtime_snapshot_builder == null:
+		return []
+	return runtime_snapshot_builder.call("quest_target_keys")
 
 func _quest_turn_in_keys() -> Array[String]:
-	var result: Array[String] = []
-	var quest_state := QuestService.current_quest(current_slot)
-	if String(quest_state.get("status", "")) != "complete_ready":
-		return result
-	for placement in map_data.get("placements", []):
-		if typeof(placement) != TYPE_DICTIONARY:
-			continue
-		var placement_type := String(placement.get("type", ""))
-		if placement_type not in ["quest_board", "npc_service"]:
-			continue
-		var pos: Array = placement.get("position", [0, 0])
-		result.append("%d,%d" % [int(pos[0]), int(pos[1])])
-	return result
+	if runtime_snapshot_builder == null:
+		return []
+	return runtime_snapshot_builder.call("quest_turn_in_keys")
 
 func _quest_seed_objective_keys() -> Array[String]:
-	var result: Array[String] = []
-	var quest_seeds := QuestService.quest_seed_states(current_slot)
-	for quest_seed_id in quest_seeds.keys():
-		var state: Dictionary = quest_seeds.get(quest_seed_id, {})
-		var status := String(state.get("status", ""))
-		if status not in ["active", "completed"]:
-			continue
-		var npc_id := String(state.get("npcId", ""))
-		var seed_def := _find_quest_seed_definition(npc_id, String(quest_seed_id))
-		if seed_def.is_empty():
-			continue
-		if status == "active":
-			result.append_array(_placement_keys_for_event(String(seed_def.get("completeEventId", ""))))
-		else:
-			result.append_array(_placement_keys_for_npc(npc_id))
-	return result
+	if runtime_snapshot_builder == null:
+		return []
+	return runtime_snapshot_builder.call("quest_seed_objective_keys")
 
 func _find_quest_seed_definition(npc_id: String, quest_seed_id: String) -> Dictionary:
-	if npc_id == "" or quest_seed_id == "":
+	if runtime_snapshot_builder == null:
 		return {}
-	var npc_def := ContentRegistry.get_definition("npcs", npc_id)
-	for seed_variant in npc_def.get("questSeeds", []):
-		if typeof(seed_variant) != TYPE_DICTIONARY:
-			continue
-		var seed: Dictionary = seed_variant
-		if String(seed.get("id", "")) == quest_seed_id:
-			return seed
-	return {}
+	return runtime_snapshot_builder.call("find_quest_seed_definition", npc_id, quest_seed_id)
 
 func _placement_keys_for_event(event_id: String) -> Array[String]:
-	var result: Array[String] = []
-	if event_id == "":
-		return result
-	for placement in map_data.get("placements", []):
-		if typeof(placement) != TYPE_DICTIONARY:
-			continue
-		if String(placement.get("eventId", "")) != event_id:
-			continue
-		var pos: Array = placement.get("position", [0, 0])
-		result.append("%d,%d" % [int(pos[0]), int(pos[1])])
-	return result
+	if runtime_snapshot_builder == null:
+		return []
+	return runtime_snapshot_builder.call("placement_keys_for_event", event_id)
 
 func _placement_keys_for_npc(npc_id: String) -> Array[String]:
-	var result: Array[String] = []
-	if npc_id == "":
-		return result
-	for placement in map_data.get("placements", []):
-		if typeof(placement) != TYPE_DICTIONARY:
-			continue
-		if String(placement.get("npcId", "")) != npc_id:
-			continue
-		var pos: Array = placement.get("position", [0, 0])
-		result.append("%d,%d" % [int(pos[0]), int(pos[1])])
-	return result
+	if runtime_snapshot_builder == null:
+		return []
+	return runtime_snapshot_builder.call("placement_keys_for_npc", npc_id)
 
 func _open_service_overlay(placement: Dictionary) -> void:
 	_close_service_overlay()

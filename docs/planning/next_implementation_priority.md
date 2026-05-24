@@ -147,6 +147,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 dungeon world presenter pass moved dungeon floor/wall/ceiling,
   decor, surface material, and compiled chunk overlay construction out of
   `grid_scene.gd` into `dungeon_world_presenter.gd`.
+- 2026-05-24 runtime snapshot builder pass moved HUD/minimap route state,
+  field monster snapshot summaries, visited map cells, and quest marker key
+  construction out of `grid_scene.gd` into `runtime_snapshot_builder.gd`.
 
 ## P0
 
@@ -210,6 +213,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move dungeon world mesh/decor/material/chunk overlay construction
      into `dungeon_world_presenter.gd`, leaving `grid_scene.gd` to orchestrate
      route setup and runtime state.
+   - Done: move runtime HUD/minimap route, field monster, visited-cell, and
+     quest marker snapshot helpers into `runtime_snapshot_builder.gd`, keeping
+     existing scene/test methods as delegates.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
