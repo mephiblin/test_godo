@@ -48,6 +48,10 @@ func _initialize() -> void:
 	var runtime_rest_event_id := ""
 	var runtime_deserter_npc_id := ""
 	var placement_affordance_preview_ok := false
+	var event_contract_apply_ok := false
+	var npc_contract_apply_ok := false
+	var imported_event_contract_ok := false
+	var imported_npc_contract_ok := false
 	var route_preview_report: Dictionary = {}
 	var fallback_workspace_summary_ok := false
 	var fallback_workspace_detail_ok := false
@@ -129,10 +133,15 @@ func _initialize() -> void:
 		var deserter_preview: Dictionary = placement_dock.call("smoke_get_current_placement_affordance_snapshot")
 		var npc_picker_ok := bool(placement_dock.call("smoke_set_current_placement_field", "npcId", "npc_wounded_mystic"))
 		var npc_picker_save: Dictionary = placement_dock.call("smoke_commit_current_placement")
+		placement_dock.call("smoke_select_placement", "deserter_captain")
+		placement_dock.call("smoke_set_preview_npc_service_index", 0)
+		npc_contract_apply_ok = bool(placement_dock.call("smoke_apply_selected_npc_service_contract"))
+		var npc_contract_save: Dictionary = placement_dock.call("smoke_commit_current_placement")
 		placement_reference_picker_ok = rest_event_ok \
 			and npc_picker_ok \
 			and bool(rest_event_save.get("ok", false)) \
 			and bool(npc_picker_save.get("ok", false)) \
+			and bool(npc_contract_save.get("ok", false)) \
 			and "\"eventId\": \"event_rest_guard_post\"" in _read_text(FLOOR01_PATH) \
 			and "\"npcId\": \"npc_wounded_mystic\"" in _read_text(FLOOR01_PATH)
 
@@ -241,6 +250,8 @@ func _initialize() -> void:
 				var branch_save_result: Dictionary = placement_dock.call("smoke_commit_current_placement")
 				if bool(branch_save_result.get("ok", false)):
 					branch_choice_ok = bool(placement_dock.call("smoke_set_preview_event_choice_index", 0))
+					event_contract_apply_ok = bool(placement_dock.call("smoke_apply_selected_event_contract"))
+					placement_dock.call("smoke_commit_current_placement")
 					branch_choice_preview = placement_dock.call("smoke_get_current_placement_affordance_snapshot")
 			preview_checks["gate_requirements"] = String(gate_preview.get("routeRequirements", "")).contains("questStatus in [accepted, complete_ready, claimed]")
 			preview_checks["gate_blocked"] = String(gate_preview.get("routeRequirements", "")).contains("blocked=\"게시판에서 원정 전표를 받아야 청동 문이 열린다.\"")
@@ -338,6 +349,11 @@ func _initialize() -> void:
 							runtime_rest_event_id = String(placement.get("eventId", ""))
 						"deserter_captain":
 							runtime_deserter_npc_id = String(placement.get("npcId", ""))
+							imported_npc_contract_ok = String(placement.get("authoringSelectedNpcServiceType", "")) != "" \
+								and int(placement.get("authoringSelectedNpcServiceIndex", -1)) >= 0
+					if String(placement.get("eventId", "")) == "event_scholar_cache_reward":
+						imported_event_contract_ok = String(placement.get("authoringSelectedEventStepId", "")) != "" \
+							and int(placement.get("authoringSelectedEventChoiceIndex", -1)) >= 0
 				break
 			var runtime_skill: Dictionary = content_registry.call("get_definition", "skills", "power_slash")
 			runtime_skill_power = int(runtime_skill.get("power", -1))
@@ -508,6 +524,10 @@ func _initialize() -> void:
 		and placement_grid_editor_ok \
 		and placement_reference_picker_ok \
 		and placement_affordance_preview_ok \
+		and event_contract_apply_ok \
+		and npc_contract_apply_ok \
+		and imported_event_contract_ok \
+		and imported_npc_contract_ok \
 		and placement_create_ok \
 		and placement_delete_ok \
 		and fallback_workspace_summary_ok \

@@ -679,6 +679,18 @@ func smoke_set_preview_npc_service_index(index: int) -> bool:
 	_render_placement_affordances(placement)
 	return true
 
+func smoke_apply_selected_event_contract() -> bool:
+	var placement := _current_selected_placement()
+	if placement.is_empty():
+		return false
+	return _apply_selected_event_contract(placement)
+
+func smoke_apply_selected_npc_service_contract() -> bool:
+	var placement := _current_selected_placement()
+	if placement.is_empty():
+		return false
+	return _apply_selected_npc_service_contract(placement)
+
 func smoke_set_preview_route_target_placement(placement_id: String) -> bool:
 	var placement := _current_selected_placement()
 	if placement.is_empty():
@@ -948,6 +960,12 @@ func _render_placement_affordances(placement: Dictionary) -> void:
 			selected_event_choice.text = _event_selected_choice_preview(String(placement.get("eventId", "")))
 			selected_event_choice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			placement_affordance_box.add_child(selected_event_choice)
+			var event_contract_button := Button.new()
+			event_contract_button.text = "Apply Selected Event Contract"
+			event_contract_button.pressed.connect(func() -> void:
+				_apply_selected_event_contract(placement)
+			)
+			placement_affordance_box.add_child(event_contract_button)
 		"npc_service":
 			var npc_preview := Label.new()
 			npc_preview.text = _npc_preview_text(String(placement.get("npcId", "")))
@@ -984,6 +1002,12 @@ func _render_placement_affordances(placement: Dictionary) -> void:
 			opens_service_stock.text = _npc_opens_service_stock_preview(String(placement.get("npcId", "")))
 			opens_service_stock.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			placement_affordance_box.add_child(opens_service_stock)
+			var npc_contract_button := Button.new()
+			npc_contract_button.text = "Apply Selected Service Contract"
+			npc_contract_button.pressed.connect(func() -> void:
+				_apply_selected_npc_service_contract(placement)
+			)
+			placement_affordance_box.add_child(npc_contract_button)
 
 func _placement_affordance_summary(placement: Dictionary) -> String:
 	var placement_type := String(placement.get("type", ""))
@@ -1394,6 +1418,43 @@ func _npc_opens_service_stock_preview(npc_id: String) -> String:
 		stock_size,
 		", ".join(sample_prices)
 	]
+
+func _apply_selected_event_contract(placement: Dictionary) -> bool:
+	var event_id := String(placement.get("eventId", ""))
+	var step := _selected_event_step(event_id)
+	if step.is_empty():
+		return false
+	var fields := {
+		"authoringSelectedEventStepId": String(step.get("id", ""))
+	}
+	var options := _event_step_choice_options(step)
+	if not options.is_empty():
+		var index := mini(maxi(current_preview_event_choice_index, 0), options.size() - 1)
+		var choice: Dictionary = options[index]
+		fields["authoringSelectedEventChoiceIndex"] = index
+		fields["authoringSelectedEventChoiceLabel"] = String(choice.get("label", choice.get("kind", "")))
+		fields["authoringSelectedEventNextStepId"] = String(choice.get("nextStepId", ""))
+	_apply_placement_quick_action(fields)
+	return true
+
+func _apply_selected_npc_service_contract(placement: Dictionary) -> bool:
+	var npc_id := String(placement.get("npcId", ""))
+	var services := _npc_service_rows(npc_id)
+	if services.is_empty():
+		return false
+	var index := mini(maxi(current_preview_npc_service_index, 0), services.size() - 1)
+	var service: Dictionary = services[index]
+	var opens_service: Dictionary = service.get("opensService", {})
+	var fields := {
+		"authoringSelectedNpcServiceIndex": index,
+		"authoringSelectedNpcServiceType": String(service.get("type", "")),
+		"authoringSelectedNpcServiceLabel": String(service.get("label", ""))
+	}
+	if not opens_service.is_empty():
+		fields["authoringSelectedOpensServiceId"] = String(opens_service.get("serviceId", ""))
+		fields["authoringSelectedOpensServiceKind"] = String(opens_service.get("kind", ""))
+	_apply_placement_quick_action(fields)
+	return true
 
 func _definition_row_for_preview(kind: String, row_id: String) -> Dictionary:
 	var current_definitions := ContentTools.load_definitions()

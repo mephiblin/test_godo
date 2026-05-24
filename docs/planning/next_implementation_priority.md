@@ -45,6 +45,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 imported manifest authority pass made runtime registry reject stale
   imported manifests by falling back to source JSON when imported
   `contentVersion` is behind source `contentVersion`.
+- 2026-05-24 editor guided contract pass let placement authors apply selected
+  event step/choice and NPC service preview rows into authored placement
+  metadata, with editor smoke proving source/imported round-trip.
 
 ## P0
 
@@ -130,8 +133,10 @@ original web-repo `godot-port-plan.md`.
      field monsters, NPC services, route links, and loot caches.
    - Done: event/rest/trap/NPC placements now include guided event/NPC selectors
      and label-sync actions in the preview authoring panel.
-   - Next: convert event graph and NPC service editing from preview-only into
-     direct guided field editors.
+   - Done: selected event step/choice and selected NPC service can now be applied
+     as placement authoring contract fields and survive source/imported round-trip.
+   - Next: convert event graph and NPC service definition rows themselves from
+     preview-only into direct guided editors.
 
 5. `save-migration-packaging`
    - Expand regression coverage around save robustness.
