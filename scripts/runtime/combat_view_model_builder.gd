@@ -25,11 +25,11 @@ static func build(runtime: RefCounted) -> Dictionary:
 		"pendingItemId": runtime.pending_item_id,
 		"pendingItemState": runtime._pending_item_view_model(),
 		"inventory": {
-			"healing_tonic": int(SaveService.inventory(runtime.slot).get("healing_tonic", 0)),
-			"bandage": int(SaveService.inventory(runtime.slot).get("bandage", 0)),
-			"antivenom": int(SaveService.inventory(runtime.slot).get("antivenom", 0)),
-			"throwing_knife": int(SaveService.inventory(runtime.slot).get("throwing_knife", 0)),
-			"firebomb": int(SaveService.inventory(runtime.slot).get("firebomb", 0))
+			"healing_tonic": int((runtime._save_service().call("inventory", runtime.slot) as Dictionary).get("healing_tonic", 0)),
+			"bandage": int((runtime._save_service().call("inventory", runtime.slot) as Dictionary).get("bandage", 0)),
+			"antivenom": int((runtime._save_service().call("inventory", runtime.slot) as Dictionary).get("antivenom", 0)),
+			"throwing_knife": int((runtime._save_service().call("inventory", runtime.slot) as Dictionary).get("throwing_knife", 0)),
+			"firebomb": int((runtime._save_service().call("inventory", runtime.slot) as Dictionary).get("firebomb", 0))
 		},
 		"weaponBonus": runtime.weapon_bonus,
 		"cursePenalty": runtime.curse_penalty,

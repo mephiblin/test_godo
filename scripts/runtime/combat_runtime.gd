@@ -5,7 +5,7 @@ const CombatViewModelBuilder = preload("res://scripts/runtime/combat_view_model_
 var enemy_name := "Slime Alpha"
 var enemy_ai := "aggressive"
 var enemy_combat_profile: Dictionary = {}
-var return_route := GameApp.MODE_DUNGEON
+var return_route := "dungeon"
 var return_map_id := "dungeon_floor_01"
 var monster_id := ""
 var monster_instance_id := ""
@@ -66,8 +66,9 @@ func setup(payload: Dictionary) -> void:
 	return_map_id = String(payload.get("return_map_id", return_map_id))
 	monster_id = String(payload.get("monster_id", ""))
 	monster_instance_id = String(payload.get("monster_instance_id", monster_id))
-	slot = int(payload.get("slot", GameApp.current_slot))
-	var monster_def := ContentRegistry.get_definition("monsters", monster_id)
+	var app := _game_app()
+	slot = int(payload.get("slot", int(app.get("current_slot")) if app != null else 1))
+	var monster_def: Dictionary = _content_registry().call("get_definition", "monsters", monster_id)
 	if not monster_def.is_empty():
 		enemy_name = String(monster_def.get("name", enemy_name))
 		enemy_hp = maxi(int(monster_def.get("maxHp", monster_def.get("hp", enemy_hp))), 1)
@@ -80,17 +81,17 @@ func setup(payload: Dictionary) -> void:
 		enemy_guard_points = maxi(int(enemy_combat_profile.get("startingGuard", _default_enemy_guard(enemy_ai))), 0)
 	else:
 		enemy_max_hp = enemy_hp
-	var front_state := SaveService.front_state(slot)
+	var front_state: Dictionary = _save_service().call("front_state", slot)
 	party_max_hp = maxi(int(front_state.get("maxHp", 20)), 1)
 	party_hp = clampi(int(front_state.get("hp", party_max_hp)), 1, party_max_hp)
 	for status_variant in front_state.get("statuses", []):
 		var status := String(status_variant)
 		if status != "":
 			front_statuses.append(status)
-	known_skill_ids = SaveService.known_skills(slot)
-	var equipment_data: Dictionary = SaveService.equipment(slot)
+	known_skill_ids = _save_service().call("known_skills", slot)
+	var equipment_data: Dictionary = _save_service().call("equipment", slot)
 	var weapon_id := String(equipment_data.get("weapon", ""))
-	var weapon_def := ContentRegistry.get_definition("items", weapon_id)
+	var weapon_def: Dictionary = _content_registry().call("get_definition", "items", weapon_id)
 	weapon_bonus = int(weapon_def.get("powerBonus", 0))
 	curse_penalty = 1 if String(weapon_def.get("curseStatus", "")) != "" else 0
 	combat_log = ["Encountered %s." % enemy_name]
@@ -195,7 +196,7 @@ func build_defeat_summary() -> Dictionary:
 		"mapId": return_map_id,
 		"partyHp": party_hp,
 		"partyMaxHp": party_max_hp,
-		"gold": int(SaveService.load_slot(slot).get("resources", {}).get("gold", 0)),
+		"gold": int((_save_service().call("load_slot", slot) as Dictionary).get("resources", {}).get("gold", 0)),
 		"statuses": front_statuses.duplicate(),
 		"logTail": combat_log.slice(maxi(combat_log.size() - 4, 0), combat_log.size())
 	}
@@ -203,7 +204,7 @@ func build_defeat_summary() -> Dictionary:
 func build_victory_summary() -> Dictionary:
 	var rewards: Array[Dictionary] = []
 	if monster_id != "":
-		var monster_def := ContentRegistry.get_definition("monsters", monster_id)
+		var monster_def: Dictionary = _content_registry().call("get_definition", "monsters", monster_id)
 		rewards.append({
 			"label": String(monster_def.get("name", enemy_name)),
 			"boss": bool(monster_def.get("boss", false)),
@@ -223,13 +224,13 @@ func build_victory_summary() -> Dictionary:
 	}
 
 func pick_item(item_id: String) -> Dictionary:
-	var item_def := ContentRegistry.get_definition("items", item_id)
+	var item_def: Dictionary = _content_registry().call("get_definition", "items", item_id)
 	if item_def.is_empty():
 		return {}
 	var combat_use: Dictionary = item_def.get("combatUse", {})
 	if combat_use.is_empty():
 		return {}
-	if not SaveService.has_inventory_item(slot, item_id, 1):
+	if not bool(_save_service().call("has_inventory_item", slot, item_id, 1)):
 		combat_log.append("Missing %s." % String(item_def.get("name", item_id)))
 		return {}
 	pending_item_id = item_id
@@ -379,11 +380,70 @@ func smoke_probe_enemy_turn() -> Dictionary:
 		"log": combat_log.slice(maxi(combat_log.size() - 6, 0), combat_log.size())
 	}
 
+func smoke_probe_skill_effect(skill_id: String, roll_value: int = 6, options: Dictionary = {}) -> Dictionary:
+	var skill_def: Dictionary = _content_registry().call("get_definition", "skills", skill_id)
+	if skill_def.is_empty():
+		return {"ok": false, "error": "missing skill"}
+	party_hp = clampi(int(options.get("partyHp", party_hp)), 0, party_max_hp)
+	enemy_hp = maxi(int(options.get("enemyHp", enemy_hp)), 1)
+	enemy_max_hp = maxi(int(options.get("enemyMaxHp", enemy_max_hp)), enemy_hp)
+	enemy_guard_points = maxi(int(options.get("enemyGuardPoints", enemy_guard_points)), 0)
+	enemy_armor_break = maxi(int(options.get("enemyArmorBreak", enemy_armor_break)), 0)
+	guard_points = maxi(int(options.get("guardPoints", guard_points)), 0)
+	enemy_statuses.clear()
+	for status_variant in options.get("enemyStatuses", []):
+		var enemy_status := String(status_variant)
+		if enemy_status != "":
+			enemy_statuses.append(enemy_status)
+	front_statuses.clear()
+	for front_status_variant in options.get("frontStatuses", []):
+		var front_status := String(front_status_variant)
+		if front_status != "":
+			front_statuses.append(front_status)
+	var before := debug_combat_state()
+	var roll := {
+		"id": 0,
+		"dieId": 0,
+		"faceIndex": 0,
+		"value": roll_value,
+		"skillId": skill_id,
+		"skillName": String(skill_def.get("name", skill_id)),
+		"kind": String(skill_def.get("kind", "attack")),
+		"effectKind": String(skill_def.get("effectKind", skill_def.get("kind", "attack"))),
+		"power": int(skill_def.get("power", 1)),
+		"guardBonus": int(skill_def.get("guardBonus", 0)),
+		"healBonus": int(skill_def.get("healBonus", 0)),
+		"armorBreak": int(skill_def.get("armorBreak", 0)),
+		"lifestealRatio": float(skill_def.get("lifestealRatio", 0.0)),
+		"targetMode": String(skill_def.get("targetMode", "single_enemy")),
+		"cooldownKey": String(skill_def.get("cooldownKey", skill_id)),
+		"cooldownTurns": int(skill_def.get("cooldownTurns", 0)),
+		"cooldownRemaining": 0,
+		"effectOps": _effect_ops_for_skill(skill_def),
+		"spinState": "stopped",
+		"selectedOrder": 0
+	}
+	var context := {"weaponBonusAvailable": int(options.get("weaponBonus", weapon_bonus))}
+	var damage := _resolve_roll_effect_ops(roll, context)
+	_apply_damage_to_enemy(damage)
+	var after := debug_combat_state()
+	return {
+		"ok": true,
+		"skillId": skill_id,
+		"effectOps": roll.get("effectOps", []),
+		"damage": damage,
+		"before": before,
+		"after": after,
+		"log": combat_log.slice(maxi(combat_log.size() - 8, 0), combat_log.size())
+	}
+
 func debug_combat_state() -> Dictionary:
 	return {
 		"frontStatuses": front_statuses.duplicate(),
 		"enemyStatuses": enemy_statuses.duplicate(),
 		"enemyGuardPoints": enemy_guard_points,
+		"enemyArmorBreak": enemy_armor_break,
+		"guardPoints": guard_points,
 		"selectedRollIds": selected_roll_ids.duplicate(),
 		"pendingTargetMode": pending_skill_target_mode,
 		"pendingTargetId": pending_target_id,
@@ -407,7 +467,7 @@ func _reset_rolls() -> void:
 	selected_roll_ids.clear()
 	for index in range(3):
 		var skill_id := known_skill_ids[index % known_skill_ids.size()]
-		var skill_def := ContentRegistry.get_definition("skills", skill_id)
+		var skill_def: Dictionary = _content_registry().call("get_definition", "skills", skill_id)
 		rolls.append({
 			"id": index,
 			"dieId": index,
@@ -478,12 +538,12 @@ func _use_pending_item() -> Dictionary:
 	if pending_item_id == "":
 		return {}
 	var item_id := pending_item_id
-	var item_def := ContentRegistry.get_definition("items", item_id)
+	var item_def: Dictionary = _content_registry().call("get_definition", "items", item_id)
 	var combat_use: Dictionary = item_def.get("combatUse", {})
 	if combat_use.is_empty():
 		_clear_pending_item()
 		return {}
-	if not SaveService.consume_inventory_item(slot, item_id, 1):
+	if not bool(_save_service().call("consume_inventory_item", slot, item_id, 1)):
 		combat_log.append("Failed to use %s." % String(item_def.get("name", item_id)))
 		_clear_pending_item()
 		return {}
@@ -589,16 +649,16 @@ func _refresh_selected_orders() -> void:
 			rolls[roll_id]["selectedOrder"] = index
 
 func _persist_party_state() -> void:
-	SaveService.update_front_state(slot, maxi(party_hp, 1), party_max_hp, front_statuses)
+	_save_service().call("update_front_state", slot, maxi(party_hp, 1), party_max_hp, front_statuses)
 
 func _front_resist_statuses() -> Array[String]:
 	var result: Array[String] = []
-	var equipment_data: Dictionary = SaveService.equipment(slot)
+	var equipment_data: Dictionary = _save_service().call("equipment", slot)
 	for equip_slot in equipment_data.keys():
 		var item_id := String(equipment_data.get(equip_slot, ""))
 		if item_id == "":
 			continue
-		var item_def := ContentRegistry.get_definition("items", item_id)
+		var item_def: Dictionary = _content_registry().call("get_definition", "items", item_id)
 		var resist_bonus := String(item_def.get("resistBonus", ""))
 		if resist_bonus != "" and not result.has(resist_bonus):
 			result.append(resist_bonus)
@@ -718,7 +778,7 @@ func _resolve_effect_ops(effect_ops: Array, source_row: Dictionary, resolution_c
 func _pending_item_view_model() -> Dictionary:
 	if pending_item_id == "":
 		return {}
-	var item_def := ContentRegistry.get_definition("items", pending_item_id)
+	var item_def: Dictionary = _content_registry().call("get_definition", "items", pending_item_id)
 	return {
 		"itemId": pending_item_id,
 		"targetMode": pending_target_mode,
@@ -746,7 +806,7 @@ func _pending_target_view_model() -> Dictionary:
 	}
 
 func _active_hero_view() -> Dictionary:
-	var slot_data := SaveService.load_slot(slot)
+	var slot_data: Dictionary = _save_service().call("load_slot", slot)
 	var player_name := String(slot_data.get("player", {}).get("name", "Conan"))
 	return {
 		"name": player_name,
@@ -884,3 +944,19 @@ func _resolve_enemy_turn_ops(base_retaliation: int) -> Dictionary:
 		"inflictStatus": inflict_status,
 		"endTurn": end_turn
 	}
+
+func _game_app() -> Node:
+	return _autoload("GameApp")
+
+func _save_service() -> Node:
+	return _autoload("SaveService")
+
+func _content_registry() -> Node:
+	return _autoload("ContentRegistry")
+
+func _autoload(node_name: String) -> Node:
+	var loop := Engine.get_main_loop()
+	if loop == null:
+		return null
+	var root_node: Window = loop.root
+	return root_node.get_node_or_null(node_name)

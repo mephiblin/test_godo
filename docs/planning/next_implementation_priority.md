@@ -56,6 +56,8 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 town focus runtime separation pass moved town focus ranking,
   selected/nearby hub lookup, approach pathing, direction hints, HUD snapshots,
   and service previews into `town_focus_runtime.gd`.
+- 2026-05-24 combat domain probe pass added direct headless assertions for skill
+  effectOps, item combatUse, enemy combatProfile turns, and equipment resistance.
 
 ## P0
 
@@ -130,8 +132,11 @@ original web-repo `godot-port-plan.md`.
      explicit continuation choices.
    - Done: domain smoke now directly asserts victory/defeat summary data,
      reward rows, monster instance IDs, and defeat HP state.
-   - Move remaining combat tests beyond smoke-only coverage into smaller direct
-     domain probes where autoload context is available.
+   - Done: dedicated combat domain probe now directly checks armor break,
+     lifesteal, healing, party guard, item damage/status/cure, guardian/coward
+     combatProfile behavior, and poison resistance.
+   - Move additional combat tests beyond smoke-only coverage into smaller direct
+     domain probes as multi-enemy and party-role systems expand.
    - Expand skill/item/effect authoring coverage.
    - Use enemy `combatProfile` more broadly.
    - Polish defeat, reward, and end-state UX further.
