@@ -80,6 +80,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 imported runtime boundary probe added a direct headless contract
   that new-game runtime state uses the imported manifest and compiled dungeon
   source without editor-only payload.
+- 2026-05-24 town world presenter mesh pass moved town landmark, actor,
+  campfire, gate, stall, table, crate, and ambient dressing mesh construction
+  out of `grid_scene.gd` into `town_world_presenter.gd`.
 
 ## P0
 
@@ -92,8 +95,9 @@ original web-repo `godot-port-plan.md`.
      entrypoint into `town_world_presenter.gd`.
    - Done: move town world cell looping, lighting, ground/path tile meshes, and
      boundary meshes into `town_world_presenter.gd`.
-   - Next: split the remaining town landmark/actor mesh construction helpers out
-     of `grid_scene.gd`.
+   - Done: move town landmark, actor, service prop, campfire, gate, and ambient
+     dressing mesh construction helpers out of `grid_scene.gd` into
+     `town_world_presenter.gd`.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
