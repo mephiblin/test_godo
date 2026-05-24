@@ -431,18 +431,6 @@ func _close_overlay() -> void:
 		close_callback.call()
 	queue_free()
 
-func smoke_select_service_type(service_type: String) -> void:
-	if not _show_npc_service_menu():
-		return
-	for service_state in NpcService.describe_services_for_slot(slot, String(placement.get("npcId", ""))):
-		var service: Dictionary = service_state.get("service", {})
-		if String(service.get("type", "")) != service_type:
-			continue
-		if not bool(service_state.get("available", false)):
-			return
-		_select_service(service)
-		return
-
 func _service_title() -> String:
 	var npc := ContentRegistry.get_definition("npcs", String(placement.get("npcId", "")))
 	return String(npc.get("name", placement.get("label", "Service")))

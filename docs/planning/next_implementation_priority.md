@@ -109,6 +109,8 @@ original web-repo `godot-port-plan.md`.
   smoke/debug wrappers into a test-only driver used by smoke flows.
 - 2026-05-24 combat runtime probe driver pass moved combat runtime smoke/debug
   probe methods into `combat_smoke_driver.gd`.
+- 2026-05-24 service overlay smoke driver pass moved the remaining NPC service
+  smoke selector out of the production service overlay into a test-only driver.
 
 ## P0
 
@@ -129,6 +131,9 @@ original web-repo `godot-port-plan.md`.
    - Done: remove simple town visual-smoke action wrappers from `grid_scene.gd`;
      visual/benchmark smoke now uses a test driver for quest, focus, service,
      route, inventory, and reward actions.
+   - Done: remove the remaining NPC service selector smoke helper from
+     `service_overlay.gd`; visual smoke now selects gatekeeper/scholar services
+     through `service_overlay_smoke_driver.gd`.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 

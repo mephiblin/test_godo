@@ -599,6 +599,7 @@ func _run_smoke() -> void:
 	var town_snapshot_after: Dictionary = {}
 	var town_snapshot_after_clear: Dictionary = {}
 	var grid_smoke := _grid_scene_smoke_driver()
+	var service_smoke := _service_overlay_smoke_driver()
 	grid_smoke.accept_quest(town_scene)
 	grid_smoke.accept_quest_seed(town_scene)
 	grid_smoke.cycle_town_focus(town_scene, 1)
@@ -608,8 +609,7 @@ func _run_smoke() -> void:
 	await get_tree().process_frame
 	if SceneRouter.modal_layer.get_child_count() > 0:
 		var gate_overlay := SceneRouter.modal_layer.get_child(SceneRouter.modal_layer.get_child_count() - 1)
-		if gate_overlay and gate_overlay.has_method("smoke_select_service_type"):
-			gate_overlay.call("smoke_select_service_type", "route_info")
+		service_smoke.select_service_type(gate_overlay, "route_info")
 	await _capture("02_gatekeeper.png")
 	if town_scene and town_scene.has_method("_close_service_overlay"):
 		town_scene.call("_close_service_overlay")
@@ -708,8 +708,7 @@ func _run_smoke() -> void:
 	await get_tree().process_frame
 	if SceneRouter.modal_layer.get_child_count() > 0:
 		var scholar_overlay := SceneRouter.modal_layer.get_child(SceneRouter.modal_layer.get_child_count() - 1)
-		if scholar_overlay and scholar_overlay.has_method("smoke_select_service_type"):
-			scholar_overlay.call("smoke_select_service_type", "ending_report")
+		service_smoke.select_service_type(scholar_overlay, "ending_report")
 	if town_scene and town_scene.has_method("hud_snapshot"):
 		town_snapshot_after_clear = town_scene.call("hud_snapshot")
 	await _capture("06_epilogue.png")
@@ -949,6 +948,10 @@ func _grid_scene_smoke_driver() -> RefCounted:
 
 func _combat_smoke_driver() -> RefCounted:
 	var script: Script = load("res://scripts/tests/combat_smoke_driver.gd")
+	return script.new()
+
+func _service_overlay_smoke_driver() -> RefCounted:
+	var script: Script = load("res://scripts/tests/service_overlay_smoke_driver.gd")
 	return script.new()
 
 func _debug_route_snapshot(slot: int, map_id: String, route: String, dungeon_source: String) -> Dictionary:
