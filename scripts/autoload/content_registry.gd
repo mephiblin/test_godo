@@ -7,6 +7,7 @@ var manifest: Dictionary = {}
 var maps: Dictionary = {}
 var definitions: Dictionary = {}
 var load_errors: PackedStringArray = []
+var load_warnings: PackedStringArray = []
 var active_manifest_path := SOURCE_MANIFEST_PATH
 
 func _ready() -> void:
@@ -14,9 +15,10 @@ func _ready() -> void:
 
 func load_all() -> void:
 	load_errors.clear()
+	load_warnings.clear()
 	maps.clear()
 	definitions.clear()
-	active_manifest_path = IMPORTED_MANIFEST_PATH if FileAccess.file_exists(IMPORTED_MANIFEST_PATH) else SOURCE_MANIFEST_PATH
+	active_manifest_path = _select_manifest_path()
 	manifest = _load_json(active_manifest_path)
 	if manifest.is_empty():
 		load_errors.append("Missing content manifest: %s" % active_manifest_path)
@@ -44,6 +46,7 @@ func validate_content() -> Dictionary:
 	return {
 			"ok": load_errors.is_empty(),
 			"errors": load_errors.duplicate(),
+			"warnings": load_warnings.duplicate(),
 			"mapCount": maps.size(),
 			"definitionKinds": definitions.keys(),
 			"manifestPath": active_manifest_path,
@@ -66,6 +69,21 @@ func list_definitions(kind: String) -> Array[Dictionary]:
 	for key in bucket.keys():
 		result.append(bucket[key])
 	return result
+
+func _select_manifest_path() -> String:
+	if not FileAccess.file_exists(IMPORTED_MANIFEST_PATH):
+		return SOURCE_MANIFEST_PATH
+	var source_manifest := _load_json(SOURCE_MANIFEST_PATH)
+	var imported_manifest := _load_json(IMPORTED_MANIFEST_PATH)
+	if imported_manifest.is_empty():
+		load_warnings.append("Imported content manifest is unreadable; using source manifest.")
+		return SOURCE_MANIFEST_PATH
+	var source_version := int(source_manifest.get("contentVersion", 0))
+	var imported_version := int(imported_manifest.get("contentVersion", 0))
+	if source_version > 0 and imported_version < source_version:
+		load_warnings.append("Imported content manifest is stale (%d < %d); using source manifest." % [imported_version, source_version])
+		return SOURCE_MANIFEST_PATH
+	return IMPORTED_MANIFEST_PATH
 
 func resolve_loot_items(table_id: String) -> Array[Dictionary]:
 	var table := get_definition("loot_tables", table_id)

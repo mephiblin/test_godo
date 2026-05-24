@@ -42,6 +42,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 validation fixture pass added a negative fixture probe that
   intentionally breaks definition and map references to prove the validator
   catches the authored contract failures before import/build.
+- 2026-05-24 imported manifest authority pass made runtime registry reject stale
+  imported manifests by falling back to source JSON when imported
+  `contentVersion` is behind source `contentVersion`.
 
 ## P0
 
@@ -81,7 +84,9 @@ original web-repo `godot-port-plan.md`.
      entry/choice/effect refs, quest seed state refs, NPC handoff refs, vendor
      skill refs, map material/placement refs, and fieldAi values, then asserts
      validator errors.
-   - Tighten the source JSON -> imported cache -> manifest export contract.
+   - Done: runtime registry now treats source JSON as authority when imported
+     cache contentVersion is stale, and exposes warnings in content validation.
+   - Tighten map-level source/imported hash or timestamp contracts.
    - Broaden stale bundle and content-version mismatch handling.
 
 5. `technology-direction-sync`
@@ -144,6 +149,8 @@ original web-repo `godot-port-plan.md`.
 2. `data-authority-contract`
    - Make `source_json`, `imported`, and `user://editor_projects` authority
      boundaries stricter.
+   - Done: stale imported manifest fallback now prevents runtime from silently
+     loading an older cache over newer source JSON.
    - Document data paths runtime must never mutate.
    - Clarify fallback editor versus real plugin authoring contracts.
    - Define canonical JSON write-back behavior for inspector edits.
