@@ -30,7 +30,7 @@ Out:
 
 ## Files To Inspect
 - `scripts/ui/main_root.gd`
-- `scripts/runtime/editor_workspace.gd`
+- `scripts/editor_tools/editor_workspace.gd`
 - `docs/planning/next_implementation_priority.md`
 
 ## Acceptance

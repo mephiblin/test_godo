@@ -2,7 +2,7 @@ extends SceneTree
 
 const ContentTools = preload("res://scripts/editor/content_tools.gd")
 const ContentEditorDockScene = preload("res://addons/connan_editor/docks/ContentEditorDock.tscn")
-const EditorWorkspaceScript = preload("res://scripts/runtime/editor_workspace.gd")
+const EditorWorkspaceScript = preload("res://scripts/editor_tools/editor_workspace.gd")
 const SKILLS_PATH := "res://data/source_json/skills.json"
 const QUESTS_PATH := "res://data/source_json/quests.json"
 const FLOOR01_PATH := "res://data/source_json/maps/dungeon_floor_01.json"

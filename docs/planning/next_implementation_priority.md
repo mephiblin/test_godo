@@ -117,6 +117,8 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 editor fallback smoke driver pass moved editor fallback workspace
   smoke manipulation and variant checks out of `main_root.gd` into a test-only
   driver while preserving visual capture.
+- 2026-05-24 editor workspace script boundary pass moved the fallback editor
+  workspace script out of `scripts/runtime` into `scripts/editor_tools`.
 
 ## P0
 
@@ -146,6 +148,9 @@ original web-repo `godot-port-plan.md`.
    - Done: move editor fallback route-preview workspace smoke manipulation and
      variant text checks out of `main_root.gd`; save/content/benchmark/visual
      smoke now uses `editor_fallback_smoke_driver.gd`.
+   - Done: move `EditorWorkspace.tscn` script from `scripts/runtime` to
+     `scripts/editor_tools`, so fallback editor tooling no longer lives in the
+     game runtime script tree.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
