@@ -1,0 +1,3164 @@
+extends Node3D
+
+@export var default_map_id := ""
+@export var route_name := ""
+
+const DIRS := [
+	Vector2i(0, -1),
+	Vector2i(1, 0),
+	Vector2i(0, 1),
+	Vector2i(-1, 0)
+]
+
+var map_data: Dictionary = {}
+var current_slot := 1
+var player_cell := Vector2i.ZERO
+var facing := 0
+var log_lines: Array[String] = []
+var placement_nodes: Dictionary = {}
+var placement_rings: Dictionary = {}
+var town_focus_anchor_node: MeshInstance3D
+var town_focus_path_nodes: Array[MeshInstance3D] = []
+var active_overlay: Control
+var cached_materials: Dictionary = {}
+var map_profile: Dictionary = {}
+var object_theme: Dictionary = {}
+var decor_cells: Dictionary = {}
+var compiled_preview: Dictionary = {}
+var chunk_overlay_nodes: Array[Node3D] = []
+var compiled_runtime_active := false
+var dungeon_source_mode := GameApp.DUNGEON_SOURCE_COMPILED
+var town_ambient_nodes: Array[Dictionary] = []
+var town_focus_target_ids: Array[String] = []
+var town_focus_index := -1
+
+@onready var world_root: Node3D = $WorldRoot
+@onready var player_rig: Node3D = $PlayerRig3D
+@onready var sun: DirectionalLight3D = $Sun
+
+func setup(payload: Dictionary) -> void:
+	if payload.is_empty():
+		payload = GameApp.consume_editor_test_payload(route_name)
+	current_slot = int(payload.get("slot", GameApp.current_slot))
+	var save_data: Dictionary = SaveService.load_slot(current_slot)
+	var runtime: Dictionary = save_data.get("runtime", {})
+	var map_id := String(payload.get("map_id", runtime.get("mapId", default_map_id)))
+	dungeon_source_mode = String(payload.get("dungeon_source", GameApp.dungeon_runtime_source))
+	map_data = ContentRegistry.get_map(map_id)
+	if map_data.is_empty():
+		push_error("Missing map: %s" % map_id)
+		return
+	GameApp.current_mode = route_name
+	map_profile = ContentRegistry.find_map_profile(String(map_data.get("mapProfileId", "")), map_id)
+	object_theme = ContentRegistry.find_object_theme(String(map_data.get("objectThemeId", "")), String(map_data.get("themeId", "")))
+	compiled_preview = map_data.get("compiledPreview", {})
+	map_data = _promote_compiled_runtime_map(map_data)
+	var start: Array = map_data.get("start", [1, 1])
+	player_cell = Vector2i(start[0], start[1])
+	facing = int(map_data.get("facing", 0))
+	if String(runtime.get("mapId", "")) == map_id:
+		var saved_cell: Array = runtime.get("playerCell", start)
+		player_cell = Vector2i(saved_cell[0], saved_cell[1])
+		facing = int(runtime.get("facing", facing))
+	log_lines = []
+	_ensure_field_monster_runtime()
+	_build_world()
+	_refresh_town_focus_targets()
+	_apply_player_transform()
+	_refresh_interaction_focus()
+	_log("%s loaded." % map_id)
+
+func _ready() -> void:
+	if map_data.is_empty():
+		setup({})
+
+func _process(_delta: float) -> void:
+	pass
+
+func build_hud() -> Control:
+	return preload("res://scripts/ui/grid_hud.gd").new().configure(self)
+
+func hud_snapshot() -> Dictionary:
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	var party_state: Dictionary = slot_data.get("partyState", {})
+	var front: Dictionary = party_state.get("front", {})
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var route_summary := _route_summary()
+	return {
+		"title": "%s Scene" % route_name.capitalize(),
+		"hudMode": "dungeon",
+		"state": "[b]Cell[/b] %s  [b]Facing[/b] %d\n[b]Map[/b] %s\n[b]Profile[/b] %s\n[b]Theme[/b] %s / props %s\n[b]Chunk[/b] %s\n[b]Dungeon Source[/b] %s\n[b]Generated[/b] active=%s cells=%d placements=%d\n[b]Routes[/b] %s\n[b]Field AI[/b] %s\n[b]Gold[/b] %d\n[b]Supplies[/b] food %d / water %d / torch %d\n[b]Front[/b] HP %d/%d  status %s\n[b]Quest[/b] %s\n[b]Items[/b] %s\n[b]Prompt[/b] %s\n[b]Controls[/b] %s" % [
+			player_cell,
+			facing,
+			map_data.get("id", ""),
+			String(map_profile.get("name", map_data.get("mapProfileId", "-"))),
+			String(map_data.get("themeId", map_profile.get("theme", "-"))),
+			String(object_theme.get("id", "-")),
+			_active_chunk_label(),
+			dungeon_source_mode,
+			str(compiled_runtime_active),
+			compiled_preview.get("generatedCells", []).size(),
+			compiled_preview.get("generatedPlacements", []).size(),
+			route_summary,
+			_field_monster_state_summary(runtime),
+			int(slot_data.get("resources", {}).get("gold", 0)),
+			int(slot_data.get("resources", {}).get("food", 0)),
+			int(slot_data.get("resources", {}).get("water", 0)),
+			int(slot_data.get("resources", {}).get("torch", 0)),
+			int(front.get("hp", 20)),
+			int(front.get("maxHp", 20)),
+			str(front.get("statuses", [])),
+			String(QuestService.current_quest(current_slot).get("status", "none")),
+			str(SaveService.inventory(current_slot)),
+			_interaction_prompt_text(),
+			_controls_summary()
+		],
+		"log": "\n".join(log_lines.slice(max(log_lines.size() - 5, 0), log_lines.size())),
+		"interaction": _interaction_snapshot(),
+		"minimap": {
+			"mapId": String(map_data.get("id", "")),
+			"cells": map_data.get("cells", []),
+			"currentCell": [player_cell.x, player_cell.y],
+			"visitedKeys": _visited_keys_for_map(runtime),
+			"placements": _visible_minimap_placements(runtime),
+			"routeStates": _route_state_entries(),
+			"fieldMonsterStates": _field_monster_snapshot(runtime),
+			"questStatus": String(QuestService.current_quest(current_slot).get("status", "none")),
+			"questTargetKeys": _quest_target_keys(),
+			"rewardTurnInKeys": _quest_turn_in_keys(),
+			"questSeedObjectiveKeys": _quest_seed_objective_keys()
+		}
+	}
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_W:
+				_try_move(DIRS[facing])
+			KEY_S:
+				_try_move(-DIRS[facing])
+			KEY_A:
+				_turn_player(-1)
+			KEY_D:
+				_turn_player(1)
+			KEY_SPACE, KEY_ENTER:
+				_interact_forward()
+			KEY_I:
+				_toggle_inventory_overlay()
+			KEY_R:
+				_try_rest()
+			KEY_T:
+				GameApp.return_to_title()
+
+func _turn_player(step: int) -> void:
+	facing = posmod(facing + step, 4)
+	_apply_player_transform()
+	_refresh_town_focus_targets()
+	_refresh_interaction_focus()
+	_persist_runtime()
+
+func _controls_summary() -> String:
+	return "W move, A/D turn, Space interact, I inventory, R rest, T title"
+
+func _try_forward_move() -> void:
+	_try_move(DIRS[facing])
+
+func _try_backward_move() -> void:
+	_try_move(-DIRS[facing])
+
+func smoke_move_forward() -> void:
+	_try_move(DIRS[facing])
+
+func smoke_accept_quest() -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) == "quest_board":
+			QuestService.accept_quest(current_slot, String(placement.get("questId", "")))
+			_log("Smoke accepted quest.")
+			return
+
+func smoke_accept_quest_seed() -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("npcId", "")) != "npc_scholar":
+			continue
+		var result := QuestService.accept_quest_seed(current_slot, "npc_scholar", "quest_seed_black_mural")
+		if bool(result.get("ok", false)):
+			_log("Smoke accepted quest seed.")
+		return
+
+func smoke_route_dungeon() -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) == "gate":
+			_route_from_placement(placement)
+			return
+
+func smoke_route_to_map(target_map_id: String) -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("targetMapId", "")) != target_map_id:
+			continue
+		if String(placement.get("type", "")) in ["gate", "stairs"]:
+			_route_from_placement(placement)
+			return
+
+func smoke_probe_route_to_map(target_map_id: String) -> Dictionary:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("targetMapId", "")) != target_map_id:
+			continue
+		if String(placement.get("type", "")) not in ["gate", "stairs"]:
+			continue
+		var blocked_message := _route_block_message(placement)
+		if blocked_message != "":
+			return {
+				"ok": false,
+				"blockedMessage": blocked_message,
+				"targetMapId": target_map_id
+			}
+		return {
+			"ok": true,
+			"blockedMessage": "",
+			"targetMapId": target_map_id
+		}
+	return {"ok": false, "blockedMessage": "Missing route placement.", "targetMapId": target_map_id}
+
+func smoke_enter_combat() -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) == "field_monster":
+			_enter_combat(placement)
+			return
+
+func smoke_enter_combat_by_monster(monster_id: String) -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		if String(placement.get("monsterId", placement.get("id", ""))) != monster_id:
+			continue
+		_enter_combat(placement)
+		return
+
+func smoke_trigger_blood_altar() -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("eventId", "")) != "event_blood_altar_unlock":
+			continue
+		_trigger_event_placement(placement)
+		_log("Smoke triggered blood altar.")
+		return
+
+func smoke_return_town() -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "stairs":
+			continue
+		if String(placement.get("targetRoute", "")) != GameApp.MODE_TOWN:
+			continue
+		if String(placement.get("endingFlag", "")) == "campaignCleared":
+			_route_from_placement(placement)
+			return
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) == "stairs" and String(placement.get("targetRoute", "")) == GameApp.MODE_TOWN:
+			_route_from_placement(placement)
+			return
+
+func smoke_trigger_event(event_id: String) -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("eventId", "")) != event_id:
+			continue
+		_trigger_event_placement(placement)
+		_log("Smoke triggered %s." % event_id)
+		return
+
+func smoke_accept_quest_seed_for_npc(npc_id: String, quest_seed_id: String) -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("npcId", "")) != npc_id:
+			continue
+		var result := QuestService.accept_quest_seed(current_slot, npc_id, quest_seed_id)
+		if bool(result.get("ok", false)):
+			_log("Smoke accepted quest seed %s." % quest_seed_id)
+		else:
+			_log(String(result.get("message", "Quest seed accept failed.")))
+		return
+
+func smoke_claim_reward() -> void:
+	QuestService.claim_reward(current_slot)
+	_log("Smoke claimed quest reward.")
+
+func smoke_claim_quest_seed_reward() -> void:
+	var result := QuestService.claim_quest_seed_reward(current_slot, "npc_scholar", "quest_seed_black_mural")
+	if bool(result.get("ok", false)):
+		_log("Smoke claimed quest seed reward.")
+
+func smoke_open_inventory() -> void:
+	_toggle_inventory_overlay()
+
+func smoke_open_service_by_npc(npc_id: String) -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("npcId", "")) != npc_id:
+			continue
+		_open_service_overlay(placement)
+		return
+
+func smoke_open_service_by_type(service_type: String) -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != service_type:
+			continue
+		_open_service_overlay(placement)
+		return
+
+func smoke_probe_field_monster_ai(monster_id: String) -> Dictionary:
+	var slot_before: Dictionary = SaveService.load_slot(current_slot).duplicate(true)
+	var matches: Array[Dictionary] = []
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		if String(placement.get("monsterId", placement.get("id", ""))) != monster_id:
+			continue
+		matches.append(placement)
+	var target_placement: Dictionary = {}
+	for placement in matches:
+		if _field_ai_behavior(placement) == "ambush":
+			target_placement = placement
+			break
+	if target_placement.is_empty() and not matches.is_empty():
+		target_placement = matches[0]
+	if target_placement.is_empty():
+		return {"ok": false}
+	var before_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var placement_id := String(target_placement.get("id", ""))
+	var before_state: Dictionary = before_runtime.get("fieldMonsters", {}).get(placement_id, {}).duplicate(true)
+	var ai_config := _field_ai_config(target_placement)
+	var before_cell := player_cell
+	_tick_field_monsters()
+	var after_patrol_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var after_patrol: Dictionary = after_patrol_runtime.get("fieldMonsters", {}).get(placement_id, {}).duplicate(true)
+	var target_cell := _placement_runtime_cell(target_placement, before_runtime)
+	player_cell = target_cell + Vector2i(0, 2)
+	_tick_field_monsters()
+	var after_approach_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var after_approach: Dictionary = after_approach_runtime.get("fieldMonsters", {}).get(placement_id, {}).duplicate(true)
+	player_cell = target_cell + Vector2i(0, 6)
+	_tick_field_monsters()
+	var after_give_up_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var after_give_up: Dictionary = after_give_up_runtime.get("fieldMonsters", {}).get(placement_id, {}).duplicate(true)
+	for _i in range(4):
+		_tick_field_monsters()
+	var after_return_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var after_return: Dictionary = after_return_runtime.get("fieldMonsters", {}).get(placement_id, {}).duplicate(true)
+	player_cell = before_cell
+	SaveService.save_slot(current_slot, slot_before)
+	_persist_runtime()
+	return {
+		"ok": true,
+		"fieldAi": ai_config,
+		"before": before_state,
+		"afterPatrol": after_patrol,
+		"afterApproach": after_approach,
+		"afterGiveUp": after_give_up,
+		"afterReturn": after_return
+	}
+
+func smoke_probe_field_monster_group_alert(monster_id: String) -> Dictionary:
+	var slot_before: Dictionary = SaveService.load_slot(current_slot).duplicate(true)
+	var source_matches: Array[Dictionary] = []
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		if String(placement.get("monsterId", placement.get("id", ""))) != monster_id:
+			continue
+		source_matches.append(placement)
+	var source_placement: Dictionary = {}
+	for placement in source_matches:
+		if _field_ai_behavior(placement) == "ambush":
+			source_placement = placement
+			break
+	if source_placement.is_empty() and not source_matches.is_empty():
+		source_placement = source_matches[0]
+	if source_placement.is_empty():
+		return {"ok": false, "reason": "no_source"}
+	var group_id := _field_alert_group_id(source_placement)
+	if group_id == "":
+		return {"ok": false, "reason": "no_group"}
+	var ally_placement: Dictionary = {}
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		if String(placement.get("id", "")) == String(source_placement.get("id", "")):
+			continue
+		if _field_alert_group_id(placement) == group_id:
+			ally_placement = placement
+			break
+	if ally_placement.is_empty():
+		return {"ok": false, "reason": "no_ally"}
+	var before_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var source_id := String(source_placement.get("id", ""))
+	var ally_id := String(ally_placement.get("id", ""))
+	var source_before: Dictionary = before_runtime.get("fieldMonsters", {}).get(source_id, {}).duplicate(true)
+	var ally_before: Dictionary = before_runtime.get("fieldMonsters", {}).get(ally_id, {}).duplicate(true)
+	var before_cell := player_cell
+	var source_cell := _placement_runtime_cell(source_placement, before_runtime)
+	player_cell = _smoke_probe_cell_near(source_cell, 2)
+	_tick_field_monsters()
+	var after_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var source_after: Dictionary = after_runtime.get("fieldMonsters", {}).get(source_id, {}).duplicate(true)
+	var ally_after: Dictionary = after_runtime.get("fieldMonsters", {}).get(ally_id, {}).duplicate(true)
+	player_cell = before_cell
+	SaveService.save_slot(current_slot, slot_before)
+	_persist_runtime()
+	return {
+		"ok": true,
+		"groupId": group_id,
+		"sourceId": source_id,
+		"allyId": ally_id,
+		"sourceEncounterId": String(source_placement.get("encounterId", "")),
+		"allyEncounterId": String(ally_placement.get("encounterId", "")),
+		"sourceAlertGroup": String(_field_ai_config(source_placement).get("alertGroup", "")),
+		"allyAlertGroup": String(_field_ai_config(ally_placement).get("alertGroup", "")),
+		"sourceBefore": source_before,
+		"sourceAfter": source_after,
+		"allyBefore": ally_before,
+		"allyAfter": ally_after
+	}
+
+func smoke_probe_field_monster_los(monster_id: String) -> Dictionary:
+	var slot_before: Dictionary = SaveService.load_slot(current_slot).duplicate(true)
+	var target_placement: Dictionary = {}
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		if String(placement.get("monsterId", placement.get("id", ""))) != monster_id:
+			continue
+		target_placement = placement
+		break
+	if target_placement.is_empty():
+		return {"ok": false}
+	var before_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var placement_id := String(target_placement.get("id", ""))
+	var target_cell := _placement_runtime_cell(target_placement, before_runtime)
+	var before_cell := player_cell
+	player_cell = target_cell + Vector2i(0, 4)
+	_tick_field_monsters()
+	var blocked_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var blocked_state: Dictionary = blocked_runtime.get("fieldMonsters", {}).get(placement_id, {}).duplicate(true)
+	player_cell = target_cell + Vector2i(0, 1)
+	_tick_field_monsters()
+	var heard_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var heard_state: Dictionary = heard_runtime.get("fieldMonsters", {}).get(placement_id, {}).duplicate(true)
+	player_cell = target_cell + Vector2i(0, 2)
+	_tick_field_monsters()
+	var visible_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var visible_state: Dictionary = visible_runtime.get("fieldMonsters", {}).get(placement_id, {}).duplicate(true)
+	player_cell = before_cell
+	SaveService.save_slot(current_slot, slot_before)
+	_persist_runtime()
+	return {
+		"ok": true,
+		"fieldAi": _field_ai_config(target_placement),
+		"blockedCell": [target_cell.x, target_cell.y + 4],
+		"heardCell": [target_cell.x, target_cell.y + 1],
+		"visibleCell": [target_cell.x, target_cell.y + 2],
+		"blockedState": blocked_state,
+		"heardState": heard_state,
+		"visibleState": visible_state
+	}
+
+func _smoke_probe_cell_near(origin: Vector2i, preferred_distance: int) -> Vector2i:
+	var candidates: Array[Vector2i] = [
+		origin + Vector2i(0, preferred_distance),
+		origin + Vector2i(0, -preferred_distance),
+		origin + Vector2i(preferred_distance, 0),
+		origin + Vector2i(-preferred_distance, 0),
+		origin + Vector2i(0, 1),
+		origin + Vector2i(0, -1),
+		origin + Vector2i(1, 0),
+		origin + Vector2i(-1, 0)
+	]
+	for cell in candidates:
+		if not _cell_hard_blocked(cell):
+			return cell
+	return origin
+
+func smoke_probe_field_monster_door_los(monster_id: String, door_id: String) -> Dictionary:
+	var slot_before: Dictionary = SaveService.load_slot(current_slot).duplicate(true)
+	var target_placement: Dictionary = {}
+	var door_placement: Dictionary = {}
+	for placement in map_data.get("placements", []):
+		var placement_id := String(placement.get("id", ""))
+		if placement_id == door_id:
+			door_placement = placement
+		if String(placement.get("type", "")) == "field_monster" and String(placement.get("monsterId", placement.get("id", ""))) == monster_id:
+			target_placement = placement
+	if target_placement.is_empty() or door_placement.is_empty():
+		return {"ok": false}
+	var target_cell := _placement_runtime_cell(target_placement)
+	var before_cell := player_cell
+	var locked_slot := SaveService.load_slot(current_slot)
+	var locked_runtime: Dictionary = locked_slot.get("runtime", {})
+	var reset_state := {
+		"startCell": [target_cell.x, target_cell.y],
+		"currentCell": [target_cell.x, target_cell.y],
+		"monsterId": String(target_placement.get("monsterId", target_placement.get("id", ""))),
+		"patrolIndex": 0,
+		"warningCounter": 0,
+		"lostSightCounter": 0,
+		"lastKnownPlayerCell": [target_cell.x, target_cell.y],
+		"revealed": _field_ai_behavior(target_placement) != "ambush",
+		"aiState": "patrolling" if _field_ai_behavior(target_placement) == "patrol" else ("ambushing" if _field_ai_behavior(target_placement) == "ambush" else "idle")
+	}
+	var locked_field_monsters: Dictionary = locked_runtime.get("fieldMonsters", {})
+	locked_field_monsters[String(target_placement.get("id", ""))] = reset_state
+	locked_runtime["fieldMonsters"] = locked_field_monsters
+	var locked_unlocked_doors: Dictionary = locked_runtime.get("unlockedDoors", {})
+	locked_unlocked_doors[door_id] = false
+	locked_runtime["unlockedDoors"] = locked_unlocked_doors
+	locked_slot["runtime"] = locked_runtime
+	SaveService.save_slot(current_slot, locked_slot)
+	player_cell = target_cell + Vector2i(-2, 0)
+	_tick_field_monsters()
+	var locked_runtime_after: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var locked_state: Dictionary = locked_runtime_after.get("fieldMonsters", {}).get(String(target_placement.get("id", "")), {}).duplicate(true)
+	var unlocked_slot := SaveService.load_slot(current_slot)
+	var unlocked_runtime: Dictionary = unlocked_slot.get("runtime", {})
+	var unlocked_doors: Dictionary = unlocked_runtime.get("unlockedDoors", {})
+	unlocked_doors[door_id] = true
+	unlocked_runtime["unlockedDoors"] = unlocked_doors
+	unlocked_slot["runtime"] = unlocked_runtime
+	SaveService.save_slot(current_slot, unlocked_slot)
+	_tick_field_monsters()
+	var unlocked_runtime_after: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var unlocked_state: Dictionary = unlocked_runtime_after.get("fieldMonsters", {}).get(String(target_placement.get("id", "")), {}).duplicate(true)
+	player_cell = before_cell
+	SaveService.save_slot(current_slot, slot_before)
+	_persist_runtime()
+	return {
+		"ok": true,
+		"doorId": door_id,
+		"blockedCell": [target_cell.x - 2, target_cell.y],
+		"lockedState": locked_state,
+		"unlockedState": unlocked_state
+	}
+
+func smoke_probe_secret_door_blocking(secret_id: String) -> Dictionary:
+	var slot_before: Dictionary = SaveService.load_slot(current_slot).duplicate(true)
+	var secret_placement: Dictionary = {}
+	for placement in map_data.get("placements", []):
+		if String(placement.get("id", "")) == secret_id:
+			secret_placement = placement
+			break
+	if secret_placement.is_empty():
+		return {"ok": false}
+	var secret_cell := _placement_runtime_cell(secret_placement)
+	var before_cell := player_cell
+	var before_facing := facing
+	player_cell = secret_cell + Vector2i(0, 1)
+	facing = 3
+	var blocked_before := _is_blocked(secret_cell)
+	_discover_secret(secret_placement)
+	var blocked_after := _is_blocked(secret_cell)
+	player_cell = before_cell
+	facing = before_facing
+	SaveService.save_slot(current_slot, slot_before)
+	_persist_runtime()
+	return {
+		"ok": true,
+		"secretId": secret_id,
+		"cell": [secret_cell.x, secret_cell.y],
+		"blockedBefore": blocked_before,
+		"blockedAfter": blocked_after
+	}
+
+func smoke_probe_secret_door_patrol(monster_id: String, secret_id: String) -> Dictionary:
+	var slot_before: Dictionary = SaveService.load_slot(current_slot).duplicate(true)
+	var target_placement: Dictionary = {}
+	var secret_placement: Dictionary = {}
+	for placement in map_data.get("placements", []):
+		if String(placement.get("id", "")) == secret_id:
+			secret_placement = placement
+		if String(placement.get("type", "")) == "field_monster" and String(placement.get("monsterId", placement.get("id", ""))) == monster_id:
+			target_placement = placement
+	if target_placement.is_empty() or secret_placement.is_empty():
+		return {
+			"ok": false,
+			"reason": "missing_target_or_secret",
+			"monsterId": monster_id,
+			"secretId": secret_id
+		}
+	var start_cell := _placement_runtime_cell(target_placement)
+	var before_cell := player_cell
+	var slot_data := SaveService.load_slot(current_slot)
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var field_monsters: Dictionary = runtime.get("fieldMonsters", {})
+	field_monsters[String(target_placement.get("id", ""))] = {
+		"startCell": [start_cell.x, start_cell.y],
+		"currentCell": [start_cell.x, start_cell.y],
+		"monsterId": String(target_placement.get("monsterId", target_placement.get("id", ""))),
+		"patrolIndex": 1,
+		"warningCounter": 0,
+		"lostSightCounter": 0,
+		"lastKnownPlayerCell": [start_cell.x, start_cell.y],
+		"revealed": true,
+		"aiState": "patrolling"
+	}
+	runtime["fieldMonsters"] = field_monsters
+	var discovered: Dictionary = runtime.get("discoveredSecrets", {})
+	discovered[String(secret_placement.get("id", ""))] = false
+	runtime["discoveredSecrets"] = discovered
+	slot_data["runtime"] = runtime
+	SaveService.save_slot(current_slot, slot_data)
+	player_cell = Vector2i(6, 1)
+	_tick_field_monsters()
+	var blocked_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var blocked_state: Dictionary = blocked_runtime.get("fieldMonsters", {}).get(String(target_placement.get("id", "")), {}).duplicate(true)
+	_discover_secret(secret_placement)
+	_tick_field_monsters()
+	var discovered_runtime: Dictionary = SaveService.load_slot(current_slot).get("runtime", {})
+	var discovered_state: Dictionary = discovered_runtime.get("fieldMonsters", {}).get(String(target_placement.get("id", "")), {}).duplicate(true)
+	player_cell = before_cell
+	SaveService.save_slot(current_slot, slot_before)
+	_persist_runtime()
+	return {
+		"ok": true,
+		"monsterId": monster_id,
+		"secretId": secret_id,
+		"blockedState": blocked_state,
+		"discoveredState": discovered_state
+	}
+
+func debug_benchmark_snapshot() -> Dictionary:
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	return {
+		"mapId": String(map_data.get("id", "")),
+		"playerCell": [player_cell.x, player_cell.y],
+		"facing": facing,
+		"dungeonSource": GameApp.dungeon_runtime_source,
+		"minimap": {
+			"visitedKeys": _visited_keys_for_map(runtime),
+			"questStatus": String(QuestService.current_quest(current_slot).get("status", "none")),
+			"questTargetKeys": _quest_target_keys(),
+			"rewardTurnInKeys": _quest_turn_in_keys(),
+			"questSeedObjectiveKeys": _quest_seed_objective_keys()
+		}
+	}
+
+func _build_world() -> void:
+	for child in world_root.get_children():
+		child.queue_free()
+	placement_nodes.clear()
+	placement_rings.clear()
+	town_focus_anchor_node = null
+	town_focus_path_nodes.clear()
+	chunk_overlay_nodes.clear()
+	town_ambient_nodes.clear()
+	cached_materials.clear()
+	decor_cells = _build_decor_cells()
+	if _is_town_map():
+		_build_town_world()
+		_refresh_field_monsters()
+		return
+	var floor_mesh := BoxMesh.new()
+	floor_mesh.size = Vector3(1.0, 0.12, 1.0)
+	var wall_mesh := BoxMesh.new()
+	wall_mesh.size = Vector3(1.0, 1.8, 1.0)
+	var ceiling_mesh := BoxMesh.new()
+	ceiling_mesh.size = Vector3(1.0, 0.1, 1.0)
+	var marker_mesh := SphereMesh.new()
+	var wall_material := _resolve_surface_material(String(map_data.get("wallMaterialId", "")), Color("7a6a57"))
+	var ceiling_material := _resolve_surface_material(String(map_data.get("ceilingMaterialId", "")), Color("42382d"))
+	var cells: Array = map_data.get("cells", [])
+	for y in range(cells.size()):
+		var row := String(cells[y])
+		for x in range(row.length()):
+			var tile := row[x]
+			if tile == "#":
+				var wall := MeshInstance3D.new()
+				wall.mesh = wall_mesh
+				wall.material_override = wall_material
+				wall.position = Vector3(x, 0.5, y)
+				wall.scale = Vector3(1, 1, 1)
+				world_root.add_child(wall)
+			else:
+				var tile_role := _tile_role_at(Vector2i(x, y))
+				var floor := MeshInstance3D.new()
+				floor.mesh = floor_mesh
+				floor.material_override = _material_for_tile_role(tile_role)
+				floor.position = Vector3(x, -0.06, y)
+				world_root.add_child(floor)
+				var ceiling := MeshInstance3D.new()
+				ceiling.mesh = ceiling_mesh
+				ceiling.material_override = ceiling_material
+				ceiling.position = Vector3(x, 1.78, y)
+				world_root.add_child(ceiling)
+				_spawn_decor_for_cell(Vector2i(x, y), tile_role)
+	for placement in map_data.get("placements", []):
+		var marker := MeshInstance3D.new()
+		marker.mesh = marker_mesh
+		var pos: Array = placement.get("position", [0, 0])
+		marker.position = Vector3(pos[0], 0.35, pos[1])
+		marker.scale = Vector3(0.35, 0.35, 0.35)
+		marker.material_override = _marker_material(_placement_color(String(placement.get("type", ""))))
+		world_root.add_child(marker)
+		placement_nodes[String(placement.get("id", ""))] = marker
+	_spawn_chunk_overlay()
+	_refresh_field_monsters()
+
+func _is_town_map() -> bool:
+	return String(map_data.get("kind", "")) == "town"
+
+func _build_town_world() -> void:
+	_configure_town_lighting()
+	var cells: Array = map_data.get("cells", [])
+	for y in range(cells.size()):
+		var row := String(cells[y])
+		for x in range(row.length()):
+			var cell := Vector2i(x, y)
+			if row[x] == "#":
+				_spawn_town_boundary(cell)
+			else:
+				_spawn_town_ground(cell)
+	for placement in map_data.get("placements", []):
+		_spawn_town_placement(placement)
+	_spawn_town_ambient_dressing()
+
+func _configure_town_lighting() -> void:
+	sun.light_color = Color("fff1d5")
+	sun.light_energy = 1.55
+
+func _spawn_town_ground(cell: Vector2i) -> void:
+	var base := MeshInstance3D.new()
+	var base_mesh := BoxMesh.new()
+	base_mesh.size = Vector3(1.0, 0.08, 1.0)
+	base.mesh = base_mesh
+	base.material_override = _town_ground_material(cell)
+	base.position = Vector3(cell.x, -0.04, cell.y)
+	world_root.add_child(base)
+	if _town_path_cells().has(_cell_visit_key(cell)):
+		var path := MeshInstance3D.new()
+		var path_mesh := BoxMesh.new()
+		path_mesh.size = Vector3(0.76, 0.03, 0.76)
+		path.mesh = path_mesh
+		path.material_override = _flat_color_material(Color("9f8964"))
+		path.position = Vector3(cell.x, 0.005, cell.y)
+		world_root.add_child(path)
+
+func _spawn_town_boundary(cell: Vector2i) -> void:
+	var wall := MeshInstance3D.new()
+	var wall_mesh := BoxMesh.new()
+	wall_mesh.size = Vector3(1.0, 1.0, 1.0)
+	wall.mesh = wall_mesh
+	wall.material_override = _flat_color_material(Color("6d5842"))
+	wall.position = Vector3(cell.x, 0.48, cell.y)
+	world_root.add_child(wall)
+	var cap := MeshInstance3D.new()
+	var cap_mesh := BoxMesh.new()
+	cap_mesh.size = Vector3(1.04, 0.12, 1.04)
+	cap.mesh = cap_mesh
+	cap.material_override = _flat_color_material(Color("9f835f"))
+	cap.position = Vector3(cell.x, 1.02, cell.y)
+	world_root.add_child(cap)
+
+func _spawn_town_placement(placement: Dictionary) -> void:
+	var kind := String(placement.get("type", ""))
+	var pos: Array = placement.get("position", [0, 0])
+	var cell := Vector2i(int(pos[0]), int(pos[1]))
+	match kind:
+		"quest_board":
+			_spawn_town_board(cell, Color("7b5a35"), Color("d4c0a1"))
+			_spawn_town_actor(cell + Vector2i(0, 1), "scribe")
+		"healer":
+			_spawn_town_tent(cell, Color("7fbfa2"), Color("d9e5d2"))
+			_spawn_town_table(cell + Vector2i(0, 1), Color("c7b18a"))
+			_spawn_town_actor(cell + Vector2i(0, 1), "healer")
+		"skill_shop":
+			_spawn_town_tent(cell, Color("7ca7d8"), Color("d9e5f4"))
+			_spawn_town_weapon_rack(cell + Vector2i(0, 1))
+			_spawn_town_actor(cell + Vector2i(0, 1), "merchant")
+		"trade":
+			_spawn_town_stall(cell, Color("c88c55"), Color("ead0ad"))
+			_spawn_town_crates(cell + Vector2i(0, 1))
+			_spawn_town_actor(cell + Vector2i(0, 1), "apothecary")
+		"npc_service":
+			_spawn_town_npc_landmark(placement, cell)
+		"gate":
+			_spawn_town_gate(cell, placement)
+		"rest":
+			_spawn_town_campfire(cell)
+		_:
+			pass
+	var marker := _spawn_placement_beacon(placement, 0.2)
+	placement_nodes[String(placement.get("id", ""))] = marker
+
+func _spawn_placement_beacon(placement: Dictionary, height: float) -> MeshInstance3D:
+	var marker := MeshInstance3D.new()
+	var marker_mesh := SphereMesh.new()
+	marker_mesh.radius = 0.28
+	marker_mesh.height = 0.56
+	marker.mesh = marker_mesh
+	var pos: Array = placement.get("position", [0, 0])
+	marker.position = Vector3(float(pos[0]), height, float(pos[1]))
+	marker.scale = Vector3(0.35, 0.35, 0.35)
+	marker.material_override = _marker_material(_placement_runtime_color(placement))
+	world_root.add_child(marker)
+	var ring := MeshInstance3D.new()
+	var ring_mesh := CylinderMesh.new()
+	ring_mesh.top_radius = 0.42
+	ring_mesh.bottom_radius = 0.54
+	ring_mesh.height = 0.04
+	ring.mesh = ring_mesh
+	ring.material_override = _flat_color_material(_placement_runtime_color(placement).darkened(0.2))
+	ring.position = Vector3(float(pos[0]), 0.03, float(pos[1]))
+	world_root.add_child(ring)
+	placement_rings[String(placement.get("id", ""))] = ring
+	return marker
+
+func _placement_runtime_color(placement: Dictionary) -> Color:
+	if String(placement.get("type", "")) in ["gate", "stairs"] and _route_block_message(placement) != "":
+		return Color("aa644d")
+	return _placement_color(String(placement.get("type", "")))
+
+func _town_ground_material(cell: Vector2i) -> StandardMaterial3D:
+	var color := Color("5e6e53")
+	if cell == Vector2i(2, 5):
+		color = Color("708262")
+	elif cell.y <= 3:
+		color = Color("667758")
+	elif cell.x >= 5:
+		color = Color("5b694f")
+	return _flat_color_material(color)
+
+func _town_path_cells() -> Dictionary:
+	var keys := {}
+	for cell in [
+		Vector2i(2, 5), Vector2i(2, 4), Vector2i(2, 3), Vector2i(2, 2),
+		Vector2i(3, 3), Vector2i(4, 3), Vector2i(5, 3), Vector2i(5, 2),
+		Vector2i(3, 4), Vector2i(4, 4), Vector2i(5, 4), Vector2i(6, 4),
+		Vector2i(3, 2), Vector2i(4, 2), Vector2i(6, 2)
+	]:
+		keys[_cell_visit_key(cell)] = true
+	return keys
+
+func _spawn_town_board(cell: Vector2i, wood_color: Color, face_color: Color) -> void:
+	_spawn_post_pair(cell, wood_color)
+	var board := MeshInstance3D.new()
+	var board_mesh := BoxMesh.new()
+	board_mesh.size = Vector3(0.72, 0.6, 0.1)
+	board.mesh = board_mesh
+	board.material_override = _flat_color_material(face_color)
+	board.position = Vector3(cell.x, 0.75, cell.y - 0.18)
+	world_root.add_child(board)
+
+func _spawn_town_tent(cell: Vector2i, cloth_color: Color, pole_color: Color) -> void:
+	var roof := MeshInstance3D.new()
+	var roof_mesh := PrismMesh.new()
+	roof_mesh.size = Vector3(0.9, 0.45, 0.8)
+	roof.mesh = roof_mesh
+	roof.material_override = _flat_color_material(cloth_color)
+	roof.position = Vector3(cell.x, 0.82, cell.y)
+	world_root.add_child(roof)
+	_register_town_ambient_node(roof, "sway", {"yawAmplitude": 2.2, "rollAmplitude": 1.8, "speed": 0.95 + float(cell.x % 3) * 0.07})
+	_spawn_post_pair(cell, pole_color)
+
+func _spawn_town_stall(cell: Vector2i, cloth_color: Color, wood_color: Color) -> void:
+	_spawn_town_tent(cell, cloth_color, wood_color)
+	var counter := MeshInstance3D.new()
+	var counter_mesh := BoxMesh.new()
+	counter_mesh.size = Vector3(0.86, 0.44, 0.34)
+	counter.mesh = counter_mesh
+	counter.material_override = _flat_color_material(wood_color)
+	counter.position = Vector3(cell.x, 0.2, cell.y + 0.26)
+	world_root.add_child(counter)
+
+func _spawn_town_gate(cell: Vector2i, placement: Dictionary) -> void:
+	for side in [-1, 1]:
+		var pillar := MeshInstance3D.new()
+		var pillar_mesh := BoxMesh.new()
+		pillar_mesh.size = Vector3(0.22, 1.35, 0.22)
+		pillar.mesh = pillar_mesh
+		pillar.material_override = _flat_color_material(Color("8d7758"))
+		pillar.position = Vector3(cell.x + 0.34 * side, 0.62, cell.y)
+		world_root.add_child(pillar)
+	var arch := MeshInstance3D.new()
+	var arch_mesh := BoxMesh.new()
+	arch_mesh.size = Vector3(0.95, 0.18, 0.24)
+	arch.mesh = arch_mesh
+	arch.material_override = _flat_color_material(Color("c9b07c") if _route_block_message(placement) == "" else Color("8c6551"))
+	arch.position = Vector3(cell.x, 1.18, cell.y)
+	world_root.add_child(arch)
+	var banner := MeshInstance3D.new()
+	var banner_mesh := BoxMesh.new()
+	banner_mesh.size = Vector3(0.52, 0.44, 0.06)
+	banner.mesh = banner_mesh
+	banner.material_override = _flat_color_material(Color("d7c27a") if _route_block_message(placement) == "" else Color("9a6c57"))
+	banner.position = Vector3(cell.x, 0.86, cell.y - 0.18)
+	world_root.add_child(banner)
+	_register_town_ambient_node(banner, "banner", {"yawAmplitude": 5.0, "rollAmplitude": 3.0, "speed": 1.15})
+	for side in [-1, 1]:
+		var lamp := MeshInstance3D.new()
+		var lamp_mesh := SphereMesh.new()
+		lamp_mesh.radius = 0.08
+		lamp_mesh.height = 0.16
+		lamp.mesh = lamp_mesh
+		lamp.material_override = _flat_color_material(Color("f0cf7b"))
+		lamp.position = Vector3(cell.x + 0.26 * side, 0.72, cell.y - 0.06)
+		world_root.add_child(lamp)
+		var glow := OmniLight3D.new()
+		glow.light_color = Color("ffd18a")
+		glow.light_energy = 0.8
+		glow.omni_range = 3.0
+		glow.position = lamp.position
+		world_root.add_child(glow)
+		_register_town_ambient_node(glow, "light", {"energy": 0.8, "flicker": 0.18, "speed": 1.4 + float(side) * 0.1})
+
+func _spawn_town_campfire(cell: Vector2i) -> void:
+	var logs := MeshInstance3D.new()
+	var logs_mesh := CylinderMesh.new()
+	logs_mesh.top_radius = 0.08
+	logs_mesh.bottom_radius = 0.08
+	logs_mesh.height = 0.54
+	logs.mesh = logs_mesh
+	logs.rotation_degrees = Vector3(0, 0, 90)
+	logs.material_override = _flat_color_material(Color("6d4d2d"))
+	logs.position = Vector3(cell.x, 0.08, cell.y)
+	world_root.add_child(logs)
+	var flame := MeshInstance3D.new()
+	var flame_mesh := SphereMesh.new()
+	flame_mesh.radius = 0.16
+	flame_mesh.height = 0.28
+	flame.mesh = flame_mesh
+	flame.material_override = _flat_color_material(Color("f39d53"))
+	flame.position = Vector3(cell.x, 0.24, cell.y)
+	world_root.add_child(flame)
+	_register_town_ambient_node(flame, "flame", {"scale": Vector3(1.0, 1.0, 1.0), "flicker": 0.18, "speed": 2.4})
+	var glow := OmniLight3D.new()
+	glow.light_color = Color("ffb66b")
+	glow.light_energy = 1.1
+	glow.omni_range = 3.8
+	glow.position = Vector3(cell.x, 0.34, cell.y)
+	world_root.add_child(glow)
+	_register_town_ambient_node(glow, "light", {"energy": 1.1, "flicker": 0.22, "speed": 2.2})
+	for index in range(5):
+		var ember := MeshInstance3D.new()
+		var ember_mesh := SphereMesh.new()
+		ember_mesh.radius = 0.04
+		ember_mesh.height = 0.08
+		ember.mesh = ember_mesh
+		ember.material_override = _flat_color_material(Color("ffcc7a"))
+		var offset := Vector3(
+			-0.16 + float(index) * 0.08,
+			0.22 + float(index % 2) * 0.05,
+			-0.08 + float(index % 3) * 0.06
+		)
+		ember.position = Vector3(cell.x, 0.0, cell.y) + offset
+		world_root.add_child(ember)
+		_register_town_ambient_node(ember, "ember", {
+			"rise": 0.26 + float(index) * 0.03,
+			"drift": 0.08 + float(index) * 0.01,
+			"speed": 1.35 + float(index) * 0.22
+		})
+
+func _spawn_town_ambient_dressing() -> void:
+	for cell in [Vector2i(3, 5), Vector2i(4, 4), Vector2i(5, 5), Vector2i(6, 3)]:
+		for index in range(3):
+			var mote := MeshInstance3D.new()
+			var mote_mesh := SphereMesh.new()
+			mote_mesh.radius = 0.035
+			mote_mesh.height = 0.07
+			mote.mesh = mote_mesh
+			mote.material_override = _flat_color_material(Color("c9c39a"))
+			var base_offset := Vector3(
+				-0.18 + float(index) * 0.16,
+				0.72 + float(index) * 0.09,
+				-0.12 + float((cell.x + index) % 3) * 0.1
+			)
+			mote.position = Vector3(cell.x, 0.0, cell.y) + base_offset
+			world_root.add_child(mote)
+			_register_town_ambient_node(mote, "mote", {
+				"bob": 0.07 + float(index) * 0.02,
+				"drift": 0.09 + float(index) * 0.02,
+				"speed": 0.65 + float(index) * 0.18
+			})
+
+func _spawn_town_npc_landmark(placement: Dictionary, cell: Vector2i) -> void:
+	var npc_id := String(placement.get("npcId", ""))
+	match npc_id:
+		"npc_scholar":
+			_spawn_town_board(cell, Color("5f4c36"), Color("d4d0bf"))
+			_spawn_town_table(cell + Vector2i(0, 1), Color("b8aa8b"))
+			_spawn_town_actor(cell + Vector2i(0, 1), "scholar")
+		"npc_exile_scout":
+			_spawn_town_tent(cell, Color("967a57"), Color("ddd3c1"))
+			_spawn_town_actor(cell + Vector2i(0, 1), "scout")
+		"npc_trainer":
+			_spawn_town_tent(cell, Color("8d5f4e"), Color("efe4d3"))
+			_spawn_town_weapon_rack(cell + Vector2i(-1, 0))
+			_spawn_town_actor(cell + Vector2i(0, 1), "trainer")
+		"npc_gatekeeper":
+			_spawn_town_board(cell, Color("72573d"), Color("cab48f"))
+			_spawn_town_actor(cell + Vector2i(0, 1), "gatekeeper")
+		"npc_wounded_mystic":
+			_spawn_town_tent(cell, Color("5b6d84"), Color("d8d4c8"))
+			_spawn_town_actor(cell + Vector2i(0, 1), "mystic")
+		"npc_deserter_captain":
+			_spawn_town_board(cell, Color("7c5a48"), Color("d6c29b"))
+			_spawn_town_actor(cell + Vector2i(0, 1), "captain")
+		_:
+			_spawn_town_table(cell, Color("bca889"))
+			_spawn_town_actor(cell + Vector2i(0, 1), "townsfolk")
+
+func _spawn_town_table(cell: Vector2i, color: Color) -> void:
+	var table := MeshInstance3D.new()
+	var table_mesh := BoxMesh.new()
+	table_mesh.size = Vector3(0.62, 0.28, 0.38)
+	table.mesh = table_mesh
+	table.material_override = _flat_color_material(color)
+	table.position = Vector3(cell.x, 0.16, cell.y)
+	world_root.add_child(table)
+
+func _spawn_town_crates(cell: Vector2i) -> void:
+	for offset in [Vector3(-0.18, 0.12, 0.04), Vector3(0.16, 0.12, -0.08)]:
+		var crate := MeshInstance3D.new()
+		var crate_mesh := BoxMesh.new()
+		crate_mesh.size = Vector3(0.26, 0.24, 0.26)
+		crate.mesh = crate_mesh
+		crate.material_override = _flat_color_material(Color("a7794e"))
+		crate.position = Vector3(cell.x, 0, cell.y) + offset
+		world_root.add_child(crate)
+
+func _spawn_town_weapon_rack(cell: Vector2i) -> void:
+	var rack := MeshInstance3D.new()
+	var rack_mesh := BoxMesh.new()
+	rack_mesh.size = Vector3(0.62, 0.72, 0.14)
+	rack.mesh = rack_mesh
+	rack.material_override = _flat_color_material(Color("8c7150"))
+	rack.position = Vector3(cell.x, 0.36, cell.y)
+	world_root.add_child(rack)
+	for side in [-1, 1]:
+		var blade := MeshInstance3D.new()
+		var blade_mesh := BoxMesh.new()
+		blade_mesh.size = Vector3(0.08, 0.54, 0.04)
+		blade.mesh = blade_mesh
+		blade.material_override = _flat_color_material(Color("cfd7dc"))
+		blade.position = Vector3(cell.x + 0.14 * side, 0.52, cell.y)
+		world_root.add_child(blade)
+
+func _spawn_town_actor(cell: Vector2i, role: String) -> void:
+	var palette := _town_actor_palette(role)
+	var body := MeshInstance3D.new()
+	var body_mesh := CylinderMesh.new()
+	body_mesh.top_radius = 0.14
+	body_mesh.bottom_radius = 0.16
+	body_mesh.height = 0.64
+	body.mesh = body_mesh
+	body.material_override = _flat_color_material(palette.get("body", Color("8a7b68")))
+	body.position = Vector3(cell.x, 0.38, cell.y)
+	world_root.add_child(body)
+	_register_town_ambient_node(body, "actor_body", {"bob": 0.035, "speed": 1.2 + float(abs(hash(role)) % 5) * 0.09})
+
+	var head := MeshInstance3D.new()
+	var head_mesh := SphereMesh.new()
+	head_mesh.radius = 0.12
+	head_mesh.height = 0.24
+	head.mesh = head_mesh
+	head.material_override = _flat_color_material(palette.get("skin", Color("d7b18a")))
+	head.position = Vector3(cell.x, 0.9, cell.y - 0.02)
+	world_root.add_child(head)
+	_register_town_ambient_node(head, "actor_head", {"bob": 0.028, "speed": 1.35 + float(abs(hash(role)) % 7) * 0.05})
+
+	if bool(palette.get("hood", false)):
+		var hood := MeshInstance3D.new()
+		var hood_mesh := SphereMesh.new()
+		hood_mesh.radius = 0.145
+		hood_mesh.height = 0.2
+		hood.mesh = hood_mesh
+		hood.material_override = _flat_color_material(palette.get("hoodColor", palette.get("body", Color("6c5c74"))))
+		hood.position = Vector3(cell.x, 0.94, cell.y - 0.02)
+		hood.scale = Vector3(1.0, 0.72, 1.0)
+		world_root.add_child(hood)
+		_register_town_ambient_node(hood, "actor_head", {"bob": 0.025, "speed": 1.28 + float(abs(hash(role + "_hood")) % 5) * 0.04})
+
+	if bool(palette.get("staff", false)):
+		var staff := MeshInstance3D.new()
+		var staff_mesh := CylinderMesh.new()
+		staff_mesh.top_radius = 0.03
+		staff_mesh.bottom_radius = 0.03
+		staff_mesh.height = 0.92
+		staff.mesh = staff_mesh
+		staff.material_override = _flat_color_material(Color("7d6549"))
+		staff.position = Vector3(cell.x + 0.18, 0.48, cell.y + 0.08)
+		world_root.add_child(staff)
+		_register_town_ambient_node(staff, "sway", {"yawAmplitude": 1.6, "rollAmplitude": 1.2, "speed": 0.85})
+
+	if bool(palette.get("crate", false)):
+		var satchel := MeshInstance3D.new()
+		var satchel_mesh := BoxMesh.new()
+		satchel_mesh.size = Vector3(0.18, 0.16, 0.12)
+		satchel.mesh = satchel_mesh
+		satchel.material_override = _flat_color_material(Color("8a6b47"))
+		satchel.position = Vector3(cell.x - 0.18, 0.18, cell.y + 0.04)
+		world_root.add_child(satchel)
+
+	if bool(palette.get("banner", false)):
+		var sash := MeshInstance3D.new()
+		var sash_mesh := BoxMesh.new()
+		sash_mesh.size = Vector3(0.08, 0.42, 0.04)
+		sash.mesh = sash_mesh
+		sash.material_override = _flat_color_material(palette.get("accent", Color("d7c27a")))
+		sash.position = Vector3(cell.x + 0.08, 0.46, cell.y + 0.02)
+		sash.rotation_degrees = Vector3(0, 0, 16)
+		world_root.add_child(sash)
+		_register_town_ambient_node(sash, "banner", {"yawAmplitude": 0.0, "rollAmplitude": 6.0, "speed": 1.55})
+
+func _register_town_ambient_node(node: Node3D, kind: String, data: Dictionary = {}) -> void:
+	town_ambient_nodes.append({
+		"node": node,
+		"kind": kind,
+		"basePosition": node.position,
+		"baseRotation": node.rotation_degrees,
+		"baseScale": node.scale,
+		"data": data
+	})
+
+func _animate_town_ambient() -> void:
+	var time := float(Time.get_ticks_msec()) / 1000.0
+	for entry in town_ambient_nodes:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var node: Node3D = entry.get("node")
+		if node == null or not is_instance_valid(node):
+			continue
+		var kind := String(entry.get("kind", ""))
+		var base_position: Vector3 = entry.get("basePosition", node.position)
+		var base_rotation: Vector3 = entry.get("baseRotation", node.rotation_degrees)
+		var base_scale: Vector3 = entry.get("baseScale", node.scale)
+		var data: Dictionary = entry.get("data", {})
+		var speed := float(data.get("speed", 1.0))
+		match kind:
+			"actor_body":
+				var bob := float(data.get("bob", 0.03))
+				node.position = base_position + Vector3(0, sin(time * speed) * bob, 0)
+				node.rotation_degrees = base_rotation + Vector3(0, sin(time * speed * 0.5) * 3.0, 0)
+			"actor_head":
+				var bob_head := float(data.get("bob", 0.02))
+				node.position = base_position + Vector3(0, sin(time * speed + 0.4) * bob_head, 0)
+				node.rotation_degrees = base_rotation + Vector3(0, sin(time * speed * 0.7) * 4.0, 0)
+			"sway":
+				var yaw_amplitude := float(data.get("yawAmplitude", 2.0))
+				var roll_amplitude := float(data.get("rollAmplitude", 1.5))
+				node.rotation_degrees = base_rotation + Vector3(0, sin(time * speed) * yaw_amplitude, sin(time * speed * 1.1) * roll_amplitude)
+			"banner":
+				var roll := float(data.get("rollAmplitude", 4.0))
+				var yaw := float(data.get("yawAmplitude", 2.0))
+				node.rotation_degrees = base_rotation + Vector3(0, sin(time * speed * 0.9) * yaw, sin(time * speed) * roll)
+			"flame":
+				var flicker := float(data.get("flicker", 0.16))
+				node.scale = base_scale * (1.0 + sin(time * speed * 1.4) * flicker)
+				node.position = base_position + Vector3(0, abs(sin(time * speed * 1.8)) * 0.04, 0)
+			"light":
+				if node is OmniLight3D:
+					var light: OmniLight3D = node
+					var energy := float(data.get("energy", 0.8))
+					var flicker_scale := float(data.get("flicker", 0.16))
+					light.light_energy = energy + sin(time * speed * 1.7) * flicker_scale
+			"ember":
+				var rise := float(data.get("rise", 0.28))
+				var drift := float(data.get("drift", 0.08))
+				var cycle := fposmod(time * speed, 1.0)
+				node.position = base_position + Vector3(sin(cycle * TAU) * drift, cycle * rise, cos(cycle * TAU * 0.7) * drift * 0.45)
+				node.scale = base_scale * (1.0 - cycle * 0.45)
+			"mote":
+				var bob_mote := float(data.get("bob", 0.07))
+				var drift_mote := float(data.get("drift", 0.08))
+				node.position = base_position + Vector3(
+					sin(time * speed) * drift_mote,
+					sin(time * speed * 1.4) * bob_mote,
+					cos(time * speed * 0.9) * drift_mote * 0.5
+				)
+
+func _town_actor_palette(role: String) -> Dictionary:
+	match role:
+		"scribe":
+			return {"body": Color("7b6b55"), "skin": Color("d8b78f"), "hood": false, "crate": true}
+		"healer":
+			return {"body": Color("73a58c"), "skin": Color("d9bea0"), "hood": true, "hoodColor": Color("5f8b75"), "staff": false}
+		"merchant":
+			return {"body": Color("557ba0"), "skin": Color("d8b28a"), "hood": false, "crate": true, "banner": true, "accent": Color("cfd7dc")}
+		"apothecary":
+			return {"body": Color("b17e4b"), "skin": Color("ddb78d"), "hood": false, "crate": true}
+		"scholar":
+			return {"body": Color("7b756b"), "skin": Color("d3b08a"), "hood": true, "hoodColor": Color("64605a"), "staff": true}
+		"scout":
+			return {"body": Color("8c7252"), "skin": Color("cfab84"), "hood": false, "banner": true, "accent": Color("ddd3c1")}
+		"trainer":
+			return {"body": Color("8d5f4e"), "skin": Color("d5af86"), "hood": false, "banner": true, "accent": Color("e8d7c2")}
+		"gatekeeper":
+			return {"body": Color("6b573f"), "skin": Color("d7b28b"), "hood": false, "staff": true, "banner": true, "accent": Color("d7c27a")}
+		"mystic":
+			return {"body": Color("5a6786"), "skin": Color("d8b597"), "hood": true, "hoodColor": Color("45526f"), "staff": true}
+		"captain":
+			return {"body": Color("7d5649"), "skin": Color("d6ae85"), "hood": false, "staff": true, "banner": true, "accent": Color("caa06b")}
+		_:
+			return {"body": Color("7f7568"), "skin": Color("d7b692"), "hood": false}
+
+func _spawn_post_pair(cell: Vector2i, color: Color) -> void:
+	for side in [-1, 1]:
+		var post := MeshInstance3D.new()
+		var post_mesh := CylinderMesh.new()
+		post_mesh.top_radius = 0.04
+		post_mesh.bottom_radius = 0.04
+		post_mesh.height = 1.0
+		post.mesh = post_mesh
+		post.material_override = _flat_color_material(color)
+		post.position = Vector3(cell.x + 0.24 * side, 0.5, cell.y + 0.1)
+		world_root.add_child(post)
+
+func _flat_color_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return material
+
+func _promote_compiled_runtime_map(source_map: Dictionary) -> Dictionary:
+	compiled_runtime_active = false
+	if route_name != GameApp.MODE_DUNGEON or dungeon_source_mode != GameApp.DUNGEON_SOURCE_COMPILED:
+		return source_map
+	var generated_cells: Array = compiled_preview.get("generatedCells", [])
+	if generated_cells.is_empty():
+		return source_map
+	var promoted := source_map.duplicate(true)
+	promoted["authoredCells"] = source_map.get("cells", [])
+	promoted["authoredPlacements"] = source_map.get("placements", [])
+	promoted["cells"] = generated_cells
+	promoted["size"] = [String(generated_cells[0]).length(), generated_cells.size()]
+	promoted["start"] = compiled_preview.get("generatedStart", source_map.get("start", [1, 1]))
+	var merged_placements: Array = []
+	var generated_types := {}
+	var generated_monster_ids := {}
+	for placement in compiled_preview.get("generatedPlacements", []):
+		if typeof(placement) == TYPE_DICTIONARY:
+			generated_types[String(placement.get("type", ""))] = true
+			var monster_id := String(placement.get("monsterId", ""))
+			if monster_id != "":
+				generated_monster_ids[monster_id] = true
+		merged_placements.append(placement)
+	for placement in source_map.get("placements", []):
+		if typeof(placement) == TYPE_DICTIONARY:
+			var placement_type := String(placement.get("type", ""))
+			if placement_type == "stairs" and generated_types.has(placement_type):
+				if String(placement.get("targetRoute", "")) == GameApp.MODE_TOWN:
+					continue
+			elif placement_type in ["rest", "loot"] and generated_types.has(placement_type):
+				continue
+			if placement_type == "field_monster":
+				var authored_monster_id := String(placement.get("monsterId", placement.get("id", "")))
+				if generated_monster_ids.has(authored_monster_id):
+					continue
+		merged_placements.append(placement)
+	promoted["placements"] = merged_placements
+	compiled_runtime_active = true
+	return promoted
+
+func _spawn_chunk_overlay() -> void:
+	var layout_entries: Array = compiled_preview.get("chunkLayout", [])
+	if layout_entries.is_empty():
+		return
+	var grid_meta: Dictionary = compiled_preview.get("chunkGrid", {})
+	var grid_width := maxi(int(grid_meta.get("width", 1)), 1)
+	var grid_height := maxi(int(grid_meta.get("height", 1)), 1)
+	var map_size: Array = map_data.get("size", [8, 8])
+	var map_width := maxi(float(map_size[0]) - 2.0, 1.0)
+	var map_height := maxi(float(map_size[1]) - 2.0, 1.0)
+	var box_mesh := BoxMesh.new()
+	box_mesh.size = Vector3(0.55, 0.18, 0.55)
+	for entry in layout_entries:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var layout_pos: Array = entry.get("layoutPos", [0, 0])
+		var gx := float(layout_pos[0])
+		var gy := float(layout_pos[1])
+		var world_x := 1.0 + ((gx + 0.5) / float(grid_width)) * map_width
+		var world_y := 1.0 + ((gy + 0.5) / float(grid_height)) * map_height
+		var node := MeshInstance3D.new()
+		node.mesh = box_mesh
+		node.material_override = _chunk_overlay_material(entry)
+		node.position = Vector3(world_x, 0.11, world_y)
+		world_root.add_child(node)
+		chunk_overlay_nodes.append(node)
+	var anchor_mesh := SphereMesh.new()
+	anchor_mesh.radius = 0.1
+	anchor_mesh.height = 0.2
+	for anchor in compiled_preview.get("anchorLayout", []):
+		if typeof(anchor) != TYPE_DICTIONARY:
+			continue
+		var ax := float(anchor.get("x", 0))
+		var ay := float(anchor.get("y", 0))
+		var chunk_cell_width := maxi(float(grid_meta.get("cellWidth", 1)), 1.0)
+		var chunk_cell_height := maxi(float(grid_meta.get("cellHeight", 1)), 1.0)
+		var preview_width := maxi(float(grid_width) * chunk_cell_width, 1.0)
+		var preview_height := maxi(float(grid_height) * chunk_cell_height, 1.0)
+		var world_x := 1.0 + ((ax + 0.5) / preview_width) * map_width
+		var world_y := 1.0 + ((ay + 0.5) / preview_height) * map_height
+		var node := MeshInstance3D.new()
+		node.mesh = anchor_mesh
+		node.material_override = _anchor_overlay_material(String(anchor.get("kind", "")))
+		node.position = Vector3(world_x, 0.3, world_y)
+		world_root.add_child(node)
+		chunk_overlay_nodes.append(node)
+	for placement in compiled_preview.get("generatedPlacements", []):
+		if typeof(placement) != TYPE_DICTIONARY:
+			continue
+		var pos: Array = placement.get("position", [0, 0])
+		var node := MeshInstance3D.new()
+		node.mesh = BoxMesh.new()
+		node.material_override = _generated_overlay_material(String(placement.get("type", "")))
+		node.position = Vector3(float(pos[0]), 0.52, float(pos[1]))
+		node.scale = Vector3(0.22, 0.22, 0.22)
+		world_root.add_child(node)
+		chunk_overlay_nodes.append(node)
+
+func _chunk_overlay_material(entry: Dictionary) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	var role_tags: Array = entry.get("roleTags", [])
+	var color := Color("4d7ea8")
+	if role_tags.has("boss"):
+		color = Color("9a4d4d")
+	elif role_tags.has("reward"):
+		color = Color("8f7a38")
+	elif role_tags.has("combat"):
+		color = Color("6b5aa8")
+	material.albedo_color = color
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return material
+
+func _anchor_overlay_material(kind: String) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	var color := Color("d7d7d7")
+	match kind:
+		"loot":
+			color = Color("d9bd5a")
+		"boss_spawn":
+			color = Color("c85f5f")
+		"encounter":
+			color = Color("9961c9")
+		"junction":
+			color = Color("59a7b5")
+	material.albedo_color = color
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return material
+
+func _generated_overlay_material(kind: String) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	var color := Color("c2c2c2")
+	match kind:
+		"loot":
+			color = Color("d8b74e")
+		"field_monster":
+			color = Color("b95c7a")
+		"rest":
+			color = Color("58a36b")
+	material.albedo_color = color
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return material
+
+func _active_chunk_label() -> String:
+	var layout_entries: Array = compiled_preview.get("chunkLayout", [])
+	if layout_entries.is_empty():
+		return "-"
+	var map_size: Array = map_data.get("size", [8, 8])
+	var normalized_x := clampf(float(player_cell.x) / maxi(float(map_size[0]) - 1.0, 1.0), 0.0, 0.9999)
+	var normalized_y := clampf(float(player_cell.y) / maxi(float(map_size[1]) - 1.0, 1.0), 0.0, 0.9999)
+	var grid_meta: Dictionary = compiled_preview.get("chunkGrid", {})
+	var grid_width := maxi(int(grid_meta.get("width", 1)), 1)
+	var grid_height := maxi(int(grid_meta.get("height", 1)), 1)
+	var target_x := mini(int(floor(normalized_x * float(grid_width))), grid_width - 1)
+	var target_y := mini(int(floor(normalized_y * float(grid_height))), grid_height - 1)
+	for entry in layout_entries:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var layout_pos: Array = entry.get("layoutPos", [0, 0])
+		if int(layout_pos[0]) == target_x and int(layout_pos[1]) == target_y:
+			return "%s (%s)" % [String(entry.get("id", "")), String(entry.get("presetId", ""))]
+	return "-"
+
+func _tile_role_at(cell: Vector2i) -> String:
+	var openings: Array[String] = []
+	for pair in [
+		{"dir": Vector2i(0, -1), "name": "north"},
+		{"dir": Vector2i(1, 0), "name": "east"},
+		{"dir": Vector2i(0, 1), "name": "south"},
+		{"dir": Vector2i(-1, 0), "name": "west"}
+	]:
+		if not _is_wall(cell + pair["dir"]):
+			openings.append(String(pair["name"]))
+	if openings.size() <= 1:
+		return "end_cap"
+	if openings.size() == 2:
+		var straight := openings.has("north") and openings.has("south") or openings.has("east") and openings.has("west")
+		return "corridor" if straight else "corner"
+	if openings.size() == 3:
+		return "junction"
+	return "intersection"
+
+func _is_wall(cell: Vector2i) -> bool:
+	var cells: Array = map_data.get("cells", [])
+	if cell.y < 0 or cell.y >= cells.size():
+		return true
+	var row := String(cells[cell.y])
+	if cell.x < 0 or cell.x >= row.length():
+		return true
+	return row[cell.x] == "#"
+
+func _material_for_tile_role(tile_role: String) -> Material:
+	var theme_id := String(map_data.get("themeId", map_profile.get("theme", "")))
+	for substitution in ContentRegistry.find_tile_substitutions(theme_id, "floor"):
+		var roles: Array = substitution.get("whenTileRoles", [])
+		if roles.has(tile_role):
+			var variants: Array = substitution.get("variants", [])
+			if not variants.is_empty():
+				var variant_index: int = int(abs(hash("%s:%s:%s" % [map_data.get("id", ""), tile_role, map_profile.get("id", "")])) % variants.size())
+				var variant: Dictionary = variants[variant_index]
+				return _resolve_surface_material(String(variant.get("materialId", "")), Color("443c34"))
+	return _resolve_surface_material(String(map_data.get("defaultFloorMaterialId", "")), Color("443c34"))
+
+func _resolve_surface_material(material_id: String, fallback_color: Color) -> StandardMaterial3D:
+	if cached_materials.has(material_id):
+		return cached_materials[material_id]
+	var material := StandardMaterial3D.new()
+	var definition := ContentRegistry.get_definition("materials", material_id)
+	var color_string := String(definition.get("baseColor", definition.get("fallbackColor", "")))
+	material.albedo_color = Color(color_string) if color_string != "" else fallback_color
+	material.roughness = float(definition.get("roughness", 1.0))
+	material.metallic = float(definition.get("metalness", 0.0))
+	material.emission_enabled = float(definition.get("emissiveIntensity", 0.0)) > 0.0
+	if material.emission_enabled:
+		material.emission = Color(String(definition.get("emissive", "#000000")))
+		material.emission_energy_multiplier = float(definition.get("emissiveIntensity", 0.0))
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	if material_id != "":
+		cached_materials[material_id] = material
+	return material
+
+func _build_decor_cells() -> Dictionary:
+	var result := {}
+	var decor_list: Array = object_theme.get("decor", [])
+	if decor_list.is_empty():
+		return result
+	var open_cells: Array[Vector2i] = []
+	var start: Array = map_data.get("start", [0, 0])
+	var start_cell := Vector2i(int(start[0]), int(start[1]))
+	var cells: Array = map_data.get("cells", [])
+	for y in range(cells.size()):
+		var row := String(cells[y])
+		for x in range(row.length()):
+			if row[x] != "#":
+				open_cells.append(Vector2i(x, y))
+	open_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return abs(a.x - start_cell.x) + abs(a.y - start_cell.y) < abs(b.x - start_cell.x) + abs(b.y - start_cell.y)
+	)
+	for decor in decor_list:
+		if typeof(decor) != TYPE_DICTIONARY:
+			continue
+		var max_per_map := maxi(int(decor.get("maxPerMap", 0)), 0)
+		if max_per_map <= 0:
+			continue
+		var placed := 0
+		for cell in open_cells:
+			if placed >= max_per_map:
+				break
+			if cell == start_cell:
+				continue
+			if _cell_has_placement(cell):
+				continue
+			var tile_role := _tile_role_at(cell)
+			if not decor.get("tileRoles", []).has(tile_role):
+				continue
+			if placed > 0:
+				var pick: int = int(abs(hash("%s:%s:%s" % [decor.get("kind", ""), cell, map_data.get("id", "")])) % 100)
+				if pick >= int(decor.get("weight", 1)) * 14:
+					continue
+			result["%d,%d" % [cell.x, cell.y]] = decor
+			placed += 1
+	return result
+
+func _cell_has_placement(cell: Vector2i) -> bool:
+	for placement in map_data.get("placements", []):
+		var pos: Array = placement.get("position", [0, 0])
+		if Vector2i(pos[0], pos[1]) == cell:
+			return true
+	return false
+
+func _spawn_decor_for_cell(cell: Vector2i, tile_role: String) -> void:
+	var decor: Dictionary = decor_cells.get("%d,%d" % [cell.x, cell.y], {})
+	if decor.is_empty():
+		return
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.mesh = _decor_mesh(String(decor.get("kind", "")))
+	mesh_instance.material_override = _decor_material(String(decor.get("color", "#a98d68")))
+	mesh_instance.position = Vector3(cell.x, 0.18, cell.y)
+	mesh_instance.scale = _decor_scale(String(decor.get("kind", "")), tile_role)
+	world_root.add_child(mesh_instance)
+
+func _decor_mesh(kind: String) -> Mesh:
+	match kind:
+		"torch", "broken_pillar":
+			return CylinderMesh.new()
+		"bones", "ritual_bowl":
+			return SphereMesh.new()
+		_:
+			return BoxMesh.new()
+
+func _decor_material(color_code: String) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(color_code)
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return material
+
+func _decor_scale(kind: String, tile_role: String) -> Vector3:
+	match kind:
+		"torch":
+			return Vector3(0.16, 1.4, 0.16)
+		"broken_pillar":
+			return Vector3(0.3, 1.25, 0.3)
+		"bones":
+			return Vector3(0.18, 0.08, 0.28)
+		"ritual_bowl":
+			return Vector3(0.18, 0.08, 0.18)
+		_:
+			return Vector3(0.28, 0.24 if tile_role == "corridor" else 0.32, 0.28)
+
+func _placement_color(kind: String) -> Color:
+	match kind:
+		"gate", "stairs":
+			return Color("d7c27a")
+		"field_monster":
+			return Color("d04f4f")
+		"rest":
+			return Color("5fb77d")
+		"event":
+			return Color("cc6f9a")
+		"trap":
+			return Color("8e73c7")
+		_:
+			return Color("7ca3d8")
+
+func _marker_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return material
+
+func _refresh_field_monsters() -> void:
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var field_monsters: Dictionary = runtime.get("fieldMonsters", {})
+	var discovered_secrets: Dictionary = runtime.get("discoveredSecrets", {})
+	var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
+	for placement in map_data.get("placements", []):
+		var node: MeshInstance3D = placement_nodes.get(String(placement.get("id", "")))
+		match String(placement.get("type", "")):
+			"field_monster":
+				var state: Dictionary = field_monsters.get(String(placement.get("id", "")), {})
+				var defeated := bool(state.get("defeated", false))
+				var behavior := _field_ai_behavior(placement)
+				var revealed := bool(state.get("revealed", behavior != "ambush"))
+				if node:
+					node.visible = not defeated and revealed
+					var cell := _placement_runtime_cell(placement, runtime)
+					node.position = Vector3(cell.x, 0.35, cell.y)
+					node.material_override = _marker_material(_field_monster_marker_color(state))
+			"secret_door":
+				if node:
+					node.visible = bool(discovered_secrets.get(String(placement.get("id", "")), false))
+			"locked_door":
+				if node:
+					node.visible = not bool(unlocked_doors.get(String(placement.get("id", "")), false))
+			"loot":
+				var claimed_loot: Dictionary = runtime.get("claimedLoot", {})
+				if node:
+					node.visible = not bool(claimed_loot.get(String(placement.get("id", "")), false))
+	_refresh_interaction_focus()
+
+func _apply_player_transform() -> void:
+	player_rig.call("apply_cell", player_cell, facing, _view_profile())
+
+func _view_profile() -> Dictionary:
+	if _is_town_map():
+		return {
+			"cameraPosition": Vector3(0.0, 1.55, 2.45),
+			"cameraRotationDegrees": Vector3(-28, 0, 0)
+		}
+	return {
+		"cameraPosition": Vector3(0.0, 0.9, 0.0),
+		"cameraRotationDegrees": Vector3(-18, 180, 0)
+	}
+
+func _try_move(direction: Vector2i) -> void:
+	var next := player_cell + direction
+	if _is_blocked(next):
+		_log("Blocked at %s." % next)
+		return
+	player_cell = next
+	var combat_trigger: Dictionary = _tick_field_monsters()
+	_apply_player_transform()
+	_refresh_town_focus_targets()
+	_refresh_interaction_focus()
+	_persist_runtime()
+	_log("Moved to %s." % next)
+	if not combat_trigger.is_empty():
+		_log("%s lunges from the dark." % String(combat_trigger.get("label", combat_trigger.get("id", "Monster"))))
+		_enter_combat(combat_trigger)
+
+func _is_blocked(cell: Vector2i) -> bool:
+	var cells: Array = map_data.get("cells", [])
+	if cell.y < 0 or cell.y >= cells.size():
+		return true
+	var row := String(cells[cell.y])
+	if cell.x < 0 or cell.x >= row.length():
+		return true
+	if row[cell.x] == "#":
+		return true
+	for placement in map_data.get("placements", []):
+		var placement_cell := _placement_runtime_cell(placement)
+		if placement_cell != cell:
+			continue
+		if String(placement.get("type", "")) == "locked_door" and bool(placement.get("blocking", false)):
+			var slot_data: Dictionary = SaveService.load_slot(current_slot)
+			var runtime: Dictionary = slot_data.get("runtime", {})
+			var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
+			if not bool(unlocked_doors.get(String(placement.get("id", "")), false)):
+				return true
+		if String(placement.get("type", "")) == "secret_door":
+			var slot_data: Dictionary = SaveService.load_slot(current_slot)
+			var runtime: Dictionary = slot_data.get("runtime", {})
+			var discovered_secrets: Dictionary = runtime.get("discoveredSecrets", {})
+			if not bool(discovered_secrets.get(String(placement.get("id", "")), false)):
+				return true
+		if String(placement.get("type", "")) == "field_monster" and bool(placement.get("blocking", false)):
+			var slot_data: Dictionary = SaveService.load_slot(current_slot)
+			var runtime: Dictionary = slot_data.get("runtime", {})
+			var field_monsters: Dictionary = runtime.get("fieldMonsters", {})
+			var state: Dictionary = field_monsters.get(String(placement.get("id", "")), {})
+			if not bool(state.get("defeated", false)):
+				return true
+	return false
+
+func _interact_forward() -> void:
+	var front_placement := _front_interaction_placement()
+	if not front_placement.is_empty():
+		_trigger_interaction_placement(front_placement)
+		return
+	if _is_town_map():
+		var selected := _selected_town_focus_placement(2)
+		if not selected.is_empty():
+			if _try_approach_town_focus(selected):
+				return
+			_log("%s 쪽으로 손을 뻗었다." % String(selected.get("label", selected.get("id", "거점"))))
+			_trigger_interaction_placement(selected)
+			return
+		var nearby := _town_nearby_interaction_placement(1)
+		if not nearby.is_empty():
+			_log("%s 쪽으로 손을 뻗었다." % String(nearby.get("label", nearby.get("id", "거점"))))
+			_trigger_interaction_placement(nearby)
+			return
+	_log("Nothing to interact with.")
+
+func _front_interaction_placement() -> Dictionary:
+	var target_cell: Vector2i = player_cell + DIRS[facing]
+	for placement in map_data.get("placements", []):
+		if _placement_runtime_cell(placement) == target_cell:
+			return placement
+	return {}
+
+func _trigger_interaction_placement(placement: Dictionary) -> void:
+	match String(placement.get("type", "")):
+		"gate", "stairs":
+			_route_from_placement(placement)
+		"field_monster":
+			_enter_combat(placement)
+		"quest_board", "healer", "skill_shop", "trade", "npc_service":
+			_open_service_overlay(placement)
+		"event":
+			_trigger_event_placement(placement)
+		"locked_door":
+			_try_unlock_door(placement)
+		"secret_door":
+			_discover_secret(placement)
+		"loot":
+			_collect_loot(placement)
+		"rest":
+			_rest_at_placement(placement)
+		"trap":
+			_trigger_trap(placement)
+		_:
+			_log("Interacted with %s." % placement.get("label", "placement"))
+
+func _town_nearby_interaction_placement(max_distance: int) -> Dictionary:
+	var best := {}
+	var best_distance := 999
+	for placement in map_data.get("placements", []):
+		if not _placement_supports_town_proximity(placement):
+			continue
+		var cell := _placement_runtime_cell(placement)
+		var distance: int = abs(cell.x - player_cell.x) + abs(cell.y - player_cell.y)
+		if distance > max_distance:
+			continue
+		if distance < best_distance:
+			best = placement
+			best_distance = distance
+	return best
+
+func _selected_town_focus_placement(max_distance: int = -1) -> Dictionary:
+	if not _is_town_map():
+		return {}
+	if town_focus_index < 0 or town_focus_index >= town_focus_target_ids.size():
+		return {}
+	var focus_id := town_focus_target_ids[town_focus_index]
+	for placement in map_data.get("placements", []):
+		if String(placement.get("id", "")) != focus_id:
+			continue
+		if max_distance >= 0:
+			var cell := _placement_runtime_cell(placement)
+			var distance: int = abs(cell.x - player_cell.x) + abs(cell.y - player_cell.y)
+			if distance > max_distance:
+				return {}
+		return placement
+	return {}
+
+func _placement_supports_town_proximity(placement: Dictionary) -> bool:
+	match String(placement.get("type", "")):
+		"quest_board", "healer", "skill_shop", "trade", "npc_service", "rest":
+			return true
+		_:
+			return false
+
+func _try_approach_town_focus(placement: Dictionary) -> bool:
+	_orient_toward_town_focus(placement)
+	var front_placement := _front_interaction_placement()
+	if not front_placement.is_empty() and String(front_placement.get("id", "")) == String(placement.get("id", "")):
+		return false
+	var anchor := _town_interaction_anchor_cell(placement)
+	if anchor == player_cell:
+		return false
+	var next_step := _town_next_step_toward(anchor)
+	if next_step == player_cell:
+		return false
+	var label := String(placement.get("label", placement.get("id", "거점")))
+	var direction := next_step - player_cell
+	_log("%s 쪽으로 다가간다." % label)
+	_try_move(direction)
+	_orient_toward_town_focus(placement)
+	_refresh_interaction_focus()
+	return true
+
+func _try_advance_town_focus_path() -> bool:
+	if not _is_town_map():
+		return false
+	var placement := _selected_town_focus_placement(99)
+	if placement.is_empty():
+		return false
+	var anchor := _town_interaction_anchor_cell(placement)
+	if anchor == player_cell:
+		return false
+	var next_step := _town_next_step_toward(anchor)
+	if next_step == player_cell:
+		return false
+	var label := String(placement.get("label", placement.get("id", "거점")))
+	var direction := next_step - player_cell
+	_log("%s 경로를 따라 전진한다." % label)
+	_try_move(direction)
+	_orient_toward_town_focus(placement)
+	_refresh_interaction_focus()
+	return true
+
+func _town_interaction_anchor_cell(placement: Dictionary) -> Vector2i:
+	var target := _placement_runtime_cell(placement)
+	var best := player_cell
+	var best_distance := 999
+	for dir in DIRS:
+		var candidate: Vector2i = target + dir
+		if candidate != player_cell and _is_blocked(candidate):
+			continue
+		var distance: int = abs(candidate.x - player_cell.x) + abs(candidate.y - player_cell.y)
+		if distance < best_distance:
+			best = candidate
+			best_distance = distance
+	return best
+
+func _town_next_step_toward(anchor: Vector2i) -> Vector2i:
+	var path := _town_path_to_anchor(anchor)
+	if path.size() < 2:
+		return player_cell
+	return path[1]
+
+func _interaction_snapshot() -> Dictionary:
+	var placement := _front_interaction_placement()
+	var source := "front"
+	var distance: int = 1
+	if placement.is_empty() and _is_town_map():
+		placement = _selected_town_focus_placement(2)
+		if not placement.is_empty():
+			source = "selected"
+		else:
+			placement = _town_nearby_interaction_placement(2)
+			if not placement.is_empty():
+				source = "nearby"
+		if not placement.is_empty():
+			var nearby_cell := _placement_runtime_cell(placement)
+			distance = abs(nearby_cell.x - player_cell.x) + abs(nearby_cell.y - player_cell.y)
+	if placement.is_empty():
+		return {
+			"available": false,
+			"title": "앞에 상호작용 대상이 없다.",
+			"detail": "시선을 돌리거나 한 칸 이동해 거점과 통로를 맞춘다."
+		}
+	var kind := String(placement.get("type", ""))
+	var title := String(placement.get("label", placement.get("id", kind)))
+	var action := "Space로 상호작용"
+	var detail := ""
+	if source == "selected" and distance > 1:
+		action = "Space로 접근"
+	match kind:
+		"quest_board":
+			if action == "Space로 상호작용":
+				action = "Space로 의뢰 확인"
+			detail = "현재 보드 오퍼와 보상 전표를 확인한다.\n%s" % _town_service_preview(placement)
+		"healer":
+			if action == "Space로 상호작용":
+				action = "Space로 치료"
+			detail = "전열 체력과 상태를 회복하는 서비스다.\n%s" % _town_service_preview(placement)
+		"skill_shop":
+			if action == "Space로 상호작용":
+				action = "Space로 기술 상점 열기"
+			detail = "현재 재고와 리롤 가능한 기술 목록을 본다.\n%s" % _town_service_preview(placement)
+		"trade":
+			if action == "Space로 상호작용":
+				action = "Space로 거래"
+			detail = "소모품과 잡화를 구매한다.\n%s" % _town_service_preview(placement)
+		"npc_service":
+			if action == "Space로 상호작용":
+				action = "Space로 대화"
+			detail = "NPC 서비스와 대화 분기를 연다.\n%s" % _town_service_preview(placement)
+		"gate", "stairs":
+			if action == "Space로 상호작용":
+				action = "Space로 이동"
+			var blocked_message := _route_block_message(placement)
+			detail = blocked_message if blocked_message != "" else "다음 지역으로 이동한다."
+		"rest":
+			if action == "Space로 상호작용":
+				action = "Space로 휴식"
+			detail = "짧은 휴식과 회복을 시도한다.\n%s" % _town_service_preview(placement)
+		"field_monster":
+			action = "Space로 전투 진입"
+			detail = "전방 몬스터와 즉시 전투를 시작한다."
+		"event":
+			action = "Space로 이벤트 조사"
+			detail = "이벤트 정의와 분기를 실행한다."
+		"locked_door":
+			action = "Space로 문 확인"
+			detail = "잠금 상태와 차단 이유를 확인한다."
+		"secret_door":
+			action = "Space로 비밀문 확인"
+			detail = "발견된 경우에만 통로가 열린다."
+		"loot":
+			action = "Space로 수집"
+			detail = "획득 가능한 보상이나 아이템을 챙긴다."
+		"trap":
+			action = "Space로 함정 접촉"
+			detail = "주의하지 않으면 즉시 효과가 발동한다."
+	return {
+		"available": true,
+		"id": String(placement.get("id", "")),
+		"type": kind,
+		"title": title,
+		"action": action,
+		"detail": detail,
+		"blocked": kind in ["gate", "stairs"] and _route_block_message(placement) != "",
+		"source": source,
+		"distance": distance,
+		"hint": _interaction_alignment_hint(placement, source, distance),
+		"selection": _town_focus_summary(placement, source),
+		"anchorCell": _town_anchor_snapshot(placement, source)
+	}
+
+func _interaction_prompt_text() -> String:
+	var interaction := _interaction_snapshot()
+	if not bool(interaction.get("available", false)):
+		return String(interaction.get("title", ""))
+	var suffix := String(interaction.get("action", ""))
+	var hint := String(interaction.get("hint", ""))
+	if hint != "":
+		suffix += " / %s" % hint
+	return "%s - %s" % [String(interaction.get("title", "")), suffix]
+
+func _refresh_interaction_focus() -> void:
+	var interaction := _interaction_snapshot()
+	var focus_id := String(interaction.get("id", ""))
+	var selected_id := ""
+	if _is_town_map() and town_focus_index >= 0 and town_focus_index < town_focus_target_ids.size():
+		selected_id = town_focus_target_ids[town_focus_index]
+	for placement in map_data.get("placements", []):
+		var placement_id := String(placement.get("id", ""))
+		var node: MeshInstance3D = placement_nodes.get(placement_id)
+		var ring: MeshInstance3D = placement_rings.get(placement_id)
+		var is_front := placement_id != "" and placement_id == focus_id
+		var is_selected := placement_id != "" and placement_id == selected_id
+		var color := _placement_runtime_color(placement)
+		if node and is_instance_valid(node):
+			if is_front:
+				node.scale = Vector3.ONE * 0.52
+				node.position.y = 0.28
+				node.material_override = _marker_material(color.lightened(0.22))
+			elif is_selected:
+				node.scale = Vector3.ONE * 0.44
+				node.position.y = 0.24
+				node.material_override = _marker_material(color.lightened(0.12))
+			else:
+				node.scale = Vector3.ONE * 0.35
+				node.position.y = 0.2
+				node.material_override = _marker_material(color)
+		if ring and is_instance_valid(ring):
+			if is_front:
+				ring.scale = Vector3.ONE * 1.18
+				ring.material_override = _flat_color_material(color.lightened(0.18))
+			elif is_selected:
+				ring.scale = Vector3.ONE * 1.1
+				ring.material_override = _flat_color_material(color.lightened(0.08))
+			else:
+				ring.scale = Vector3.ONE
+				ring.material_override = _flat_color_material(color.darkened(0.2))
+	_update_town_focus_anchor(selected_id)
+	_update_town_focus_path(selected_id)
+
+func _interaction_alignment_hint(placement: Dictionary, source: String, distance: int) -> String:
+	if source == "front":
+		return ""
+	if source == "selected":
+		var selected_hint := _town_focus_direction_hint(placement, distance)
+		if selected_hint == "":
+			return "선택한 거점 / Q,E 전환"
+		return "선택한 거점 / %s / Q,E 전환" % selected_hint
+	var cell := _placement_runtime_cell(placement)
+	return _town_focus_direction_hint(placement, distance)
+
+func _town_focus_direction_hint(placement: Dictionary, distance: int) -> String:
+	var cell := _placement_runtime_cell(placement)
+	var dx := cell.x - player_cell.x
+	var dy := cell.y - player_cell.y
+	var parts: Array[String] = []
+	if dy < 0:
+		parts.append("앞")
+	elif dy > 0:
+		parts.append("뒤")
+	if dx > 0:
+		parts.append("오른쪽")
+	elif dx < 0:
+		parts.append("왼쪽")
+	var direction_label := " / ".join(parts)
+	if distance <= 1:
+		return "근처 상호작용"
+	if direction_label == "":
+		return "%d칸 거리" % distance
+	return "%s %d칸" % [direction_label, distance]
+
+func _refresh_town_focus_targets() -> void:
+	if not _is_town_map():
+		town_focus_target_ids.clear()
+		town_focus_index = -1
+		return
+	var previous_id := ""
+	if town_focus_index >= 0 and town_focus_index < town_focus_target_ids.size():
+		previous_id = town_focus_target_ids[town_focus_index]
+	town_focus_target_ids.clear()
+	var ranked: Array[Dictionary] = []
+	for placement in map_data.get("placements", []):
+		if not _placement_supports_town_proximity(placement):
+			continue
+		var cell := _placement_runtime_cell(placement)
+		var distance: int = abs(cell.x - player_cell.x) + abs(cell.y - player_cell.y)
+		if distance > 2:
+			continue
+		ranked.append({
+			"id": String(placement.get("id", "")),
+			"distance": distance,
+			"score": _town_focus_direction_score(cell)
+		})
+	ranked.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a.get("distance", 99)) != int(b.get("distance", 99)):
+			return int(a.get("distance", 99)) < int(b.get("distance", 99))
+		if int(a.get("score", 99)) != int(b.get("score", 99)):
+			return int(a.get("score", 99)) < int(b.get("score", 99))
+		return String(a.get("id", "")) < String(b.get("id", ""))
+	)
+	for entry in ranked:
+		town_focus_target_ids.append(String(entry.get("id", "")))
+	if town_focus_target_ids.is_empty():
+		town_focus_index = -1
+		return
+	var restored_index := town_focus_target_ids.find(previous_id)
+	town_focus_index = restored_index if restored_index >= 0 else 0
+
+func _town_focus_direction_score(cell: Vector2i) -> int:
+	var target_dir: Vector2i = cell - player_cell
+	var front_dir: Vector2i = DIRS[facing]
+	if target_dir == front_dir:
+		return 0
+	if target_dir == -front_dir:
+		return 3
+	if target_dir.x == front_dir.y and target_dir.y == -front_dir.x:
+		return 1
+	if target_dir.x == -front_dir.y and target_dir.y == front_dir.x:
+		return 2
+	return 4
+
+func _cycle_town_focus(step: int) -> void:
+	_refresh_town_focus_targets()
+	if town_focus_target_ids.is_empty():
+		_log("근처에 고를 수 있는 거점이 없다.")
+		_refresh_interaction_focus()
+		return
+	town_focus_index = posmod(town_focus_index + step, town_focus_target_ids.size())
+	var placement := _selected_town_focus_placement()
+	_orient_toward_town_focus(placement)
+	if not placement.is_empty():
+		_log("거점 선택: %s" % String(placement.get("label", placement.get("id", "거점"))))
+	_refresh_interaction_focus()
+	_persist_runtime()
+
+func _town_focus_summary(active_placement: Dictionary, source: String) -> String:
+	if not _is_town_map() or town_focus_target_ids.is_empty():
+		return ""
+	var parts: Array[String] = []
+	for idx in range(town_focus_target_ids.size()):
+		var placement_id := town_focus_target_ids[idx]
+		var marker := ">" if idx == town_focus_index else " "
+		var label := placement_id
+		if source == "front" and not active_placement.is_empty() and String(active_placement.get("id", "")) == placement_id:
+			marker = "*"
+		for placement in map_data.get("placements", []):
+			if String(placement.get("id", "")) == placement_id:
+				label = String(placement.get("label", placement_id))
+				break
+		parts.append("%s%s" % [marker, label])
+	return "거점 %d/%d  %s" % [town_focus_index + 1, town_focus_target_ids.size(), " · ".join(parts)]
+
+func _town_anchor_snapshot(placement: Dictionary, source: String) -> Array:
+	if not _is_town_map() or source not in ["selected", "nearby"]:
+		return []
+	var anchor := _town_interaction_anchor_cell(placement)
+	return [anchor.x, anchor.y]
+
+func _orient_toward_town_focus(placement: Dictionary) -> void:
+	if placement.is_empty():
+		return
+	var cell := _placement_runtime_cell(placement)
+	var delta: Vector2i = cell - player_cell
+	if delta == Vector2i.ZERO:
+		return
+	if abs(delta.x) >= abs(delta.y):
+		facing = 1 if delta.x > 0 else 3
+	else:
+		facing = 2 if delta.y > 0 else 0
+	_apply_player_transform()
+
+func _town_focus_snapshot() -> Dictionary:
+	if not _is_town_map():
+		return {}
+	var entries: Array[Dictionary] = []
+	var selected_placement := _selected_town_focus_placement(99)
+	var selected_anchor := _town_anchor_snapshot(selected_placement, "selected")
+	var next_step: Array = []
+	var path_length := 0
+	if not selected_placement.is_empty():
+		var path := _town_path_to_anchor(_town_interaction_anchor_cell(selected_placement))
+		path_length = maxi(path.size() - 1, 0)
+		if path.size() >= 2:
+			next_step = [path[1].x, path[1].y]
+	for idx in range(town_focus_target_ids.size()):
+		var placement_id := town_focus_target_ids[idx]
+		for placement in map_data.get("placements", []):
+			if String(placement.get("id", "")) != placement_id:
+				continue
+			var cell := _placement_runtime_cell(placement)
+			entries.append({
+				"id": placement_id,
+				"label": String(placement.get("label", placement_id)),
+				"type": String(placement.get("type", "")),
+				"selected": idx == town_focus_index,
+				"distance": abs(cell.x - player_cell.x) + abs(cell.y - player_cell.y)
+			})
+			break
+	return {
+		"entries": entries,
+		"selectedIndex": town_focus_index,
+		"controls": "Q/E 전환, W/Space 이동, Space 상호작용",
+		"selectedAnchor": selected_anchor,
+		"nextStep": next_step,
+		"pathLength": path_length
+	}
+
+func smoke_cycle_town_focus(step: int) -> void:
+	_cycle_town_focus(step)
+
+func _ensure_town_focus_anchor_node() -> void:
+	if town_focus_anchor_node and is_instance_valid(town_focus_anchor_node):
+		return
+	var node := MeshInstance3D.new()
+	node.mesh = _town_focus_anchor_mesh("")
+	node.material_override = _flat_color_material(Color("f3e7b3"))
+	node.visible = false
+	world_root.add_child(node)
+	town_focus_anchor_node = node
+
+func _clear_town_focus_path_nodes() -> void:
+	for node in town_focus_path_nodes:
+		if node and is_instance_valid(node):
+			node.queue_free()
+	town_focus_path_nodes.clear()
+
+func _update_town_focus_anchor(selected_id: String) -> void:
+	if not _is_town_map():
+		return
+	_ensure_town_focus_anchor_node()
+	if not town_focus_anchor_node or not is_instance_valid(town_focus_anchor_node):
+		return
+	if selected_id == "":
+		town_focus_anchor_node.visible = false
+		return
+	for placement in map_data.get("placements", []):
+		if String(placement.get("id", "")) != selected_id:
+			continue
+		var kind := String(placement.get("type", ""))
+		var anchor := _town_interaction_anchor_cell(placement)
+		town_focus_anchor_node.visible = true
+		town_focus_anchor_node.mesh = _town_focus_anchor_mesh(kind)
+		town_focus_anchor_node.position = Vector3(anchor.x, 0.03, anchor.y)
+		town_focus_anchor_node.material_override = _town_focus_anchor_material(kind)
+		var base_scale := _town_focus_anchor_scale(kind)
+		town_focus_anchor_node.scale = base_scale
+		town_focus_anchor_node.set_meta("base_scale", base_scale)
+		return
+	town_focus_anchor_node.visible = false
+
+func _animate_town_focus_anchor(_delta: float) -> void:
+	if not town_focus_anchor_node or not is_instance_valid(town_focus_anchor_node) or not town_focus_anchor_node.visible:
+		return
+	var pulse := 1.0 + 0.1 * sin(Time.get_ticks_msec() / 160.0)
+	var base_scale: Vector3 = town_focus_anchor_node.get_meta("base_scale", Vector3.ONE)
+	town_focus_anchor_node.scale = Vector3(base_scale.x * pulse, base_scale.y, base_scale.z * pulse)
+	town_focus_anchor_node.position.y = 0.03 + 0.01 * sin(Time.get_ticks_msec() / 220.0)
+
+func _update_town_focus_path(selected_id: String) -> void:
+	_clear_town_focus_path_nodes()
+	if not _is_town_map() or selected_id == "":
+		return
+	for placement in map_data.get("placements", []):
+		if String(placement.get("id", "")) != selected_id:
+			continue
+		var path := _town_path_to_anchor(_town_interaction_anchor_cell(placement))
+		if path.size() <= 1:
+			return
+		var color := _placement_runtime_color(placement).lightened(0.08)
+		for idx in range(1, path.size()):
+			var cell: Vector2i = path[idx]
+			var node := MeshInstance3D.new()
+			var mesh := SphereMesh.new()
+			mesh.radius = 0.08 if idx < path.size() - 1 else 0.12
+			mesh.height = 0.16 if idx < path.size() - 1 else 0.24
+			node.mesh = mesh
+			node.material_override = _flat_color_material(color)
+			node.position = Vector3(cell.x, 0.08, cell.y)
+			world_root.add_child(node)
+			town_focus_path_nodes.append(node)
+		return
+
+func _town_path_to_anchor(anchor: Vector2i) -> Array[Vector2i]:
+	if anchor == player_cell:
+		return [player_cell]
+	var queue: Array[Vector2i] = [player_cell]
+	var came_from := {player_cell: player_cell}
+	var found := false
+	while not queue.is_empty():
+		var current: Vector2i = queue.pop_front()
+		if current == anchor:
+			found = true
+			break
+		for dir in DIRS:
+			var candidate: Vector2i = current + dir
+			if came_from.has(candidate):
+				continue
+			if candidate != anchor and _is_blocked(candidate):
+				continue
+			came_from[candidate] = current
+			queue.append(candidate)
+	if not found:
+		return [player_cell]
+	var reversed_path: Array[Vector2i] = [anchor]
+	var step: Vector2i = anchor
+	while step != player_cell:
+		step = came_from.get(step, player_cell)
+		reversed_path.append(step)
+	reversed_path.reverse()
+	return reversed_path
+
+func _town_focus_anchor_material(kind: String) -> StandardMaterial3D:
+	return _flat_color_material(_placement_runtime_color({"type": kind}).lightened(0.18))
+
+func _town_focus_anchor_scale(kind: String) -> Vector3:
+	match kind:
+		"quest_board":
+			return Vector3(1.18, 1.0, 1.18)
+		"skill_shop", "trade":
+			return Vector3(1.06, 1.0, 1.06)
+		"npc_service":
+			return Vector3(0.98, 1.0, 0.98)
+		"healer", "rest":
+			return Vector3(0.9, 1.0, 0.9)
+		_:
+			return Vector3.ONE
+
+func _town_focus_anchor_mesh(kind: String) -> PrimitiveMesh:
+	match kind:
+		"quest_board":
+			var mesh := BoxMesh.new()
+			mesh.size = Vector3(0.7, 0.03, 0.7)
+			return mesh
+		"healer", "rest":
+			var mesh := SphereMesh.new()
+			mesh.radius = 0.22
+			mesh.height = 0.12
+			return mesh
+		"skill_shop":
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = 0.18
+			mesh.bottom_radius = 0.34
+			mesh.height = 0.05
+			return mesh
+		"trade":
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = 0.34
+			mesh.bottom_radius = 0.18
+			mesh.height = 0.05
+			return mesh
+		"npc_service":
+			var mesh := SphereMesh.new()
+			mesh.radius = 0.16
+			mesh.height = 0.3
+			return mesh
+		_:
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = 0.34
+			mesh.bottom_radius = 0.34
+			mesh.height = 0.03
+			return mesh
+
+func _town_service_preview(placement: Dictionary) -> String:
+	var kind := String(placement.get("type", ""))
+	match kind:
+		"quest_board":
+			var summary := QuestService.quest_board_summary(current_slot)
+			var offers: Array = summary.get("offers", [])
+			var labels: Array[String] = []
+			for offer_variant in offers.slice(0, mini(2, offers.size())):
+				if typeof(offer_variant) != TYPE_DICTIONARY:
+					continue
+				var offer: Dictionary = offer_variant
+				labels.append("%s %dg" % [String(offer.get("targetMonsterName", offer.get("id", ""))), int(offer.get("rewardGold", 0))])
+			return "오퍼 %d개%s" % [offers.size(), " | " + ", ".join(labels) if not labels.is_empty() else ""]
+		"healer":
+			return "전열 회복 / 상태 정리 / 여관 비용 5g"
+		"skill_shop":
+			var vendor_id := String(placement.get("vendorId", ""))
+			var vendor_def := ContentRegistry.get_definition("vendors", vendor_id)
+			var stock := ShopService.ensure_skill_shop_stock(current_slot, vendor_id, vendor_def)
+			var stock_labels: Array[String] = []
+			for row_variant in stock.slice(0, mini(2, stock.size())):
+				if typeof(row_variant) != TYPE_DICTIONARY:
+					continue
+				var row: Dictionary = row_variant
+				stock_labels.append("%s %dg" % [String(row.get("name", row.get("skillId", ""))), int(row.get("price", 0))])
+			return "기술 재고 %d개%s" % [stock.size(), " | " + ", ".join(stock_labels) if not stock_labels.is_empty() else ""]
+		"trade":
+			var vendor_trade := ContentRegistry.get_definition("vendors", String(placement.get("vendorId", "")))
+			var item_labels: Array[String] = []
+			for item_id_variant in vendor_trade.get("items", []).slice(0, mini(3, vendor_trade.get("items", []).size())):
+				var item_id := String(item_id_variant)
+				var item_def := ContentRegistry.get_definition("items", item_id)
+				item_labels.append("%s %dg" % [String(item_def.get("name", item_id)), int(item_def.get("price", vendor_trade.get("price", 0)))])
+			return "판매품 %s" % ", ".join(item_labels)
+		"npc_service":
+			var service_rows := NpcService.describe_services_for_slot(current_slot, String(placement.get("npcId", "")))
+			var preview_rows: Array[String] = []
+			for row_variant in service_rows.slice(0, mini(3, service_rows.size())):
+				if typeof(row_variant) != TYPE_DICTIONARY:
+					continue
+				var row: Dictionary = row_variant
+				var service: Dictionary = row.get("service", {})
+				var label := "%s:%s" % [String(service.get("type", "")), String(service.get("label", ""))]
+				if not bool(row.get("available", false)):
+					label += " (잠김)"
+				preview_rows.append(label)
+			return "서비스 %s" % " | ".join(preview_rows)
+		"rest":
+			return "캠프파이어에서 휴식 / 회복 시도"
+		_:
+			return ""
+
+func _route_from_placement(placement: Dictionary) -> void:
+	var blocked_message := _route_block_message(placement)
+	if blocked_message != "":
+		_log(blocked_message)
+		return
+	if _should_mark_campaign_clear(placement):
+		SaveService.mark_campaign_clear(
+			current_slot,
+			_resolved_campaign_clear_title(placement),
+			String(map_data.get("id", default_map_id))
+		)
+	var target_route := String(placement.get("targetRoute", "town"))
+	var target_map_id := String(placement.get("targetMapId", "town_square"))
+	GameApp.current_mode = target_route
+	SceneRouter.change_route(target_route, {
+		"slot": current_slot,
+		"map_id": target_map_id,
+		"dungeon_source": dungeon_source_mode
+	})
+
+func _route_block_message(placement: Dictionary) -> String:
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	var required_flag := String(placement.get("requiredFlag", ""))
+	if required_flag != "" and not bool(slot_data.get("flags", {}).get(required_flag, false)):
+		return String(placement.get("blockedMessage", "The route is still sealed."))
+	var required_bosses := int(placement.get("bossesDefeatedAtLeast", 0))
+	if required_bosses > 0 and QuestService.progression_bosses_defeated(current_slot) < required_bosses:
+		return String(placement.get("blockedMessage", "Requires progression %d." % required_bosses))
+	var required_quest_statuses: Array = placement.get("requiredQuestStatuses", [])
+	if not required_quest_statuses.is_empty():
+		var quest_status := String(QuestService.current_quest(current_slot).get("status", "none"))
+		if not required_quest_statuses.has(quest_status):
+			return String(placement.get("blockedMessage", "The route is still sealed."))
+	var required_seed_id := String(placement.get("requiredQuestSeedId", ""))
+	if required_seed_id != "":
+		var required_seed_status := String(placement.get("requiredQuestSeedStatus", "rewarded"))
+		var seed_status := String(QuestService.quest_seed_states(current_slot).get(required_seed_id, {}).get("status", ""))
+		if seed_status != required_seed_status:
+			return String(placement.get("blockedMessage", "The route is still sealed."))
+	return ""
+
+func _should_mark_campaign_clear(placement: Dictionary) -> bool:
+	if String(placement.get("endingFlag", "")).strip_edges() != "":
+		return true
+	if String(map_data.get("id", "")) != "dungeon_floor_03":
+		return false
+	if String(placement.get("targetRoute", "")) != GameApp.MODE_TOWN:
+		return false
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	return bool(slot_data.get("flags", {}).get("blind_priest_cleared", false))
+
+func _resolved_campaign_clear_title(placement: Dictionary) -> String:
+	var title := String(placement.get("endingTitle", ""))
+	if title != "":
+		return title
+	if String(map_data.get("id", "")) == "dungeon_floor_03":
+		return "Blind Priest Defeated"
+	return "Expedition Cleared"
+
+func _enter_combat(placement: Dictionary) -> void:
+	GameApp.enter_combat({
+		"slot": current_slot,
+		"monster_instance_id": String(placement.get("id", "")),
+		"monster_id": String(placement.get("monsterId", placement.get("id", ""))),
+		"monster_name": String(placement.get("label", "Field Monster")),
+		"return_route": route_name,
+		"return_map_id": String(map_data.get("id", default_map_id))
+	})
+
+func _persist_runtime() -> void:
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var visited_cells: Dictionary = runtime.get("visitedCells", {})
+	runtime["mapId"] = String(map_data.get("id", default_map_id))
+	runtime["dungeonSource"] = dungeon_source_mode
+	runtime["playerCell"] = [player_cell.x, player_cell.y]
+	runtime["facing"] = facing
+	runtime["log"] = log_lines
+	visited_cells[_cell_visit_key(player_cell)] = true
+	runtime["visitedCells"] = visited_cells
+	SaveService.update_runtime(current_slot, runtime, route_name)
+
+func _ensure_field_monster_runtime() -> void:
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	if slot_data.is_empty():
+		return
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var field_monsters: Dictionary = runtime.get("fieldMonsters", {})
+	var changed := false
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		var placement_id := String(placement.get("id", ""))
+		var pos: Array = placement.get("position", [0, 0])
+		var start_cell := [int(pos[0]), int(pos[1])]
+		var state: Dictionary = field_monsters.get(placement_id, {})
+		if not state.has("startCell"):
+			state["startCell"] = start_cell
+			changed = true
+		if not state.has("currentCell"):
+			state["currentCell"] = start_cell
+			changed = true
+		if String(state.get("aiState", "")).strip_edges() == "":
+			var behavior := _field_ai_behavior(placement)
+			if behavior == "patrol":
+				state["aiState"] = "patrolling"
+			elif behavior == "ambush":
+				state["aiState"] = "ambushing"
+			else:
+				state["aiState"] = "idle"
+			changed = true
+		if String(state.get("monsterId", "")).strip_edges() == "":
+			state["monsterId"] = String(placement.get("monsterId", placement_id))
+			changed = true
+		if not state.has("patrolIndex"):
+			state["patrolIndex"] = 0
+			changed = true
+		if not state.has("warningCounter"):
+			state["warningCounter"] = 0
+			changed = true
+		if not state.has("lostSightCounter"):
+			state["lostSightCounter"] = 0
+			changed = true
+		if not state.has("lastKnownPlayerCell"):
+			state["lastKnownPlayerCell"] = start_cell
+			changed = true
+		if not state.has("revealed"):
+			state["revealed"] = _field_ai_behavior(placement) != "ambush"
+			changed = true
+		field_monsters[placement_id] = state
+	runtime["fieldMonsters"] = field_monsters
+	slot_data["runtime"] = runtime
+	if changed:
+		SaveService.save_slot(current_slot, slot_data)
+
+func _tick_field_monsters() -> Dictionary:
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	if slot_data.is_empty():
+		return {}
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var field_monsters: Dictionary = runtime.get("fieldMonsters", {})
+	var occupied := {}
+	var pending_combat: Dictionary = {}
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		var placement_id := String(placement.get("id", ""))
+		var state: Dictionary = field_monsters.get(placement_id, {})
+		if bool(state.get("defeated", false)):
+			continue
+		var current := _state_cell(state, "currentCell", placement)
+		occupied["%d,%d" % [current.x, current.y]] = placement_id
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		var placement_id := String(placement.get("id", ""))
+		var state: Dictionary = field_monsters.get(placement_id, {})
+		if bool(state.get("defeated", false)):
+			continue
+		var current := _state_cell(state, "currentCell", placement)
+		var start := _state_cell(state, "startCell", placement)
+		var field_ai := _field_ai_config(placement)
+		var chase_range := maxi(int(field_ai.get("chaseRange", 2)), 0)
+		var approach_range := maxi(int(field_ai.get("approachRange", 4)), chase_range)
+		var hearing_range := maxi(int(field_ai.get("hearingRange", 1)), 0)
+		var leash_range := maxi(int(field_ai.get("leashRange", 5)), approach_range)
+		var distance: int = abs(current.x - player_cell.x) + abs(current.y - player_cell.y)
+		var leash_distance: int = abs(start.x - player_cell.x) + abs(start.y - player_cell.y)
+		var next_state := String(state.get("aiState", "idle"))
+		var previous_state := next_state
+		var behavior := _field_ai_behavior(placement)
+		var revealed := bool(state.get("revealed", behavior != "ambush"))
+		var warning_turns := int(field_ai.get("warningTurns", 0))
+		var wake_range := maxi(int(field_ai.get("wakeRange", 0)), 0)
+		var lose_sight_turns := maxi(int(field_ai.get("loseSightTurns", 1)), 0)
+		var warning_counter := int(state.get("warningCounter", 0))
+		var lost_sight_counter := maxi(int(state.get("lostSightCounter", 0)), 0)
+		var patrol_route := _field_patrol_route(placement)
+		var last_known := _state_cell(state, "lastKnownPlayerCell", placement)
+		var player_visible := _has_cardinal_line_of_sight(current, player_cell)
+		var player_heard := distance <= hearing_range
+		var player_detected := leash_distance <= leash_range and ((player_visible and distance <= approach_range) or player_heard)
+		if warning_counter < 0:
+			warning_counter = 0
+		if player_detected:
+			last_known = player_cell
+			lost_sight_counter = 0
+		if behavior == "ambush" and not revealed:
+			if (player_visible or player_heard) and distance <= chase_range:
+				revealed = true
+				next_state = "chasing"
+				warning_counter = 0
+			elif leash_distance <= leash_range and ((player_visible and distance <= wake_range) or player_heard):
+				revealed = true
+				if warning_turns > 0:
+					next_state = "warning"
+					warning_counter = warning_turns
+				else:
+					next_state = "approaching"
+					warning_counter = 0
+			else:
+				next_state = "ambushing"
+				warning_counter = 0
+		elif player_detected and distance <= chase_range:
+			next_state = "chasing"
+			warning_counter = 0
+		elif player_detected:
+			if warning_turns > 0 and next_state not in ["warning", "approaching", "chasing"]:
+				next_state = "warning"
+				warning_counter = warning_turns
+			elif next_state == "warning" and warning_counter > 1:
+				next_state = "warning"
+				warning_counter -= 1
+			else:
+				next_state = "approaching"
+				warning_counter = 0
+		elif next_state in ["warning", "approaching", "chasing", "giving_up"]:
+			if current != last_known and lost_sight_counter <= lose_sight_turns:
+				next_state = "giving_up"
+				lost_sight_counter += 1
+				warning_counter = 0
+			elif current != start:
+				next_state = "returning"
+				warning_counter = 0
+			elif behavior == "patrol" and patrol_route.size() > 1:
+				next_state = "patrolling"
+				lost_sight_counter = 0
+			elif behavior == "ambush":
+				next_state = "ambushing"
+				revealed = false
+				lost_sight_counter = 0
+			else:
+				next_state = "idle"
+				lost_sight_counter = 0
+		elif current != start:
+			next_state = "returning"
+			warning_counter = 0
+		elif behavior == "patrol" and patrol_route.size() > 1:
+			next_state = "patrolling"
+			warning_counter = 0
+		else:
+			next_state = "idle"
+			warning_counter = 0
+		var goal := start
+		if next_state in ["approaching", "chasing"]:
+			goal = player_cell
+		elif next_state == "giving_up":
+			goal = last_known
+		elif next_state == "patrolling":
+			goal = _field_patrol_target(state, placement)
+		var moved := current
+		if next_state not in ["idle", "warning", "ambushing"]:
+			moved = _step_monster_toward(current, goal, occupied, placement_id)
+		if next_state == "giving_up" and moved == goal:
+			next_state = "returning" if moved != start else ("ambushing" if behavior == "ambush" else ("patrolling" if behavior == "patrol" and patrol_route.size() > 1 else "idle"))
+			if next_state == "ambushing":
+				revealed = false
+			lost_sight_counter = 0
+		if next_state == "returning" and moved == start:
+			if behavior == "patrol" and patrol_route.size() > 1:
+				next_state = "patrolling"
+			elif behavior == "ambush":
+				next_state = "ambushing"
+				revealed = false
+			else:
+				next_state = "idle"
+			lost_sight_counter = 0
+		if next_state == "patrolling":
+			var patrol_index := int(state.get("patrolIndex", 0))
+			if moved == goal and patrol_route.size() > 1:
+				patrol_index = posmod(patrol_index + 1, patrol_route.size())
+			state["patrolIndex"] = patrol_index
+		occupied.erase("%d,%d" % [current.x, current.y])
+		occupied["%d,%d" % [moved.x, moved.y]] = placement_id
+		state["currentCell"] = [moved.x, moved.y]
+		state["aiState"] = next_state
+		state["warningCounter"] = warning_counter
+		state["lostSightCounter"] = lost_sight_counter
+		state["lastKnownPlayerCell"] = [last_known.x, last_known.y]
+		state["revealed"] = revealed
+		state["updatedAt"] = Time.get_datetime_string_from_system()
+		field_monsters[placement_id] = state
+		if next_state in ["warning", "approaching", "chasing"] and previous_state not in ["warning", "approaching", "chasing"]:
+			_broadcast_field_alert(placement, field_monsters)
+		if pending_combat.is_empty() and revealed and next_state in ["approaching", "chasing"] and _field_monster_should_auto_engage(moved, placement):
+			pending_combat = placement
+	runtime["fieldMonsters"] = field_monsters
+	slot_data["runtime"] = runtime
+	SaveService.save_slot(current_slot, slot_data)
+	_refresh_field_monsters()
+	return pending_combat
+
+func _step_monster_toward(current: Vector2i, goal: Vector2i, occupied: Dictionary, placement_id: String) -> Vector2i:
+	var candidates: Array[Vector2i] = []
+	var delta := goal - current
+	if abs(delta.x) >= abs(delta.y):
+		candidates.append(current + Vector2i(sign(delta.x), 0))
+		candidates.append(current + Vector2i(0, sign(delta.y)))
+	else:
+		candidates.append(current + Vector2i(0, sign(delta.y)))
+		candidates.append(current + Vector2i(sign(delta.x), 0))
+	for candidate in candidates:
+		if candidate == current:
+			continue
+		if candidate == player_cell:
+			continue
+		if _cell_hard_blocked(candidate):
+			continue
+		var key := "%d,%d" % [candidate.x, candidate.y]
+		if occupied.has(key) and String(occupied.get(key, "")) != placement_id:
+			continue
+		return candidate
+	return current
+
+func _cell_hard_blocked(cell: Vector2i) -> bool:
+	var cells: Array = map_data.get("cells", [])
+	if cell.y < 0 or cell.y >= cells.size():
+		return true
+	var row := String(cells[cell.y])
+	if cell.x < 0 or cell.x >= row.length():
+		return true
+	if row[cell.x] == "#":
+		return true
+	for placement in map_data.get("placements", []):
+		var placement_type := String(placement.get("type", ""))
+		if placement_type == "field_monster":
+			continue
+		if _placement_runtime_cell(placement) != cell:
+			continue
+		if placement_type == "locked_door" and bool(placement.get("blocking", false)):
+			var slot_data: Dictionary = SaveService.load_slot(current_slot)
+			var runtime: Dictionary = slot_data.get("runtime", {})
+			var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
+			if not bool(unlocked_doors.get(String(placement.get("id", "")), false)):
+				return true
+		if placement_type == "secret_door":
+			var slot_data: Dictionary = SaveService.load_slot(current_slot)
+			var runtime: Dictionary = slot_data.get("runtime", {})
+			var discovered_secrets: Dictionary = runtime.get("discoveredSecrets", {})
+			if not bool(discovered_secrets.get(String(placement.get("id", "")), false)):
+				return true
+	return false
+
+func _cell_blocks_vision(cell: Vector2i) -> bool:
+	var cells: Array = map_data.get("cells", [])
+	if cell.y < 0 or cell.y >= cells.size():
+		return true
+	var row := String(cells[cell.y])
+	if cell.x < 0 or cell.x >= row.length():
+		return true
+	if row[cell.x] == "#":
+		return true
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
+	var discovered_secrets: Dictionary = runtime.get("discoveredSecrets", {})
+	for placement in map_data.get("placements", []):
+		var placement_type := String(placement.get("type", ""))
+		if placement_type not in ["locked_door", "secret_door"]:
+			continue
+		var pos := _placement_runtime_cell(placement, runtime)
+		if pos != cell:
+			continue
+		if placement_type == "locked_door" and bool(placement.get("blocking", false)):
+			if not bool(unlocked_doors.get(String(placement.get("id", "")), false)):
+				return true
+		elif placement_type == "secret_door":
+			if not bool(discovered_secrets.get(String(placement.get("id", "")), false)):
+				return true
+	return false
+
+func _placement_runtime_cell(placement: Dictionary, runtime: Dictionary = {}) -> Vector2i:
+	if runtime.is_empty():
+		runtime = SaveService.load_slot(current_slot).get("runtime", {})
+	if String(placement.get("type", "")) == "field_monster":
+		var state: Dictionary = runtime.get("fieldMonsters", {}).get(String(placement.get("id", "")), {})
+		return _state_cell(state, "currentCell", placement)
+	var pos: Array = placement.get("position", [0, 0])
+	return Vector2i(int(pos[0]), int(pos[1]))
+
+func _field_ai_config(placement: Dictionary) -> Dictionary:
+	var field_ai: Dictionary = placement.get("fieldAi", {})
+	var patrol_points: Array = []
+	for point_variant in field_ai.get("patrolPoints", []):
+		if typeof(point_variant) != TYPE_ARRAY:
+			continue
+		var point: Array = point_variant
+		if point.size() != 2:
+			continue
+		patrol_points.append([int(point[0]), int(point[1])])
+	return {
+		"behavior": _field_ai_behavior(placement),
+		"approachRange": maxi(int(field_ai.get("approachRange", 4)), 0),
+		"chaseRange": maxi(int(field_ai.get("chaseRange", 2)), 0),
+		"hearingRange": maxi(int(field_ai.get("hearingRange", 1)), 0),
+		"leashRange": maxi(int(field_ai.get("leashRange", 5)), 0),
+		"wakeRange": maxi(int(field_ai.get("wakeRange", 0)), 0),
+		"loseSightTurns": maxi(int(field_ai.get("loseSightTurns", 1)), 0),
+		"alertGroup": String(field_ai.get("alertGroup", "")),
+		"alertRadius": maxi(int(field_ai.get("alertRadius", 0)), 0),
+		"warningTurns": maxi(int(field_ai.get("warningTurns", 0)), 0),
+		"patrolPoints": patrol_points
+	}
+
+func _has_cardinal_line_of_sight(from: Vector2i, to: Vector2i) -> bool:
+	if from.x != to.x and from.y != to.y:
+		return false
+	if from == to:
+		return true
+	if from.x == to.x:
+		var step_y := 1 if to.y > from.y else -1
+		for y in range(from.y + step_y, to.y, step_y):
+			if _cell_blocks_vision(Vector2i(from.x, y)):
+				return false
+		return true
+	var step_x := 1 if to.x > from.x else -1
+	for x in range(from.x + step_x, to.x, step_x):
+		if _cell_blocks_vision(Vector2i(x, from.y)):
+			return false
+	return true
+
+func _field_alert_group_id(placement: Dictionary) -> String:
+	var config := _field_ai_config(placement)
+	var explicit_group := String(config.get("alertGroup", ""))
+	if explicit_group != "":
+		return explicit_group
+	return String(placement.get("encounterId", ""))
+
+func _broadcast_field_alert(source_placement: Dictionary, field_monsters: Dictionary) -> void:
+	var group_id := _field_alert_group_id(source_placement)
+	if group_id == "":
+		return
+	var source_cell := _placement_runtime_cell(source_placement, {"fieldMonsters": field_monsters})
+	var source_radius := int(_field_ai_config(source_placement).get("alertRadius", 0))
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		var placement_id := String(placement.get("id", ""))
+		if placement_id == String(source_placement.get("id", "")):
+			continue
+		if _field_alert_group_id(placement) != group_id:
+			continue
+		var state: Dictionary = field_monsters.get(placement_id, {}).duplicate(true)
+		if state.is_empty() or bool(state.get("defeated", false)):
+			continue
+		var ally_cell := _state_cell(state, "currentCell", placement)
+		var ally_radius := int(_field_ai_config(placement).get("alertRadius", 0))
+		var effective_radius := maxi(source_radius, ally_radius)
+		if effective_radius > 0 and abs(source_cell.x - ally_cell.x) + abs(source_cell.y - ally_cell.y) > effective_radius:
+			continue
+		var ai_state := String(state.get("aiState", "idle"))
+		if ai_state in ["warning", "approaching", "chasing", "combat"]:
+			continue
+		var behavior := _field_ai_behavior(placement)
+		if behavior == "ambush":
+			state["revealed"] = true
+		var ally_config := _field_ai_config(placement)
+		var warning_turns := int(ally_config.get("warningTurns", 0))
+		state["aiState"] = "warning" if warning_turns > 0 else "approaching"
+		state["warningCounter"] = warning_turns
+		state["lostSightCounter"] = 0
+		state["lastKnownPlayerCell"] = [player_cell.x, player_cell.y]
+		state["updatedAt"] = Time.get_datetime_string_from_system()
+		field_monsters[placement_id] = state
+
+func _field_ai_behavior(placement: Dictionary) -> String:
+	var field_ai: Dictionary = placement.get("fieldAi", {})
+	var behavior := String(field_ai.get("behavior", "guard"))
+	return behavior if behavior in ["guard", "patrol", "ambush"] else "guard"
+
+func _field_patrol_route(placement: Dictionary) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var base_cell := _state_cell({}, "currentCell", placement)
+	result.append(base_cell)
+	for point in _field_ai_config(placement).get("patrolPoints", []):
+		if typeof(point) != TYPE_ARRAY:
+			continue
+		var point_array: Array = point
+		if point_array.size() != 2:
+			continue
+		var patrol_cell := Vector2i(int(point_array[0]), int(point_array[1]))
+		if patrol_cell not in result:
+			result.append(patrol_cell)
+	return result
+
+func _field_patrol_target(state: Dictionary, placement: Dictionary) -> Vector2i:
+	var route := _field_patrol_route(placement)
+	if route.is_empty():
+		return _state_cell(state, "startCell", placement)
+	var index := clampi(int(state.get("patrolIndex", 0)), 0, route.size() - 1)
+	return route[index]
+
+func _field_monster_should_auto_engage(monster_cell: Vector2i, placement: Dictionary) -> bool:
+	if not bool(placement.get("blocking", false)):
+		return false
+	return abs(monster_cell.x - player_cell.x) + abs(monster_cell.y - player_cell.y) <= 1
+
+func _field_monster_marker_color(state: Dictionary) -> Color:
+	match String(state.get("aiState", "idle")):
+		"ambushing":
+			return Color("6f5a8e")
+		"warning":
+			return Color("d8a84e")
+		"approaching":
+			return Color("d47f4a")
+		"chasing":
+			return Color("d04f4f")
+		"returning":
+			return Color("8f79c9")
+		"giving_up":
+			return Color("8d6767")
+		"patrolling":
+			return Color("c25ac2")
+		_:
+			return Color("d04f4f")
+
+func _state_cell(state: Dictionary, key: String, placement: Dictionary) -> Vector2i:
+	var fallback: Array = placement.get("position", [0, 0])
+	var raw: Array = state.get(key, fallback)
+	return Vector2i(int(raw[0]), int(raw[1]))
+
+func _log(message: String) -> void:
+	log_lines.append(message)
+	_persist_runtime()
+
+func _cell_visit_key(cell: Vector2i) -> String:
+	return "%s:%d,%d" % [String(map_data.get("id", default_map_id)), cell.x, cell.y]
+
+func _visited_keys_for_map(runtime: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	var visited_cells: Dictionary = runtime.get("visitedCells", {})
+	var prefix := "%s:" % String(map_data.get("id", default_map_id))
+	for key in visited_cells.keys():
+		var cell_key := String(key)
+		if cell_key.begins_with(prefix) and bool(visited_cells.get(key, false)):
+			result.append(cell_key.substr(prefix.length()))
+	return result
+
+func _visible_minimap_placements(runtime: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var field_monsters: Dictionary = runtime.get("fieldMonsters", {})
+	var discovered_secrets: Dictionary = runtime.get("discoveredSecrets", {})
+	var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
+	var claimed_loot: Dictionary = runtime.get("claimedLoot", {})
+	for placement in map_data.get("placements", []):
+		if typeof(placement) != TYPE_DICTIONARY:
+			continue
+		var placement_id := String(placement.get("id", ""))
+		var placement_type := String(placement.get("type", ""))
+		if placement_type == "field_monster":
+			var field_state: Dictionary = field_monsters.get(placement_id, {})
+			if bool(field_state.get("defeated", false)):
+				continue
+			if _field_ai_behavior(placement) == "ambush" and not bool(field_state.get("revealed", false)):
+				continue
+		if placement_type == "secret_door" and not bool(discovered_secrets.get(placement_id, false)):
+			continue
+		if placement_type == "locked_door" and bool(unlocked_doors.get(placement_id, false)):
+			continue
+		if placement_type == "loot" and bool(claimed_loot.get(placement_id, false)):
+			continue
+		var cell := _placement_runtime_cell(placement, runtime)
+		var row := {
+			"id": placement_id,
+			"type": placement_type,
+			"position": [cell.x, cell.y]
+		}
+		if placement_type in ["gate", "stairs"]:
+			var blocked_message := _route_block_message(placement)
+			row["routeBlocked"] = blocked_message != ""
+			row["blockedMessage"] = blocked_message
+			row["targetMapId"] = String(placement.get("targetMapId", ""))
+			row["targetRoute"] = String(placement.get("targetRoute", ""))
+		result.append(row)
+	return result
+
+func _route_state_entries() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for placement in map_data.get("placements", []):
+		if typeof(placement) != TYPE_DICTIONARY:
+			continue
+		var placement_type := String(placement.get("type", ""))
+		if placement_type not in ["gate", "stairs"]:
+			continue
+		var pos: Array = placement.get("position", [0, 0])
+		var blocked_message := _route_block_message(placement)
+		result.append({
+			"id": String(placement.get("id", "")),
+			"type": placement_type,
+			"label": String(placement.get("label", placement.get("id", ""))),
+			"position": [int(pos[0]), int(pos[1])],
+			"targetMapId": String(placement.get("targetMapId", "")),
+			"targetRoute": String(placement.get("targetRoute", "")),
+			"blocked": blocked_message != "",
+			"blockedMessage": blocked_message
+		})
+	return result
+
+func _field_monster_snapshot(runtime: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		var placement_id := String(placement.get("id", ""))
+		var state: Dictionary = runtime.get("fieldMonsters", {}).get(placement_id, {})
+		var cell := _placement_runtime_cell(placement, runtime)
+		result.append({
+			"id": placement_id,
+			"monsterId": String(state.get("monsterId", placement.get("monsterId", placement_id))),
+			"aiState": String(state.get("aiState", "idle")),
+			"currentCell": [cell.x, cell.y],
+			"startCell": state.get("startCell", placement.get("position", [0, 0])),
+			"fieldAi": _field_ai_config(placement),
+			"lastKnownPlayerCell": state.get("lastKnownPlayerCell", placement.get("position", [0, 0])),
+			"revealed": bool(state.get("revealed", _field_ai_behavior(placement) != "ambush")),
+			"defeated": bool(state.get("defeated", false))
+		})
+	return result
+
+func _field_monster_state_summary(runtime: Dictionary) -> String:
+	var rows: Array[String] = []
+	for row in _field_monster_snapshot(runtime):
+		if bool(row.get("defeated", false)):
+			continue
+		var cell: Array = row.get("currentCell", [0, 0])
+		rows.append("%s:%s@%d,%d" % [
+			String(row.get("monsterId", row.get("id", ""))),
+			String(row.get("aiState", "idle")),
+			int(cell[0]),
+			int(cell[1])
+		])
+	if rows.is_empty():
+		return "-"
+	return ", ".join(rows)
+
+func _route_summary() -> String:
+	var route_entries := _route_state_entries()
+	if route_entries.is_empty():
+		return "-"
+	var labels: Array[String] = []
+	for entry in route_entries:
+		labels.append("%s:%s" % [
+			String(entry.get("label", entry.get("id", ""))),
+			"locked" if bool(entry.get("blocked", false)) else "open"
+		])
+	return ", ".join(labels)
+
+func _quest_target_keys() -> Array[String]:
+	var result: Array[String] = []
+	var quest_state := QuestService.current_quest(current_slot)
+	var quest_status := String(quest_state.get("status", ""))
+	if quest_status not in ["accepted", "complete_ready"]:
+		return result
+	var target_monster_id := String(quest_state.get("targetMonsterId", ""))
+	if target_monster_id == "":
+		return result
+	for placement in map_data.get("placements", []):
+		if typeof(placement) != TYPE_DICTIONARY:
+			continue
+		if String(placement.get("type", "")) != "field_monster":
+			continue
+		var placement_monster_id := String(placement.get("monsterId", placement.get("id", "")))
+		if placement_monster_id != target_monster_id and String(placement.get("id", "")) != target_monster_id:
+			continue
+		var pos: Array = placement.get("position", [0, 0])
+		result.append("%d,%d" % [int(pos[0]), int(pos[1])])
+	return result
+
+func _quest_turn_in_keys() -> Array[String]:
+	var result: Array[String] = []
+	var quest_state := QuestService.current_quest(current_slot)
+	if String(quest_state.get("status", "")) != "complete_ready":
+		return result
+	for placement in map_data.get("placements", []):
+		if typeof(placement) != TYPE_DICTIONARY:
+			continue
+		var placement_type := String(placement.get("type", ""))
+		if placement_type not in ["quest_board", "npc_service"]:
+			continue
+		var pos: Array = placement.get("position", [0, 0])
+		result.append("%d,%d" % [int(pos[0]), int(pos[1])])
+	return result
+
+func _quest_seed_objective_keys() -> Array[String]:
+	var result: Array[String] = []
+	var quest_seeds := QuestService.quest_seed_states(current_slot)
+	for quest_seed_id in quest_seeds.keys():
+		var state: Dictionary = quest_seeds.get(quest_seed_id, {})
+		var status := String(state.get("status", ""))
+		if status not in ["active", "completed"]:
+			continue
+		var npc_id := String(state.get("npcId", ""))
+		var seed_def := _find_quest_seed_definition(npc_id, String(quest_seed_id))
+		if seed_def.is_empty():
+			continue
+		if status == "active":
+			result.append_array(_placement_keys_for_event(String(seed_def.get("completeEventId", ""))))
+		else:
+			result.append_array(_placement_keys_for_npc(npc_id))
+	return result
+
+func _find_quest_seed_definition(npc_id: String, quest_seed_id: String) -> Dictionary:
+	if npc_id == "" or quest_seed_id == "":
+		return {}
+	var npc_def := ContentRegistry.get_definition("npcs", npc_id)
+	for seed_variant in npc_def.get("questSeeds", []):
+		if typeof(seed_variant) != TYPE_DICTIONARY:
+			continue
+		var seed: Dictionary = seed_variant
+		if String(seed.get("id", "")) == quest_seed_id:
+			return seed
+	return {}
+
+func _placement_keys_for_event(event_id: String) -> Array[String]:
+	var result: Array[String] = []
+	if event_id == "":
+		return result
+	for placement in map_data.get("placements", []):
+		if typeof(placement) != TYPE_DICTIONARY:
+			continue
+		if String(placement.get("eventId", "")) != event_id:
+			continue
+		var pos: Array = placement.get("position", [0, 0])
+		result.append("%d,%d" % [int(pos[0]), int(pos[1])])
+	return result
+
+func _placement_keys_for_npc(npc_id: String) -> Array[String]:
+	var result: Array[String] = []
+	if npc_id == "":
+		return result
+	for placement in map_data.get("placements", []):
+		if typeof(placement) != TYPE_DICTIONARY:
+			continue
+		if String(placement.get("npcId", "")) != npc_id:
+			continue
+		var pos: Array = placement.get("position", [0, 0])
+		result.append("%d,%d" % [int(pos[0]), int(pos[1])])
+	return result
+
+func _open_service_overlay(placement: Dictionary) -> void:
+	_close_service_overlay()
+	active_overlay = preload("res://scripts/ui/service_overlay.gd").new().configure(
+		current_slot,
+		placement,
+		Callable(self, "_close_service_overlay")
+	)
+	SceneRouter.modal_layer.add_child(active_overlay)
+
+func _close_service_overlay() -> void:
+	if active_overlay != null and is_instance_valid(active_overlay):
+		active_overlay.queue_free()
+	active_overlay = null
+
+func _toggle_inventory_overlay() -> void:
+	if active_overlay != null and is_instance_valid(active_overlay):
+		_close_service_overlay()
+		return
+	active_overlay = preload("res://scripts/ui/inventory_overlay.gd").new().configure(
+		current_slot,
+		Callable(self, "_close_service_overlay")
+	)
+	SceneRouter.modal_layer.add_child(active_overlay)
+
+func _trigger_event_placement(placement: Dictionary) -> void:
+	var event_id := String(placement.get("eventId", ""))
+	var event_def := ContentRegistry.get_definition("events", event_id)
+	var result := EventService.apply_event(current_slot, event_id, event_def)
+	var messages: Array = result.get("messages", [])
+	if messages.is_empty():
+		_log("Triggered %s." % placement.get("label", "event"))
+	else:
+		for message in messages:
+			if String(message).strip_edges() != "":
+				_log(String(message))
+
+func _try_unlock_door(placement: Dictionary) -> void:
+	var key_item := String(placement.get("keyItemId", "rust_key"))
+	if not SaveService.has_inventory_item(current_slot, key_item, 1):
+		_log("Door is locked. Missing %s." % key_item)
+		return
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var unlocked_doors: Dictionary = runtime.get("unlockedDoors", {})
+	unlocked_doors[String(placement.get("id", ""))] = true
+	runtime["unlockedDoors"] = unlocked_doors
+	SaveService.update_runtime(current_slot, runtime, route_name)
+	_refresh_field_monsters()
+	_log("Unlocked %s." % placement.get("label", "door"))
+
+func _discover_secret(placement: Dictionary) -> void:
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var discovered: Dictionary = runtime.get("discoveredSecrets", {})
+	if bool(discovered.get(String(placement.get("id", "")), false)):
+		_log("Secret already discovered.")
+		return
+	discovered[String(placement.get("id", ""))] = true
+	runtime["discoveredSecrets"] = discovered
+	SaveService.update_runtime(current_slot, runtime, route_name)
+	var contains_item := String(placement.get("containsItemId", ""))
+	if contains_item != "":
+		SaveService.add_inventory_item(current_slot, contains_item, 1)
+	_log("Discovered secret cache: %s." % placement.get("label", "secret"))
+	_refresh_field_monsters()
+
+func _collect_loot(placement: Dictionary) -> void:
+	var slot_data: Dictionary = SaveService.load_slot(current_slot)
+	var runtime: Dictionary = slot_data.get("runtime", {})
+	var claimed: Dictionary = runtime.get("claimedLoot", {})
+	if bool(claimed.get(String(placement.get("id", "")), false)):
+		_log("Loot already claimed.")
+		return
+	claimed[String(placement.get("id", ""))] = true
+	runtime["claimedLoot"] = claimed
+	SaveService.update_runtime(current_slot, runtime, route_name)
+	var rewards := ContentRegistry.resolve_loot_items(String(placement.get("lootTableId", "")))
+	if rewards.is_empty():
+		rewards.append({
+			"itemId": String(placement.get("itemId", "healing_tonic")),
+			"quantity": 1
+		})
+	for reward in rewards:
+		SaveService.add_inventory_item(current_slot, String(reward.get("itemId", "")), int(reward.get("quantity", 1)))
+	var reward_summary: Array[String] = []
+	for reward in rewards:
+		reward_summary.append("%s x%d" % [reward.get("itemId", ""), int(reward.get("quantity", 1))])
+	SaveService.append_recent_reward(current_slot, {
+		"source": "loot",
+		"label": String(placement.get("label", "loot")),
+		"items": reward_summary,
+		"summary": "Loot %s" % ", ".join(reward_summary)
+	})
+	_log("Collected %s: %s." % [placement.get("label", "loot"), ", ".join(reward_summary)])
+	_refresh_field_monsters()
+
+func _rest_at_placement(placement: Dictionary) -> void:
+	var event_def := ContentRegistry.get_definition("events", String(placement.get("eventId", "")))
+	var result := EventService.apply_event(current_slot, String(placement.get("eventId", "")), event_def)
+	var messages: Array = result.get("messages", [])
+	if messages.is_empty():
+		_log("Rested at %s." % placement.get("label", "camp"))
+	else:
+		for message in messages:
+			if String(message).strip_edges() != "":
+				_log(String(message))
+
+func _trigger_trap(placement: Dictionary) -> void:
+	var event_def := ContentRegistry.get_definition("events", String(placement.get("eventId", "")))
+	var result := EventService.apply_event(current_slot, String(placement.get("eventId", "")), event_def)
+	var messages: Array = result.get("messages", [])
+	if messages.is_empty():
+		_log("Trap triggered at %s." % placement.get("label", "trap"))
+	else:
+		for message in messages:
+			if String(message).strip_edges() != "":
+				_log(String(message))
+
+func _try_rest() -> void:
+	for placement in map_data.get("placements", []):
+		if String(placement.get("type", "")) == "rest":
+			var pos: Array = placement.get("position", [0, 0])
+			if Vector2i(pos[0], pos[1]) == player_cell:
+				_rest_at_placement(placement)
+				return
+	_log("No rest point here.")

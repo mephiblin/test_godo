@@ -1,0 +1,41 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="conan"
+run/main_scene="res://scenes/shell/Main.tscn"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+
+GameApp="*res://scripts/autoload/game_app.gd"
+ContentRegistry="*res://scripts/autoload/content_registry.gd"
+SaveService="*res://scripts/autoload/save_service.gd"
+ShopService="*res://scripts/autoload/shop_service.gd"
+EventService="*res://scripts/autoload/event_service.gd"
+NpcService="*res://scripts/autoload/npc_service.gd"
+SceneRouter="*res://scripts/autoload/scene_router.gd"
+QuestService="*res://scripts/autoload/quest_service.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/connan_editor/plugin.cfg")
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+rendering_device/driver.windows="d3d12"
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

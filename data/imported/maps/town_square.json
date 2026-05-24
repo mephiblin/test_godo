@@ -1,0 +1,173 @@
+{
+	"cells": [
+		"########",
+		"#......#",
+		"#......#",
+		"#......#",
+		"#......#",
+		"#......#",
+		"#......#",
+		"########"
+	],
+	"compiledFrom": "res://data/source_json/maps/town_square.json",
+	"compiledPreview": {
+		"anchorLayout": [],
+		"chunkGrid": {
+			"cellHeight": 7,
+			"cellWidth": 7,
+			"height": 1,
+			"width": 1
+		},
+		"chunkLayout": [],
+		"chunkSummaries": [],
+		"generatedCells": [
+			"########",
+			"########",
+			"########",
+			"########",
+			"########",
+			"########",
+			"########",
+			"########"
+		],
+		"generatedPlacements": [],
+		"generatedStart": [
+			2.0,
+			5.0
+		],
+		"layout": {
+
+		},
+		"mapId": "town_square",
+		"ok": true,
+		"previewRows": [],
+		"profileId": "",
+		"profileName": "",
+		"sourceChunkIds": [],
+		"targetModuleCount": 0,
+		"theme": ""
+	},
+	"facing": 0.0,
+	"id": "town_square",
+	"kind": "town",
+	"placements": [
+		{
+			"id": "quest_board",
+			"label": "Quest Board",
+			"npcId": "npc_bulletin_board",
+			"position": [
+				2.0,
+				3.0
+			],
+			"questId": "slime_cleanup",
+			"type": "quest_board"
+		},
+		{
+			"id": "town_healer",
+			"label": "Innkeeper",
+			"npcId": "npc_innkeeper",
+			"position": [
+				3.0,
+				2.0
+			],
+			"type": "healer",
+			"vendorId": "vendor_inn"
+		},
+		{
+			"id": "town_scholar",
+			"label": "Skill Merchant",
+			"npcId": "npc_skill_merchant",
+			"position": [
+				4.0,
+				2.0
+			],
+			"type": "skill_shop",
+			"vendorId": "town_scholar"
+		},
+		{
+			"id": "town_apothecary",
+			"label": "Apothecary",
+			"npcId": "npc_apothecary",
+			"position": [
+				4.0,
+				3.0
+			],
+			"type": "trade",
+			"vendorId": "vendor_apothecary"
+		},
+		{
+			"id": "town_scholar_study",
+			"label": "Scholar",
+			"npcId": "npc_scholar",
+			"position": [
+				3.0,
+				4.0
+			],
+			"type": "npc_service"
+		},
+		{
+			"id": "town_exile_scout",
+			"label": "Exile Scout",
+			"npcId": "npc_exile_scout",
+			"position": [
+				5.0,
+				4.0
+			],
+			"type": "npc_service"
+		},
+		{
+			"id": "town_trainer_tent",
+			"label": "Trainer",
+			"npcId": "npc_trainer",
+			"position": [
+				6.0,
+				4.0
+			],
+			"type": "npc_service"
+		},
+		{
+			"blockedMessage": "게시판에서 원정 전표를 받아야 청동 문이 열린다.",
+			"id": "town_gate",
+			"label": "Dungeon Gate",
+			"position": [
+				5.0,
+				2.0
+			],
+			"requiredQuestStatuses": [
+				"accepted",
+				"complete_ready",
+				"claimed"
+			],
+			"targetMapId": "dungeon_floor_01",
+			"targetRoute": "dungeon",
+			"type": "gate"
+		},
+		{
+			"id": "town_gatekeeper",
+			"label": "Gatekeeper",
+			"npcId": "npc_gatekeeper",
+			"position": [
+				6.0,
+				2.0
+			],
+			"type": "npc_service"
+		},
+		{
+			"id": "campfire",
+			"label": "Campfire",
+			"position": [
+				2.0,
+				2.0
+			],
+			"type": "rest"
+		}
+	],
+	"size": [
+		8.0,
+		8.0
+	],
+	"start": [
+		2.0,
+		5.0
+	]
+}

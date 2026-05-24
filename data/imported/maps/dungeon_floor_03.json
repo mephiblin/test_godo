@@ -1,0 +1,429 @@
+{
+	"ceilingMaterialId": "ceiling_gold_01",
+	"cells": [
+		"########",
+		"#......#",
+		"#......#",
+		"#..##..#",
+		"#......#",
+		"#......#",
+		"#......#",
+		"########"
+	],
+	"compiledFrom": "res://data/source_json/maps/dungeon_floor_03.json",
+	"compiledPreview": {
+		"anchorLayout": [
+			{
+				"chunkId": "cross_block_junction",
+				"id": "center",
+				"kind": "junction",
+				"x": 1,
+				"y": 1
+			},
+			{
+				"chunkId": "treasure_deadend_s",
+				"id": "treasure_cache",
+				"kind": "loot",
+				"x": 9,
+				"y": 4
+			},
+			{
+				"chunkId": "rect_hall_ns",
+				"id": "center",
+				"kind": "generic",
+				"x": 2,
+				"y": 8
+			}
+		],
+		"chunkGrid": {
+			"cellHeight": 7,
+			"cellWidth": 7,
+			"height": 2,
+			"width": 2
+		},
+		"chunkLayout": [
+			{
+				"cellRect": {
+					"height": 7,
+					"width": 7,
+					"x": 0,
+					"y": 0
+				},
+				"doorSockets": [
+					"north",
+					"east",
+					"south",
+					"west"
+				],
+				"id": "cross_block_junction",
+				"layoutPos": [
+					0,
+					0
+				],
+				"openSides": [
+					"north",
+					"east",
+					"south",
+					"west"
+				],
+				"presetId": "cross_block",
+				"roleTags": [
+					"start",
+					"key",
+					"side",
+					"combat"
+				]
+			},
+			{
+				"cellRect": {
+					"height": 7,
+					"width": 7,
+					"x": 7,
+					"y": 0
+				},
+				"doorSockets": [
+					"south"
+				],
+				"id": "treasure_deadend_s",
+				"layoutPos": [
+					1,
+					0
+				],
+				"openSides": [
+					"south"
+				],
+				"presetId": "shrine",
+				"roleTags": [
+					"key",
+					"reward",
+					"side",
+					"side_reward"
+				]
+			},
+			{
+				"cellRect": {
+					"height": 7,
+					"width": 7,
+					"x": 0,
+					"y": 7
+				},
+				"doorSockets": [
+					"north",
+					"south"
+				],
+				"id": "rect_hall_ns",
+				"layoutPos": [
+					0,
+					1
+				],
+				"openSides": [
+					"north",
+					"south"
+				],
+				"presetId": "rect_hall",
+				"roleTags": [
+					"start",
+					"key",
+					"boss",
+					"combat",
+					"guard",
+					"side",
+					"side_reward"
+				]
+			}
+		],
+		"chunkSummaries": [
+			{
+				"doorSockets": [
+					"north",
+					"east",
+					"south",
+					"west"
+				],
+				"id": "cross_block_junction",
+				"openSides": [
+					"north",
+					"east",
+					"south",
+					"west"
+				],
+				"presetId": "cross_block",
+				"roleTags": [
+					"start",
+					"key",
+					"side",
+					"combat"
+				]
+			},
+			{
+				"doorSockets": [
+					"south"
+				],
+				"id": "treasure_deadend_s",
+				"openSides": [
+					"south"
+				],
+				"presetId": "shrine",
+				"roleTags": [
+					"key",
+					"reward",
+					"side",
+					"side_reward"
+				]
+			},
+			{
+				"doorSockets": [
+					"north",
+					"south"
+				],
+				"id": "rect_hall_ns",
+				"openSides": [
+					"north",
+					"south"
+				],
+				"presetId": "rect_hall",
+				"roleTags": [
+					"start",
+					"key",
+					"boss",
+					"combat",
+					"guard",
+					"side",
+					"side_reward"
+				]
+			}
+		],
+		"generatedCells": [
+			"###################",
+			"#.....##.....######",
+			"#.....##.....######",
+			"#.....##.....######",
+			"#.....##.....######",
+			"#.....##.....######",
+			"###.###############",
+			"###.###############",
+			"#.....#############",
+			"#.....#############",
+			"#.....#############",
+			"#.....#############",
+			"#.....#############",
+			"###################",
+			"###################",
+			"###################",
+			"###################",
+			"###################",
+			"###################"
+		],
+		"generatedPlacements": [
+			{
+				"id": "generated_treasure_cache",
+				"itemId": "healing_tonic",
+				"label": "Generated Loot Cache",
+				"lootTableId": "loot_dungeon_satchel",
+				"position": [
+					9,
+					4
+				],
+				"type": "loot"
+			},
+			{
+				"blocking": true,
+				"encounterId": "encounter_grave_robber",
+				"fieldAi": {
+					"alertGroup": "generated_floor_guard_pair",
+					"alertRadius": 8,
+					"approachRange": 4,
+					"behavior": "ambush",
+					"chaseRange": 2,
+					"hearingRange": 1,
+					"leashRange": 5,
+					"loseSightTurns": 1,
+					"patrolPoints": [],
+					"wakeRange": 2,
+					"warningTurns": 1
+				},
+				"id": "generated_cross_block_junction_guard",
+				"label": "Generated Guard",
+				"monsterId": "grave_robber",
+				"position": [
+					3,
+					3
+				],
+				"type": "field_monster"
+			},
+			{
+				"eventId": "event_shrine_healing_spring",
+				"id": "generated_treasure_deadend_s_shrine",
+				"label": "Generated Shrine",
+				"position": [
+					10,
+					3
+				],
+				"type": "rest"
+			},
+			{
+				"blocking": true,
+				"encounterId": "encounter_serpent_guard",
+				"fieldAi": {
+					"alertGroup": "generated_floor_guard_pair",
+					"alertRadius": 8,
+					"approachRange": 4,
+					"behavior": "patrol",
+					"chaseRange": 2,
+					"hearingRange": 1,
+					"leashRange": 5,
+					"loseSightTurns": 1,
+					"patrolPoints": [
+						[
+							3,
+							10
+						],
+						[
+							4,
+							10
+						],
+						[
+							4,
+							9
+						],
+						[
+							3,
+							9
+						]
+					],
+					"wakeRange": 0,
+					"warningTurns": 1
+				},
+				"id": "generated_rect_hall_ns_guard",
+				"label": "Generated Guard",
+				"monsterId": "slime_alpha",
+				"position": [
+					3,
+					10
+				],
+				"type": "field_monster"
+			},
+			{
+				"id": "generated_cross_block_junction_exit",
+				"label": "Generated Return Stairs",
+				"position": [
+					1,
+					1
+				],
+				"targetMapId": "town_square",
+				"targetRoute": "town",
+				"type": "stairs"
+			}
+		],
+		"generatedStart": [
+			2,
+			5
+		],
+		"layout": {
+			"height": 19.0,
+			"width": 19.0
+		},
+		"mapId": "dungeon_floor_03",
+		"ok": true,
+		"previewRows": [
+			"CRNE SHS",
+			"RENS ...."
+		],
+		"profileId": "serpent_temple_floor_3",
+		"profileName": "폐허 3층",
+		"sourceChunkIds": [
+			"cross_block_junction",
+			"treasure_deadend_s",
+			"rect_hall_ns"
+		],
+		"targetModuleCount": 10,
+		"theme": "buried_temple"
+	},
+	"defaultFloorMaterialId": "floor_bloodstone_01",
+	"facing": 0.0,
+	"id": "dungeon_floor_03",
+	"kind": "dungeon",
+	"mapProfileId": "serpent_temple_floor_3",
+	"objectThemeId": "buried_temple_props",
+	"placements": [
+		{
+			"blocking": true,
+			"encounterId": "encounter_blind_priest",
+			"fieldAi": {
+				"approachRange": 5.0,
+				"chaseRange": 3.0,
+				"leashRange": 7.0
+			},
+			"id": "blind_priest",
+			"label": "Blind Priest",
+			"monsterId": "blind_priest",
+			"position": [
+				4.0,
+				2.0
+			],
+			"type": "field_monster"
+		},
+		{
+			"id": "final_cache",
+			"itemId": "firebomb",
+			"label": "Sanctuary Reliquary",
+			"lootTableId": "loot_dungeon_satchel",
+			"position": [
+				6.0,
+				2.0
+			],
+			"type": "loot"
+		},
+		{
+			"eventId": "event_camp_guard_post",
+			"id": "final_rest",
+			"label": "Ruined Watch Chapel",
+			"position": [
+				2.0,
+				2.0
+			],
+			"type": "rest"
+		},
+		{
+			"id": "stairs_up_floor_02",
+			"label": "Climb to Black Water Camp",
+			"position": [
+				2.0,
+				1.0
+			],
+			"targetMapId": "dungeon_floor_02",
+			"targetRoute": "dungeon",
+			"type": "stairs"
+		},
+		{
+			"blockedMessage": "The blind priest still bars the sanctuary exit.",
+			"endingFlag": "campaignCleared",
+			"endingTitle": "Blind Priest Defeated",
+			"id": "final_stairs_town",
+			"label": "Return to Town Victorious",
+			"position": [
+				5.0,
+				1.0
+			],
+			"requiredFlag": "blind_priest_cleared",
+			"targetMapId": "town_square",
+			"targetRoute": "town",
+			"type": "stairs"
+		}
+	],
+	"size": [
+		8.0,
+		8.0
+	],
+	"sourceChunkIds": [
+		"cross_block_junction",
+		"treasure_deadend_s",
+		"rect_hall_ns"
+	],
+	"start": [
+		2.0,
+		5.0
+	],
+	"themeId": "buried_temple",
+	"wallMaterialId": "wall_sacred_relief_01"
+}

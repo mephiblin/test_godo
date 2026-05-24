@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/runtime/grid_scene.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/shared/PlayerRig3D.tscn" id="2"]
+
+[node name="DungeonScene" type="Node3D"]
+script = ExtResource("1")
+default_map_id = "dungeon_floor_01"
+route_name = "dungeon"
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-70, -20, 0)
+light_energy = 0.8
+
+[node name="WorldRoot" type="Node3D" parent="."]
+
+[node name="PlayerRig3D" parent="." instance=ExtResource("2")]

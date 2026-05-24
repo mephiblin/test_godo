@@ -1,0 +1,17 @@
+[
+	{
+		"id": "outcast",
+		"name": "Outcast",
+		"bonusGold": 10
+	},
+	{
+		"id": "mercenary",
+		"name": "Mercenary",
+		"bonusGold": 20
+	},
+	{
+		"id": "scholar",
+		"name": "Scholar",
+		"bonusGold": 5
+	}
+]

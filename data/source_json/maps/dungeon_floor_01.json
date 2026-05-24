@@ -1,0 +1,165 @@
+{
+  "id": "dungeon_floor_01",
+  "kind": "dungeon",
+  "mapProfileId": "serpent_temple_floor_1",
+  "themeId": "buried_temple",
+  "objectThemeId": "buried_temple_props",
+  "wallMaterialId": "wall_buried_temple_01",
+  "ceilingMaterialId": "ceiling_stone_01",
+  "defaultFloorMaterialId": "floor_sandstone_01",
+  "sourceChunkIds": ["rect_hall_ns", "cross_block_junction", "treasure_deadend_s"],
+  "size": [8, 8],
+  "start": [2, 5],
+  "facing": 0,
+  "cells": [
+    "########",
+    "#......#",
+    "#.##...#",
+    "#......#",
+    "#...#..#",
+    "#......#",
+    "#......#",
+    "########"
+  ],
+  "placements": [
+    {
+      "id": "secret_cache",
+      "type": "secret_door",
+      "label": "Cracked Wall",
+      "position": [1, 4],
+      "containsItemId": "rust_key"
+    },
+    {
+      "id": "sealed_gate",
+      "type": "locked_door",
+      "label": "Sealed Gate",
+      "position": [3, 3],
+      "keyItemId": "rust_key",
+      "blocking": true
+    },
+    {
+      "id": "slime_alpha",
+      "type": "field_monster",
+      "label": "Slime Alpha",
+      "position": [4, 3],
+      "monsterId": "slime_alpha",
+      "encounterId": "encounter_serpent_guard",
+      "blocking": true,
+      "fieldAi": {
+        "alertGroup": "altar_watch",
+        "behavior": "patrol",
+        "approachRange": 4,
+        "chaseRange": 2,
+        "hearingRange": 1,
+        "leashRange": 5,
+        "alertRadius": 8,
+        "warningTurns": 1,
+        "patrolPoints": [
+          [4, 3],
+          [5, 3],
+          [5, 2],
+          [4, 2]
+        ]
+      }
+    },
+    {
+      "id": "grave_robber_scout",
+      "type": "field_monster",
+      "label": "Grave Robber Scout",
+      "position": [6, 6],
+      "monsterId": "grave_robber",
+      "encounterId": "encounter_grave_robber",
+      "blocking": true,
+      "fieldAi": {
+        "alertGroup": "altar_watch",
+        "behavior": "ambush",
+        "approachRange": 4,
+        "chaseRange": 2,
+        "hearingRange": 1,
+        "leashRange": 5,
+        "wakeRange": 2,
+        "loseSightTurns": 1,
+        "alertRadius": 8,
+        "warningTurns": 1,
+        "patrolPoints": []
+      }
+    },
+    {
+      "id": "ruin_husk_sentry",
+      "type": "field_monster",
+      "label": "Ruin Husk Sentry",
+      "position": [1, 5],
+      "monsterId": "ruin_husk",
+      "encounterId": "encounter_ruin_husk",
+      "blocking": true,
+      "fieldAi": {
+        "alertGroup": "cache_watch",
+        "behavior": "patrol",
+        "approachRange": 3,
+        "chaseRange": 1,
+        "hearingRange": 1,
+        "leashRange": 4,
+        "alertRadius": 4,
+        "warningTurns": 1,
+        "patrolPoints": [
+          [1, 4],
+          [1, 3]
+        ]
+      }
+    },
+    {
+      "id": "rest_altar",
+      "type": "rest",
+      "label": "Rest Altar",
+      "position": [6, 3],
+      "eventId": "event_rest_guard_post"
+    },
+    {
+      "id": "blood_altar",
+      "type": "event",
+      "label": "Blood Altar",
+      "position": [1, 2],
+      "eventId": "event_blood_altar_unlock"
+    },
+    {
+      "id": "stairs_down_floor_02",
+      "type": "stairs",
+      "label": "Descend to Black Water Camp",
+      "position": [1, 1],
+      "targetRoute": "dungeon",
+      "targetMapId": "dungeon_floor_02",
+      "requiredFlag": "altar_blood_paid",
+      "blockedMessage": "The lower seal is still closed. The blood altar must be completed first."
+    },
+    {
+      "id": "stairs_up",
+      "type": "stairs",
+      "label": "Return to Town",
+      "position": [2, 2],
+      "targetRoute": "town",
+      "targetMapId": "town_square"
+    },
+    {
+      "id": "trap_notice",
+      "type": "trap",
+      "label": "Loose Flagstone",
+      "position": [5, 5],
+      "eventId": "event_trap_poison_dart"
+    },
+    {
+      "id": "loot_satchel",
+      "type": "loot",
+      "label": "Abandoned Satchel",
+      "position": [6, 5],
+      "lootTableId": "loot_dungeon_satchel",
+      "itemId": "healing_tonic"
+    },
+    {
+      "id": "deserter_captain",
+      "type": "npc_service",
+      "label": "Deserter Captain",
+      "position": [5, 2],
+      "npcId": "npc_deserter_captain"
+    }
+  ]
+}

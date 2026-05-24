@@ -1,0 +1,17 @@
+[
+	{
+		"id": "camp_kit",
+		"name": "Camp Kit",
+		"bonusGold": 0
+	},
+	{
+		"id": "tonic_pack",
+		"name": "Tonic Pack",
+		"bonusGold": -10
+	},
+	{
+		"id": "merchant_purse",
+		"name": "Merchant Purse",
+		"bonusGold": 25
+	}
+]

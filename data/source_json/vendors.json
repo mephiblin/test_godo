@@ -1,0 +1,30 @@
+[
+	{
+		"id": "vendor_inn",
+		"name": "Innkeeper",
+		"service": "heal",
+		"price": 5,
+		"summary": "금화 5개로 파티를 회복한다."
+	},
+	{
+		"id": "vendor_apothecary",
+		"name": "Apothecary",
+		"service": "bundle",
+		"price": 8,
+		"items": ["bandage", "antivenom"],
+		"summary": "붕대와 해독제 묶음을 판다."
+	},
+	{
+		"id": "town_scholar",
+		"name": "Town Scholar",
+		"service": "skill_shop",
+		"stockSize": 2,
+		"skillIds": ["power_slash", "guard_break", "serpent_step", "mending_chant", "blood_drain"],
+		"summary": "전투 기술 기록 중 일부를 순환 진열한다."
+	},
+	{
+		"id": "town_healer",
+		"name": "Town Healer",
+		"service": "heal"
+	}
+]

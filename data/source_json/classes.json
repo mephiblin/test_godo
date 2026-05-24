@@ -1,0 +1,17 @@
+[
+	{
+		"id": "wanderer",
+		"name": "Wanderer",
+		"baseGold": 50
+	},
+	{
+		"id": "raider",
+		"name": "Raider",
+		"baseGold": 45
+	},
+	{
+		"id": "templar",
+		"name": "Templar",
+		"baseGold": 40
+	}
+]

@@ -1,0 +1,34 @@
+[
+	{
+		"id": "slime_cleanup",
+		"name": "Slime Cleanup",
+		"note": "청동문 너머의 점액 괴물을 정리한다.",
+		"targetMonsterId": "slime_alpha",
+		"rewardGold": 40,
+		"status": "authorable"
+	},
+	{
+		"id": "grave_robber_sweep",
+		"name": "Grave Robber Sweep",
+		"note": "사원 통로의 도굴꾼을 처치한다.",
+		"targetMonsterId": "grave_robber",
+		"rewardGold": 52,
+		"status": "authorable"
+	},
+	{
+		"id": "blind_priest_hunt",
+		"name": "Blind Priest Hunt",
+		"note": "최하층의 눈먼 사제를 쓰러뜨린다.",
+		"targetMonsterId": "blind_priest",
+		"rewardGold": 90,
+		"status": "authorable"
+	},
+	{
+		"id": "serpent_guard_patrol",
+		"name": "Serpent Guard Patrol",
+		"note": "사원 경비병 순찰을 끊는다.",
+		"targetMonsterId": "serpent_guard",
+		"rewardGold": 46,
+		"status": "authorable"
+	}
+]

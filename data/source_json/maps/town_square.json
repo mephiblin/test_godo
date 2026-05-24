@@ -1,0 +1,95 @@
+{
+  "id": "town_square",
+  "kind": "town",
+  "size": [8, 8],
+  "start": [2, 5],
+  "facing": 0,
+  "cells": [
+    "########",
+    "#......#",
+    "#......#",
+    "#......#",
+    "#......#",
+    "#......#",
+    "#......#",
+    "########"
+  ],
+  "placements": [
+    {
+      "id": "quest_board",
+      "type": "quest_board",
+      "label": "Quest Board",
+      "position": [2, 3],
+      "npcId": "npc_bulletin_board",
+      "questId": "slime_cleanup"
+    },
+    {
+      "id": "town_healer",
+      "type": "healer",
+      "label": "Innkeeper",
+      "position": [3, 2],
+      "npcId": "npc_innkeeper",
+      "vendorId": "vendor_inn"
+    },
+    {
+      "id": "town_scholar",
+      "type": "skill_shop",
+      "label": "Skill Merchant",
+      "position": [4, 2],
+      "npcId": "npc_skill_merchant",
+      "vendorId": "town_scholar"
+    },
+    {
+      "id": "town_apothecary",
+      "type": "trade",
+      "label": "Apothecary",
+      "position": [4, 3],
+      "npcId": "npc_apothecary",
+      "vendorId": "vendor_apothecary"
+    },
+    {
+      "id": "town_scholar_study",
+      "type": "npc_service",
+      "label": "Scholar",
+      "position": [3, 4],
+      "npcId": "npc_scholar"
+    },
+    {
+      "id": "town_exile_scout",
+      "type": "npc_service",
+      "label": "Exile Scout",
+      "position": [5, 4],
+      "npcId": "npc_exile_scout"
+    },
+    {
+      "id": "town_trainer_tent",
+      "type": "npc_service",
+      "label": "Trainer",
+      "position": [6, 4],
+      "npcId": "npc_trainer"
+    },
+    {
+      "id": "town_gate",
+      "type": "gate",
+      "label": "Dungeon Gate",
+      "position": [5, 2],
+      "targetRoute": "dungeon",
+      "targetMapId": "dungeon_floor_01",
+      "requiredQuestStatuses": ["accepted", "complete_ready", "claimed"],
+      "blockedMessage": "게시판에서 원정 전표를 받아야 청동 문이 열린다."
+    },
+    {
+      "id": "town_gatekeeper",
+      "type": "npc_service",
+      "label": "Gatekeeper",
+      "position": [6, 2],
+      "npcId": "npc_gatekeeper"
+    },
+    {
+      "id": "campfire",
+      "type": "rest",
+      "label": "Campfire",
+      "position": [2, 2]
+    }
+  ]
+}

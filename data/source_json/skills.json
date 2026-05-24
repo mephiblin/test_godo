@@ -1,0 +1,122 @@
+[
+	{
+		"effectKind": "attack",
+		"effectOps": [
+			{
+				"allowWeaponBonus": true,
+				"bonus": 0.0,
+				"op": "damage_enemy"
+			}
+		],
+		"id": "basic_strike",
+		"kind": "attack",
+		"name": "Basic Strike",
+		"power": 1.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "power_slash",
+		"cooldownTurns": 1.0,
+		"effectKind": "attack",
+		"effectOps": [
+			{
+				"allowWeaponBonus": true,
+				"bonus": 0.0,
+				"op": "damage_enemy"
+			}
+		],
+		"id": "power_slash",
+		"kind": "attack",
+		"name": "Power Slash+Smoke",
+		"power": 5,
+		"price": 39,
+		"targetMode": "single_enemy"
+	},
+	{
+		"armorBreak": 2.0,
+		"cooldownKey": "guard_break",
+		"cooldownTurns": 2.0,
+		"effectKind": "break_attack",
+		"effectOps": [
+			{
+				"allowWeaponBonus": true,
+				"armorBreakOffset": 2.0,
+				"bonus": 0.0,
+				"op": "damage_enemy"
+			},
+			{
+				"op": "break_enemy_armor",
+				"value": 2.0
+			},
+			{
+				"op": "apply_enemy_status",
+				"status": "weakened"
+			}
+		],
+		"id": "guard_break",
+		"kind": "debuff",
+		"name": "Guard Break",
+		"power": 1.0,
+		"price": 24.0,
+		"targetMode": "single_enemy"
+	},
+	{
+		"cooldownKey": "serpent_step",
+		"cooldownTurns": 1.0,
+		"effectKind": "guard",
+		"effectOps": [
+			{
+				"bonus": 1.0,
+				"op": "gain_guard"
+			}
+		],
+		"guardBonus": 1.0,
+		"id": "serpent_step",
+		"kind": "buff",
+		"name": "Serpent Step",
+		"power": 1.0,
+		"price": 18.0,
+		"targetMode": "self"
+	},
+	{
+		"cooldownKey": "mending_chant",
+		"cooldownTurns": 2.0,
+		"effectKind": "heal",
+		"effectOps": [
+			{
+				"bonus": 3.0,
+				"op": "heal_self"
+			}
+		],
+		"healBonus": 3.0,
+		"id": "mending_chant",
+		"kind": "heal",
+		"name": "Mending Chant",
+		"power": 1.0,
+		"price": 26.0,
+		"targetMode": "self"
+	},
+	{
+		"cooldownKey": "blood_drain",
+		"cooldownTurns": 2.0,
+		"effectKind": "lifesteal",
+		"effectOps": [
+			{
+				"allowWeaponBonus": true,
+				"bonus": 0.0,
+				"op": "damage_enemy"
+			},
+			{
+				"op": "lifesteal_last_damage",
+				"ratio": 0.5
+			}
+		],
+		"id": "blood_drain",
+		"kind": "lifesteal",
+		"lifestealRatio": 0.5,
+		"name": "Blood Drain",
+		"power": 1.0,
+		"price": 28.0,
+		"targetMode": "single_enemy"
+	}
+]

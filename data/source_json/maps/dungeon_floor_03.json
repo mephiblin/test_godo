@@ -1,0 +1,75 @@
+{
+  "id": "dungeon_floor_03",
+  "kind": "dungeon",
+  "mapProfileId": "serpent_temple_floor_3",
+  "themeId": "buried_temple",
+  "objectThemeId": "buried_temple_props",
+  "wallMaterialId": "wall_sacred_relief_01",
+  "ceilingMaterialId": "ceiling_gold_01",
+  "defaultFloorMaterialId": "floor_bloodstone_01",
+  "sourceChunkIds": ["cross_block_junction", "treasure_deadend_s", "rect_hall_ns"],
+  "size": [8, 8],
+  "start": [2, 5],
+  "facing": 0,
+  "cells": [
+    "########",
+    "#......#",
+    "#......#",
+    "#..##..#",
+    "#......#",
+    "#......#",
+    "#......#",
+    "########"
+  ],
+  "placements": [
+    {
+      "id": "blind_priest",
+      "type": "field_monster",
+      "label": "Blind Priest",
+      "position": [4, 2],
+      "monsterId": "blind_priest",
+      "encounterId": "encounter_blind_priest",
+      "blocking": true,
+      "fieldAi": {
+        "approachRange": 5,
+        "chaseRange": 3,
+        "leashRange": 7
+      }
+    },
+    {
+      "id": "final_cache",
+      "type": "loot",
+      "label": "Sanctuary Reliquary",
+      "position": [6, 2],
+      "lootTableId": "loot_dungeon_satchel",
+      "itemId": "firebomb"
+    },
+    {
+      "id": "final_rest",
+      "type": "rest",
+      "label": "Ruined Watch Chapel",
+      "position": [2, 2],
+      "eventId": "event_camp_guard_post"
+    },
+    {
+      "id": "stairs_up_floor_02",
+      "type": "stairs",
+      "label": "Climb to Black Water Camp",
+      "position": [2, 1],
+      "targetRoute": "dungeon",
+      "targetMapId": "dungeon_floor_02"
+    },
+    {
+      "id": "final_stairs_town",
+      "type": "stairs",
+      "label": "Return to Town Victorious",
+      "position": [5, 1],
+      "targetRoute": "town",
+      "targetMapId": "town_square",
+      "requiredFlag": "blind_priest_cleared",
+      "blockedMessage": "The blind priest still bars the sanctuary exit.",
+      "endingFlag": "campaignCleared",
+      "endingTitle": "Blind Priest Defeated"
+    }
+  ]
+}

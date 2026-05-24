@@ -1,0 +1,45 @@
+{
+  "id": "connan-godot-bootstrap",
+  "contentVersion": 1,
+  "definitions": {
+    "backgrounds": "res://data/source_json/backgrounds.json",
+    "classes": "res://data/source_json/classes.json",
+    "encounters": "res://data/source_json/encounters.json",
+    "events": "res://data/source_json/events.json",
+    "loot_tables": "res://data/source_json/loot_tables.json",
+    "map_chunks": "res://data/source_json/map_chunks.json",
+    "map_profiles": "res://data/source_json/map_profiles.json",
+    "materials": "res://data/source_json/materials.json",
+    "monsters": "res://data/source_json/monsters.json",
+    "npcs": "res://data/source_json/npcs.json",
+    "object_themes": "res://data/source_json/object_themes.json",
+    "items": "res://data/source_json/items.json",
+    "skills": "res://data/source_json/skills.json",
+    "quests": "res://data/source_json/quests.json",
+    "start_supplies": "res://data/source_json/start_supplies.json",
+    "tile_substitutions": "res://data/source_json/tile_substitutions.json",
+    "vendors": "res://data/source_json/vendors.json"
+  },
+  "maps": [
+    {
+      "id": "town_square",
+      "path": "res://data/source_json/maps/town_square.json",
+      "kind": "town"
+    },
+    {
+      "id": "dungeon_floor_01",
+      "path": "res://data/source_json/maps/dungeon_floor_01.json",
+      "kind": "dungeon"
+    },
+    {
+      "id": "dungeon_floor_02",
+      "path": "res://data/source_json/maps/dungeon_floor_02.json",
+      "kind": "dungeon"
+    },
+    {
+      "id": "dungeon_floor_03",
+      "path": "res://data/source_json/maps/dungeon_floor_03.json",
+      "kind": "dungeon"
+    }
+  ]
+}

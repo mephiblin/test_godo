@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/main_root.gd" id="1"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1")
+
+[node name="SceneHost" type="Node" parent="."]
+
+[node name="HudLayer" type="CanvasLayer" parent="."]
+
+[node name="ModalLayer" type="CanvasLayer" parent="."]
+
+[node name="TransitionLayer" type="CanvasLayer" parent="."]

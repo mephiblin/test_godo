@@ -1,0 +1,46 @@
+{
+	"buildVersion": "2026-05-24T09:07:40",
+	"compiledMaps": [
+		{
+			"id": "town_square",
+			"kind": "town",
+			"path": "res://data/imported/maps/town_square.json"
+		},
+		{
+			"id": "dungeon_floor_01",
+			"kind": "dungeon",
+			"path": "res://data/imported/maps/dungeon_floor_01.json"
+		},
+		{
+			"id": "dungeon_floor_02",
+			"kind": "dungeon",
+			"path": "res://data/imported/maps/dungeon_floor_02.json"
+		},
+		{
+			"id": "dungeon_floor_03",
+			"kind": "dungeon",
+			"path": "res://data/imported/maps/dungeon_floor_03.json"
+		}
+	],
+	"contentVersion": 1,
+	"definitions": {
+		"backgrounds": "res://data/source_json/backgrounds.json",
+		"classes": "res://data/source_json/classes.json",
+		"encounters": "res://data/source_json/encounters.json",
+		"events": "res://data/source_json/events.json",
+		"items": "res://data/source_json/items.json",
+		"loot_tables": "res://data/source_json/loot_tables.json",
+		"map_chunks": "res://data/source_json/map_chunks.json",
+		"map_profiles": "res://data/source_json/map_profiles.json",
+		"materials": "res://data/source_json/materials.json",
+		"monsters": "res://data/source_json/monsters.json",
+		"npcs": "res://data/source_json/npcs.json",
+		"object_themes": "res://data/source_json/object_themes.json",
+		"quests": "res://data/source_json/quests.json",
+		"skills": "res://data/source_json/skills.json",
+		"start_supplies": "res://data/source_json/start_supplies.json",
+		"tile_substitutions": "res://data/source_json/tile_substitutions.json",
+		"vendors": "res://data/source_json/vendors.json"
+	},
+	"id": "connan-godot-bootstrap-build"
+}

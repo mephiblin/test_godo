@@ -1,0 +1,80 @@
+{
+  "id": "dungeon_floor_02",
+  "kind": "dungeon",
+  "mapProfileId": "serpent_temple_floor_2",
+  "themeId": "buried_temple",
+  "objectThemeId": "buried_temple_props",
+  "wallMaterialId": "wall_black_brick_01",
+  "ceilingMaterialId": "ceiling_vault_01",
+  "defaultFloorMaterialId": "floor_obsidian_01",
+  "sourceChunkIds": ["cross_block_junction", "rect_hall_ns", "treasure_deadend_s"],
+  "size": [8, 8],
+  "start": [2, 5],
+  "facing": 0,
+  "cells": [
+    "########",
+    "#......#",
+    "#..#...#",
+    "#......#",
+    "#...#..#",
+    "#......#",
+    "#......#",
+    "########"
+  ],
+  "placements": [
+    {
+      "id": "mystic_camp",
+      "type": "npc_service",
+      "label": "Wounded Mystic",
+      "position": [2, 2],
+      "npcId": "npc_wounded_mystic"
+    },
+    {
+      "id": "black_water_rite",
+      "type": "event",
+      "label": "Black Water Rite",
+      "position": [5, 2],
+      "eventId": "event_black_water_rite"
+    },
+    {
+      "id": "stairs_down_floor_03",
+      "type": "stairs",
+      "label": "Descend to the Ruined Sanctuary",
+      "position": [5, 1],
+      "targetRoute": "dungeon",
+      "targetMapId": "dungeon_floor_03",
+      "requiredFlag": "black_water_rite_cleansed",
+      "blockedMessage": "The final seal still resonates with black water. Complete the rite first."
+    },
+    {
+      "id": "mystic_cache",
+      "type": "loot",
+      "label": "Rite Cache",
+      "position": [6, 4],
+      "lootTableId": "loot_dungeon_satchel",
+      "itemId": "antivenom"
+    },
+    {
+      "id": "camp_rest",
+      "type": "rest",
+      "label": "Camp Watchfire",
+      "position": [3, 5],
+      "eventId": "event_camp_guard_post"
+    },
+    {
+      "id": "camp_trap",
+      "type": "trap",
+      "label": "Black Water Spill",
+      "position": [5, 5],
+      "eventId": "event_trap_curse_rune"
+    },
+    {
+      "id": "stairs_up_floor_01",
+      "type": "stairs",
+      "label": "Climb to Temple Floor 1",
+      "position": [2, 1],
+      "targetRoute": "dungeon",
+      "targetMapId": "dungeon_floor_01"
+    }
+  ]
+}

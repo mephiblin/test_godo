@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/runtime/town_scene.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/shared/PlayerRig3D.tscn" id="2"]
+
+[node name="TownScene" type="Node3D"]
+script = ExtResource("1")
+default_map_id = "town_square"
+route_name = "town"
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-60, 30, 0)
+light_energy = 1.3
+
+[node name="WorldRoot" type="Node3D" parent="."]
+
+[node name="PlayerRig3D" parent="." instance=ExtResource("2")]

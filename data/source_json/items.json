@@ -1,0 +1,137 @@
+[
+	{
+		"id": "bandage",
+		"name": "Bandage",
+		"kind": "consumable",
+		"price": 8,
+		"combatUse": {
+			"effectKind": "heal_self",
+			"heal": 4,
+			"targetMode": "self",
+			"effectOps": [
+				{
+					"op": "heal_self_flat",
+					"value": 4
+				}
+			]
+		}
+	},
+	{
+		"id": "antivenom",
+		"name": "Antivenom",
+		"kind": "consumable",
+		"price": 12,
+		"combatUse": {
+			"effectKind": "cure_status_self",
+			"status": "독",
+			"targetMode": "self",
+			"effectOps": [
+				{
+					"op": "cure_front_status",
+					"status": "독"
+				}
+			]
+		}
+	},
+	{
+		"id": "throwing_knife",
+		"name": "Throwing Knife",
+		"kind": "consumable",
+		"price": 10,
+		"combatUse": {
+			"effectKind": "damage_enemy",
+			"damage": 5,
+			"targetMode": "single_enemy",
+			"effectOps": [
+				{
+					"op": "damage_enemy_flat",
+					"value": 5
+				}
+			]
+		}
+	},
+	{
+		"id": "firebomb",
+		"name": "Firebomb",
+		"kind": "consumable",
+		"price": 16,
+		"combatUse": {
+			"effectKind": "burn_enemy",
+			"damage": 4,
+			"status": "burning",
+			"targetMode": "single_enemy",
+			"effectOps": [
+				{
+					"op": "damage_enemy_flat",
+					"value": 4
+				},
+				{
+					"op": "apply_enemy_status",
+					"status": "burning"
+				}
+			]
+		}
+	},
+	{
+		"id": "bronze_key",
+		"name": "Bronze Key",
+		"kind": "key",
+		"price": 5
+	},
+	{
+		"id": "obsidian_key",
+		"name": "Obsidian Key",
+		"kind": "key",
+		"price": 8
+	},
+	{
+		"id": "black_dagger",
+		"name": "Black Dagger",
+		"kind": "artifact",
+		"price": 40,
+		"equipSlot": "weapon",
+		"unknownName": "Unmarked Dagger",
+		"description": "A blackened ritual dagger with a hungry edge.",
+		"curseStatus": "저주",
+		"powerBonus": 2
+	},
+	{
+		"id": "priest_mask",
+		"name": "Priest Mask",
+		"kind": "quest",
+		"price": 0,
+		"equipSlot": "trinket",
+		"unknownName": "Bronze Mask",
+		"description": "A burial mask etched with serpent prayer marks.",
+		"resistBonus": "독"
+	},
+	{
+		"id": "camp_kit",
+		"name": "Camp Kit",
+		"kind": "supply",
+		"price": 10
+	},
+	{
+		"id": "healing_tonic",
+		"name": "Healing Tonic",
+		"kind": "consumable",
+		"price": 15,
+		"combatUse": {
+			"effectKind": "heal_self",
+			"heal": 6,
+			"targetMode": "self",
+			"effectOps": [
+				{
+					"op": "heal_self_flat",
+					"value": 6
+				}
+			]
+		}
+	},
+	{
+		"id": "rust_key",
+		"name": "Rust Key",
+		"kind": "key",
+		"price": 5
+	}
+]

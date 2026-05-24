@@ -1,0 +1,188 @@
+[
+	{
+		"id": "desert_rat",
+		"name": "사막 짐승",
+		"hp": 15,
+		"atk": 4,
+		"def": 1,
+		"xp": 8,
+		"ai": "aggressive",
+		"combatProfile": {
+			"turnOps": [
+				{ "op": "retaliation_bonus", "value": 1 }
+			]
+		}
+	},
+	{
+		"id": "grave_robber",
+		"name": "도굴꾼",
+		"hp": 22,
+		"atk": 6,
+		"def": 2,
+		"xp": 14,
+		"ai": "coward",
+		"combatProfile": {
+			"turnOps": [
+				{ "op": "heal_and_hide_if_enemy_hp_below_ratio", "ratio": 0.34, "heal": 4, "guard": 1, "log": "%s recovered %d HP and hid behind guard." }
+			]
+		}
+	},
+	{
+		"id": "serpent_guard",
+		"name": "뱀 사원 경비병",
+		"hp": 28,
+		"atk": 7,
+		"def": 4,
+		"xp": 20,
+		"ai": "guardian",
+		"combatProfile": {
+			"startingGuard": 2,
+			"turnOps": [
+				{ "op": "add_guard", "value": 2, "log": "%s braced and gained 2 guard." },
+				{ "op": "retaliation_penalty", "value": 1 }
+			]
+		}
+	},
+	{
+		"id": "poisoned_raider",
+		"name": "독에 미친 약탈자",
+		"hp": 30,
+		"atk": 8,
+		"def": 3,
+		"xp": 24,
+		"ai": "ambusher",
+		"combatProfile": {
+			"turnOps": [
+				{ "op": "if_party_guard_empty", "retaliationBonus": 2, "status": "독", "log": "%s struck from the blind side." }
+			]
+		}
+	},
+	{
+		"id": "cursed_gladiator",
+		"name": "저주받은 검투사",
+		"hp": 42,
+		"atk": 11,
+		"def": 5,
+		"xp": 34,
+		"ai": "defensive",
+		"combatProfile": {
+			"startingGuard": 1,
+			"turnOps": [
+				{ "op": "conditional_guard", "enemyHpBelowRatio": 0.5, "guard": 3, "retaliationPenalty": 1, "log": "%s fortified and gained 3 guard." }
+			]
+		}
+	},
+	{
+		"id": "black_water_beast",
+		"name": "검은 물의 파충수",
+		"hp": 70,
+		"atk": 12,
+		"def": 5,
+		"xp": 70,
+		"ai": "aggressive",
+		"combatProfile": {
+			"turnOps": [
+				{ "op": "retaliation_bonus", "value": 1 }
+			]
+		},
+		"boss": true
+	},
+	{
+		"id": "serpent_priest",
+		"name": "뱀 사제",
+		"hp": 36,
+		"atk": 9,
+		"def": 3,
+		"xp": 32,
+		"ai": "caster",
+		"combatProfile": {
+			"turnOps": [
+				{ "op": "cycle", "steps": [
+					{ "status": "독", "retaliationPenalty": 1, "log": "%s cast a venom hex." },
+					{ "status": "저주", "retaliationBonus": 1, "log": "%s cast a curse." }
+				] }
+			]
+		}
+	},
+	{
+		"id": "blind_priest",
+		"name": "눈먼 사제",
+		"hp": 82,
+		"atk": 13,
+		"def": 5,
+		"xp": 90,
+		"ai": "caster",
+		"combatProfile": {
+			"turnOps": [
+				{ "op": "cycle", "steps": [
+					{ "status": "독", "retaliationPenalty": 1, "log": "%s cast a venom hex." },
+					{ "status": "저주", "retaliationBonus": 1, "log": "%s cast a curse." }
+				] }
+			]
+		},
+		"boss": true
+	},
+	{
+		"id": "crawling_fish",
+		"name": "기어다니는 물고기",
+		"hp": 10,
+		"atk": 8,
+		"atkMin": 5,
+		"atkMax": 20,
+		"def": 1,
+		"xp": 10,
+		"ai": "aggressive",
+		"combatProfile": {
+			"turnOps": [
+				{ "op": "retaliation_bonus", "value": 1 }
+			]
+		}
+	},
+	{
+		"id": "reef_cultist",
+		"name": "산호 광신도",
+		"hp": 24,
+		"atk": 7,
+		"atkMin": 6,
+		"atkMax": 12,
+		"def": 2,
+		"xp": 18,
+		"ai": "caster",
+		"combatProfile": {
+			"turnOps": [
+				{ "op": "cycle", "steps": [
+					{ "status": "독", "retaliationPenalty": 1, "log": "%s cast a venom hex." },
+					{ "status": "저주", "retaliationBonus": 1, "log": "%s cast a curse." }
+				] }
+			]
+		}
+	},
+	{
+		"id": "ruin_husk",
+		"name": "폐허의 빈 껍질",
+		"hp": 26,
+		"atk": 7,
+		"def": 3,
+		"xp": 18,
+		"ai": "defensive",
+		"combatProfile": {
+			"startingGuard": 1,
+			"turnOps": [
+				{ "op": "conditional_guard", "enemyHpBelowRatio": 0.5, "guard": 3, "retaliationPenalty": 1, "log": "%s fortified and gained 3 guard." }
+			]
+		}
+	},
+	{
+		"id": "slime_alpha",
+		"name": "Slime Alpha",
+		"maxHp": 18,
+		"attackMin": 1,
+		"attackMax": 4,
+		"rewardGold": 25,
+		"combatProfile": {
+			"turnOps": [
+				{ "op": "retaliation_bonus", "value": 1 }
+			]
+		}
+	}
+]
