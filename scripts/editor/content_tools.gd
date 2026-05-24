@@ -4,7 +4,7 @@ extends RefCounted
 const MANIFEST_PATH := "res://data/source_json/content_manifest.json"
 const IMPORTED_MANIFEST_PATH := "res://data/imported/content_build_manifest.json"
 const IMPORTED_MAPS_DIR := "res://data/imported/maps"
-const EDITABLE_KINDS := ["monsters", "skills", "items", "quests"]
+const EDITABLE_KINDS := ["monsters", "skills", "items", "quests", "events", "npcs"]
 
 static func manifest() -> Dictionary:
 	return _load_json_dict(MANIFEST_PATH)

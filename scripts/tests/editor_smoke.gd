@@ -52,6 +52,7 @@ func _initialize() -> void:
 	var npc_contract_apply_ok := false
 	var imported_event_contract_ok := false
 	var imported_npc_contract_ok := false
+	var definition_authoring_ok := false
 	var route_preview_report: Dictionary = {}
 	var fallback_workspace_summary_ok := false
 	var fallback_workspace_detail_ok := false
@@ -72,6 +73,48 @@ func _initialize() -> void:
 		valid_edit_result = ContentTools.save_definition_row("skills", "power_slash", edited_skill)
 		edited_skill_power = int(edited_skill.get("power", 0))
 		valid_edit_applied = bool(valid_edit_result.get("ok", false))
+
+	var definition_dock: Control = ContentEditorDockScript.new()
+	get_root().add_child(definition_dock)
+	await process_frame
+	var event_authoring_ok := bool(definition_dock.call("smoke_select_kind", "events")) \
+		and bool(definition_dock.call("smoke_select_definition", "event_blood_altar_unlock")) \
+		and bool(definition_dock.call("smoke_definition_event_set_entry_step", "altar_end")) \
+		and bool(definition_dock.call("smoke_definition_event_add_continue_choice", "altar_start", "Smoke Continue"))
+	var event_authoring_row: Dictionary = definition_dock.call("smoke_collect_current_definition_row")
+	var event_entry_ok := String(event_authoring_row.get("entryStepId", "")) == "altar_end"
+	var event_choice_ok := false
+	for step in event_authoring_row.get("steps", []):
+		if typeof(step) != TYPE_DICTIONARY:
+			continue
+		if String(step.get("id", "")) != "altar_start":
+			continue
+		for choice in (step as Dictionary).get("choices", []):
+			if typeof(choice) == TYPE_DICTIONARY and String((choice as Dictionary).get("label", "")) == "Smoke Continue":
+				event_choice_ok = true
+	var npc_authoring_ok := bool(definition_dock.call("smoke_select_kind", "npcs")) \
+		and bool(definition_dock.call("smoke_select_definition", "npc_gatekeeper")) \
+		and bool(definition_dock.call("smoke_definition_npc_add_talk_service", "Smoke Gate Talk"))
+	var npc_authoring_row: Dictionary = definition_dock.call("smoke_collect_current_definition_row")
+	var npc_service_ok := false
+	for service in npc_authoring_row.get("services", []):
+		if typeof(service) == TYPE_DICTIONARY \
+				and String((service as Dictionary).get("type", "")) == "talk" \
+				and String((service as Dictionary).get("label", "")) == "Smoke Gate Talk":
+			npc_service_ok = true
+	definition_authoring_ok = event_authoring_ok and event_entry_ok and event_choice_ok and npc_authoring_ok and npc_service_ok
+	if not definition_authoring_ok:
+		print("EDITOR_SMOKE_DEFINITION_AUTHORING event_authoring=%s event_entry=%s event_choice=%s npc_authoring=%s npc_service=%s event_row=%s npc_row=%s" % [
+			event_authoring_ok,
+			event_entry_ok,
+			event_choice_ok,
+			npc_authoring_ok,
+			npc_service_ok,
+			event_authoring_row,
+			npc_authoring_row
+		])
+	definition_dock.queue_free()
+	await process_frame
 
 	var map_data := ContentTools.load_map_data("dungeon_floor_01")
 	if not map_data.is_empty():
@@ -473,7 +516,7 @@ func _initialize() -> void:
 	fallback_workspace.queue_free()
 	await process_frame
 
-	print("EDITOR_SMOKE validation_ok=%s map_ok=%s preview_ok=%s invalid_blocked=%s invalid_unchanged=%s map_invalid_blocked=%s map_invalid_unchanged=%s map_structure_invalid_blocked=%s map_structure_invalid_unchanged=%s edit_ok=%s map_edit_ok=%s map_structure_ok=%s grid_editor_ok=%s placement_grid_ok=%s placement_reference_ok=%s placement_affordance_ok=%s placement_create_ok=%s placement_delete_ok=%s fallback_workspace_ok=%s fallback_workspace_detail_ok=%s bundle_ok=%s content_ok=%s manifest=%s compiled_preview=%s runtime_power=%d field_ai=%d imported_start_x=%d imported_slime_y=%d rest_event=%s deserter_npc=%s compiled_handoff=%s authored_handoff=%s counts=%s" % [
+	print("EDITOR_SMOKE validation_ok=%s map_ok=%s preview_ok=%s invalid_blocked=%s invalid_unchanged=%s map_invalid_blocked=%s map_invalid_unchanged=%s map_structure_invalid_blocked=%s map_structure_invalid_unchanged=%s edit_ok=%s definition_authoring_ok=%s map_edit_ok=%s map_structure_ok=%s grid_editor_ok=%s placement_grid_ok=%s placement_reference_ok=%s placement_affordance_ok=%s placement_create_ok=%s placement_delete_ok=%s fallback_workspace_ok=%s fallback_workspace_detail_ok=%s bundle_ok=%s content_ok=%s manifest=%s compiled_preview=%s runtime_power=%d field_ai=%d imported_start_x=%d imported_slime_y=%d rest_event=%s deserter_npc=%s compiled_handoff=%s authored_handoff=%s counts=%s" % [
 		validation.get("ok", false),
 		map_validation.get("ok", false),
 		preview.get("ok", false),
@@ -484,6 +527,7 @@ func _initialize() -> void:
 		invalid_map_structure_blocked,
 		invalid_map_structure_unchanged,
 		valid_edit_applied,
+		definition_authoring_ok,
 		valid_map_edit_applied,
 		valid_map_structure_applied,
 		grid_editor_path_ok,
@@ -514,6 +558,7 @@ func _initialize() -> void:
 		and invalid_edit_blocked \
 		and invalid_edit_unchanged \
 		and valid_edit_applied \
+		and definition_authoring_ok \
 		and invalid_map_edit_blocked \
 		and invalid_map_edit_unchanged \
 		and invalid_map_structure_blocked \

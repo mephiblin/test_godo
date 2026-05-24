@@ -51,6 +51,8 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 imported map hash contract pass made build bundles record source
   path/hash metadata per compiled map and made runtime fall back to source JSON
   when imported map hashes no longer match.
+- 2026-05-24 editor direct definition pass exposed `events` and `npcs` as
+  editable definition families and added guided event/NPC row authoring actions.
 
 ## P0
 
@@ -141,8 +143,11 @@ original web-repo `godot-port-plan.md`.
      and label-sync actions in the preview authoring panel.
    - Done: selected event step/choice and selected NPC service can now be applied
      as placement authoring contract fields and survive source/imported round-trip.
-   - Next: convert event graph and NPC service definition rows themselves from
-     preview-only into direct guided editors.
+   - Done: `events` and `npcs` are now editable definition families in the dock,
+     with guided event entry-step/choice authoring and NPC talk-service authoring
+     backed by editor smoke assertions.
+   - Next: replace JSON-array editing for event steps and NPC services with
+     row-level field editors, then add visual event graph node/edge editing.
 
 5. `save-migration-packaging`
    - Expand regression coverage around save robustness.

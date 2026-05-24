@@ -44,6 +44,8 @@ var current_preview_event_step_id := ""
 var current_preview_event_choice_index := 0
 var current_preview_npc_service_index := 0
 var current_preview_route_target_placement_id := ""
+var current_definition_event_step_id := ""
+var current_definition_npc_service_index := 0
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -336,6 +338,8 @@ func _on_entry_selected(index: int) -> void:
 		return
 	var row: Dictionary = rows[index]
 	current_row_id = String(row.get("id", ""))
+	current_definition_event_step_id = ""
+	current_definition_npc_service_index = 0
 	editors.clear()
 	for child in fields_box.get_children():
 		child.queue_free()
@@ -347,6 +351,7 @@ func _on_entry_selected(index: int) -> void:
 		var spec := _build_editor_for_value(value)
 		fields_box.add_child(spec["control"])
 		editors[key] = spec
+	_add_definition_authoring_surface(row)
 
 func _on_placement_selected(index: int) -> void:
 	var placements := ContentTools.list_map_placements(_selected_map_id())
@@ -762,6 +767,45 @@ func smoke_set_route_target_event_choice_index(index: int) -> bool:
 	_render_placement_affordances(placement)
 	return true
 
+func smoke_select_kind(kind: String) -> bool:
+	for index in range(kind_option.item_count):
+		if kind_option.get_item_text(index) != kind:
+			continue
+		kind_option.select(index)
+		_on_kind_selected(index)
+		return true
+	return false
+
+func smoke_select_definition(row_id: String) -> bool:
+	for index in range(entry_list.item_count):
+		if entry_list.get_item_text(index) != row_id:
+			continue
+		entry_list.select(index)
+		_on_entry_selected(index)
+		return true
+	return false
+
+func smoke_definition_event_set_entry_step(step_id: String) -> bool:
+	if current_kind != "events":
+		return false
+	current_definition_event_step_id = step_id
+	return _apply_definition_event_entry_step()
+
+func smoke_definition_event_add_continue_choice(step_id: String, label_text: String = "Continue") -> bool:
+	if current_kind != "events":
+		return false
+	current_definition_event_step_id = step_id
+	return _append_definition_event_choice(label_text)
+
+func smoke_definition_npc_add_talk_service(label_text: String = "Authoring Talk") -> bool:
+	if current_kind != "npcs":
+		return false
+	return _append_definition_npc_talk_service(label_text)
+
+func smoke_collect_current_definition_row() -> Dictionary:
+	var collect_result := _collect_current_row_result()
+	return collect_result.get("row", {}) if collect_result.get("errors", []).is_empty() else {}
+
 func _build_placement_editor_for_key(key: String, value: Variant, placement: Dictionary = {}) -> Dictionary:
 	if typeof(value) == TYPE_STRING and PLACEMENT_REFERENCE_SOURCES.has(key):
 		var options := _placement_reference_options(key, placement)
@@ -789,6 +833,202 @@ func _show_placement_editor(placement: Dictionary) -> void:
 		placement_fields_box.add_child(spec["control"])
 		placement_editors[key] = spec
 	_render_placement_affordances(placement)
+
+func _add_definition_authoring_surface(row: Dictionary) -> void:
+	if current_kind not in ["events", "npcs"]:
+		return
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fields_box.add_child(panel)
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_child(box)
+	var title := Label.new()
+	title.text = "Definition Authoring"
+	title.add_theme_font_size_override("font_size", 15)
+	box.add_child(title)
+	match current_kind:
+		"events":
+			_add_event_definition_authoring(box, row)
+		"npcs":
+			_add_npc_definition_authoring(box, row)
+
+func _add_event_definition_authoring(parent: VBoxContainer, row: Dictionary) -> void:
+	var summary := Label.new()
+	summary.text = _event_definition_summary(row)
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(summary)
+	var picker := _build_definition_event_step_picker(row)
+	if picker != null:
+		parent.add_child(picker)
+	var actions := HBoxContainer.new()
+	parent.add_child(actions)
+	var set_entry := Button.new()
+	set_entry.text = "Set Entry Step"
+	set_entry.pressed.connect(func() -> void:
+		if _apply_definition_event_entry_step():
+			status_label.text = "[b]Event Authoring[/b] Entry step set to %s" % current_definition_event_step_id
+	)
+	actions.add_child(set_entry)
+	var add_choice := Button.new()
+	add_choice.text = "Add Continue Choice"
+	add_choice.pressed.connect(func() -> void:
+		if _append_definition_event_choice("Continue"):
+			status_label.text = "[b]Event Authoring[/b] Added choice to %s" % current_definition_event_step_id
+	)
+	actions.add_child(add_choice)
+
+func _add_npc_definition_authoring(parent: VBoxContainer, row: Dictionary) -> void:
+	var summary := Label.new()
+	summary.text = _npc_definition_summary(row)
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(summary)
+	var picker := _build_definition_npc_service_picker(row)
+	if picker != null:
+		parent.add_child(picker)
+	var add_talk := Button.new()
+	add_talk.text = "Add Talk Service"
+	add_talk.pressed.connect(func() -> void:
+		if _append_definition_npc_talk_service("Authoring Talk"):
+			status_label.text = "[b]NPC Authoring[/b] Added talk service to %s" % current_row_id
+	)
+	parent.add_child(add_talk)
+
+func _event_definition_summary(row: Dictionary) -> String:
+	var step_ids: Array[String] = []
+	for step in row.get("steps", []):
+		if typeof(step) == TYPE_DICTIONARY:
+			step_ids.append(String(step.get("id", "")))
+	return "Event graph: entry=%s | steps=%s" % [
+		String(row.get("entryStepId", "")),
+		", ".join(step_ids)
+	]
+
+func _npc_definition_summary(row: Dictionary) -> String:
+	var service_rows: Array[String] = []
+	for service in row.get("services", []):
+		if typeof(service) == TYPE_DICTIONARY:
+			service_rows.append("%s:%s" % [String(service.get("type", "")), String(service.get("label", ""))])
+	return "NPC services: %s" % ("none" if service_rows.is_empty() else " | ".join(service_rows))
+
+func _build_definition_event_step_picker(row: Dictionary) -> OptionButton:
+	var steps: Array = row.get("steps", [])
+	if steps.is_empty():
+		return null
+	var picker := OptionButton.new()
+	picker.custom_minimum_size = Vector2(280, 0)
+	var selected_index := 0
+	var entry_step_id := String(row.get("entryStepId", ""))
+	for index in range(steps.size()):
+		var step: Dictionary = steps[index]
+		var step_id := String(step.get("id", ""))
+		picker.add_item("%s:%s" % [step_id, String(step.get("title", ""))])
+		if current_definition_event_step_id == "" and step_id == entry_step_id:
+			selected_index = index
+		elif step_id == current_definition_event_step_id:
+			selected_index = index
+	if current_definition_event_step_id == "":
+		current_definition_event_step_id = String((steps[selected_index] as Dictionary).get("id", ""))
+	picker.select(selected_index)
+	picker.item_selected.connect(func(index: int) -> void:
+		var selected_steps: Array = _definition_editor_array("steps")
+		if index >= 0 and index < selected_steps.size() and typeof(selected_steps[index]) == TYPE_DICTIONARY:
+			current_definition_event_step_id = String((selected_steps[index] as Dictionary).get("id", ""))
+	)
+	return picker
+
+func _build_definition_npc_service_picker(row: Dictionary) -> OptionButton:
+	var services: Array = row.get("services", [])
+	if services.is_empty():
+		return null
+	var picker := OptionButton.new()
+	picker.custom_minimum_size = Vector2(280, 0)
+	var selected_index := mini(maxi(current_definition_npc_service_index, 0), services.size() - 1)
+	for service in services:
+		if typeof(service) != TYPE_DICTIONARY:
+			continue
+		picker.add_item("%s:%s" % [String(service.get("type", "")), String(service.get("label", ""))])
+	picker.select(selected_index)
+	picker.item_selected.connect(func(index: int) -> void:
+		current_definition_npc_service_index = index
+	)
+	return picker
+
+func _apply_definition_event_entry_step() -> bool:
+	if current_definition_event_step_id == "":
+		return false
+	return _set_definition_editor_value("entryStepId", current_definition_event_step_id)
+
+func _append_definition_event_choice(label_text: String) -> bool:
+	var steps := _definition_editor_array("steps")
+	if steps.is_empty():
+		return false
+	for index in range(steps.size()):
+		if typeof(steps[index]) != TYPE_DICTIONARY:
+			continue
+		var step: Dictionary = (steps[index] as Dictionary).duplicate(true)
+		if String(step.get("id", "")) != current_definition_event_step_id:
+			continue
+		var choices: Array = step.get("choices", []).duplicate(true)
+		choices.append({
+			"label": label_text,
+			"nextStepId": _next_event_step_id(steps, index)
+		})
+		step["choices"] = choices
+		steps[index] = step
+		return _set_definition_editor_value("steps", steps)
+	return false
+
+func _next_event_step_id(steps: Array, index: int) -> String:
+	for next_index in range(index + 1, steps.size()):
+		if typeof(steps[next_index]) == TYPE_DICTIONARY:
+			return String((steps[next_index] as Dictionary).get("id", ""))
+	return ""
+
+func _append_definition_npc_talk_service(label_text: String) -> bool:
+	var services := _definition_editor_array("services")
+	services.append({
+		"type": "talk",
+		"label": label_text,
+		"note": "Drafted from guided authoring surface."
+	})
+	return _set_definition_editor_value("services", services)
+
+func _definition_editor_array(key: String) -> Array:
+	if not editors.has(key):
+		return []
+	var spec: Dictionary = editors.get(key, {})
+	var control: Control = spec.get("control")
+	if control is TextEdit:
+		var parsed: Variant = JSON.parse_string((control as TextEdit).text)
+		if typeof(parsed) == TYPE_ARRAY:
+			return parsed.duplicate(true)
+	return []
+
+func _set_definition_editor_value(key: String, value: Variant) -> bool:
+	if not editors.has(key):
+		return false
+	var spec: Dictionary = editors.get(key, {})
+	var control: Control = spec.get("control")
+	var value_type := typeof(value)
+	match value_type:
+		TYPE_ARRAY, TYPE_DICTIONARY:
+			if control is TextEdit:
+				(control as TextEdit).text = JSON.stringify(value, "\t")
+				return true
+		TYPE_BOOL:
+			if control is CheckBox:
+				(control as CheckBox).button_pressed = bool(value)
+				return true
+		TYPE_INT, TYPE_FLOAT:
+			if control is SpinBox:
+				(control as SpinBox).value = float(value)
+				return true
+		_:
+			if control is LineEdit:
+				(control as LineEdit).text = str(value)
+				return true
+	return false
 
 func _placement_reference_options(key: String, placement: Dictionary = {}) -> Array[String]:
 	var source_spec: Dictionary = PLACEMENT_REFERENCE_SOURCES.get(key, {})
