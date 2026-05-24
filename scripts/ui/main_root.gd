@@ -90,13 +90,11 @@ func _run_domain_smoke() -> void:
 				"map_id": "dungeon_floor_01",
 				"dungeon_source": GameApp.DUNGEON_SOURCE_COMPILED
 			})
-		if ai_scene.has_method("smoke_probe_field_monster_ai"):
-			field_ai_probe = ai_scene.call("smoke_probe_field_monster_ai", "slime_alpha")
-			field_ambush_probe = ai_scene.call("smoke_probe_field_monster_ai", "grave_robber")
-		if ai_scene.has_method("smoke_probe_field_monster_group_alert"):
-			field_group_probe = ai_scene.call("smoke_probe_field_monster_group_alert", "grave_robber")
-		if ai_scene.has_method("smoke_probe_field_monster_los"):
-			field_los_probe = ai_scene.call("smoke_probe_field_monster_los", "slime_alpha")
+		var grid_smoke := _grid_scene_smoke_driver()
+		field_ai_probe = grid_smoke.field_monster_ai_probe(ai_scene, "slime_alpha")
+		field_ambush_probe = grid_smoke.field_monster_ai_probe(ai_scene, "grave_robber")
+		field_group_probe = grid_smoke.field_monster_group_alert_probe(ai_scene, "grave_robber")
+		field_los_probe = grid_smoke.field_monster_los_probe(ai_scene, "slime_alpha")
 		ai_scene.queue_free()
 		await get_tree().process_frame
 	if ai_probe_scene != null:
@@ -108,14 +106,11 @@ func _run_domain_smoke() -> void:
 				"map_id": "dungeon_floor_01",
 				"dungeon_source": GameApp.DUNGEON_SOURCE_AUTHORED
 			})
-		if door_probe_scene.has_method("smoke_probe_field_monster_door_los"):
-			field_door_los_probe = door_probe_scene.call("smoke_probe_field_monster_door_los", "slime_alpha", "sealed_gate")
-		if door_probe_scene.has_method("smoke_probe_secret_door_blocking"):
-			secret_door_probe = door_probe_scene.call("smoke_probe_secret_door_blocking", "secret_cache")
-		if door_probe_scene.has_method("smoke_probe_secret_door_patrol"):
-			secret_door_patrol_probe = door_probe_scene.call("smoke_probe_secret_door_patrol", "ruin_husk", "secret_cache")
-		if door_probe_scene.has_method("smoke_probe_field_monster_group_alert"):
-			field_authored_group_probe = door_probe_scene.call("smoke_probe_field_monster_group_alert", "grave_robber")
+		var grid_smoke := _grid_scene_smoke_driver()
+		field_door_los_probe = grid_smoke.field_monster_door_los_probe(door_probe_scene, "slime_alpha", "sealed_gate")
+		secret_door_probe = grid_smoke.secret_door_blocking_probe(door_probe_scene, "secret_cache")
+		secret_door_patrol_probe = grid_smoke.secret_door_patrol_probe(door_probe_scene, "ruin_husk", "secret_cache")
+		field_authored_group_probe = grid_smoke.field_monster_group_alert_probe(door_probe_scene, "grave_robber")
 		door_probe_scene.queue_free()
 		await get_tree().process_frame
 	var second_seed_accept_before := QuestService.accept_quest_seed(slot, "npc_wounded_mystic", "quest_seed_black_water_vow")

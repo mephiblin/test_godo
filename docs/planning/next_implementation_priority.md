@@ -102,6 +102,9 @@ original web-repo `godot-port-plan.md`.
   out of `grid_scene.gd` into the same test-only smoke driver.
 - 2026-05-24 runtime route probe driver pass moved route transition probe
   checks out of `grid_scene.gd` into the test-only smoke driver.
+- 2026-05-24 runtime field probe driver pass moved field monster and
+  secret-door domain probes out of `grid_scene.gd` into the test-only smoke
+  driver.
 
 ## P0
 
@@ -155,6 +158,9 @@ original web-repo `godot-port-plan.md`.
      benchmark smoke now collects that state through the test driver.
    - Done: remove `smoke_probe_route_to_map()` from `grid_scene.gd`;
      domain smoke now evaluates route gate state through the test driver.
+   - Done: remove remaining public `smoke_probe_*` field monster and
+     secret-door helpers from `grid_scene.gd`; domain smoke now runs them
+     through the test driver.
    - Next: do manual play tuning for marker size in narrow halls and crowded
      authored encounters.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.
