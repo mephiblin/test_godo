@@ -17,6 +17,11 @@ func clear() -> void:
 func _world_root() -> Node3D:
 	return scene_ref.get("world_root")
 
+func _focus_runtime() -> RefCounted:
+	if scene_ref == null or not is_instance_valid(scene_ref):
+		return null
+	return scene_ref.get("town_focus_runtime") as RefCounted
+
 func build_world() -> void:
 	if scene_ref == null:
 		return
@@ -127,7 +132,11 @@ func _update_focus_anchor(selected_id: String) -> void:
 		if String(placement.get("id", "")) != selected_id:
 			continue
 		var kind := String(placement.get("type", ""))
-		var anchor: Vector2i = scene_ref.call("_town_interaction_anchor_cell", placement)
+		var focus := _focus_runtime()
+		if focus == null:
+			focus_anchor_node.visible = false
+			return
+		var anchor: Vector2i = focus.call("interaction_anchor_cell", placement)
 		focus_anchor_node.visible = true
 		focus_anchor_node.mesh = _focus_anchor_mesh(kind)
 		focus_anchor_node.position = Vector3(anchor.x, 0.03, anchor.y)
@@ -146,8 +155,11 @@ func _update_focus_path(selected_id: String) -> void:
 	for placement in map_data.get("placements", []):
 		if String(placement.get("id", "")) != selected_id:
 			continue
-		var anchor: Vector2i = scene_ref.call("_town_interaction_anchor_cell", placement)
-		var path: Array = scene_ref.call("_town_path_to_anchor", anchor)
+		var focus := _focus_runtime()
+		if focus == null:
+			return
+		var anchor: Vector2i = focus.call("interaction_anchor_cell", placement)
+		var path: Array = focus.call("path_to_anchor", anchor)
 		if path.size() <= 1:
 			return
 		var color: Color = scene_ref.call("_placement_runtime_color", placement)

@@ -19,7 +19,7 @@ func _process(delta: float) -> void:
 func hud_snapshot() -> Dictionary:
 	var snapshot: Dictionary = super.hud_snapshot()
 	snapshot["hudMode"] = "town"
-	snapshot["townFocus"] = _town_focus_snapshot()
+	snapshot["townFocus"] = town_focus_runtime.call("focus_snapshot") if town_focus_runtime != null else {}
 	return snapshot
 
 func _unhandled_input(event: InputEvent) -> void:

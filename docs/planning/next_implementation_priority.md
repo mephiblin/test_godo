@@ -132,6 +132,9 @@ original web-repo `godot-port-plan.md`.
   approach, and smoke cycling callers onto `town_focus_runtime` instead of
   `grid_scene.gd` private wrapper methods, then removed the now-unused advance,
   approach, and cycle wrappers.
+- 2026-05-24 town focus wrapper direct pass routed town HUD focus snapshots and
+  focus anchor/path presentation through `town_focus_runtime` directly and
+  removed remaining pass-through focus wrapper methods from `grid_scene.gd`.
 
 ## P0
 
@@ -179,6 +182,10 @@ original web-repo `godot-port-plan.md`.
      `town_focus_runtime` directly, reducing external dependence on
      `grid_scene.gd` private town-focus methods and removing unused focus
      advance/approach/cycle wrappers.
+   - Done: route town HUD focus snapshots and town focus anchor/path visuals
+     through `town_focus_runtime` directly, removing the remaining focus
+     snapshot/anchor/path/service-preview pass-through wrappers from
+     `grid_scene.gd`.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 

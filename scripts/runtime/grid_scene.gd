@@ -785,36 +785,16 @@ func _trigger_interaction_placement(placement: Dictionary) -> void:
 		_:
 			_log("Interacted with %s." % placement.get("label", "placement"))
 
-func _town_nearby_interaction_placement(max_distance: int) -> Dictionary:
-	if town_focus_runtime == null:
-		return {}
-	return town_focus_runtime.call("nearby_interaction_placement", max_distance)
-
-func _selected_town_focus_placement(max_distance: int = -1) -> Dictionary:
-	if town_focus_runtime == null:
-		return {}
-	return town_focus_runtime.call("selected_placement", max_distance)
-
-func _town_interaction_anchor_cell(placement: Dictionary) -> Vector2i:
-	if town_focus_runtime == null:
-		return player_cell
-	return town_focus_runtime.call("interaction_anchor_cell", placement)
-
-func _town_next_step_toward(anchor: Vector2i) -> Vector2i:
-	if town_focus_runtime == null:
-		return player_cell
-	return town_focus_runtime.call("next_step_toward", anchor)
-
 func _interaction_snapshot() -> Dictionary:
 	var placement := _front_interaction_placement()
 	var source := "front"
 	var distance: int = 1
 	if placement.is_empty() and _is_town_map():
-		placement = _selected_town_focus_placement(2)
+		placement = town_focus_runtime.call("selected_placement", 2) if town_focus_runtime != null else {}
 		if not placement.is_empty():
 			source = "selected"
 		else:
-			placement = _town_nearby_interaction_placement(2)
+			placement = town_focus_runtime.call("nearby_interaction_placement", 2) if town_focus_runtime != null else {}
 			if not placement.is_empty():
 				source = "nearby"
 		if not placement.is_empty():
@@ -830,29 +810,30 @@ func _interaction_snapshot() -> Dictionary:
 	var title := String(placement.get("label", placement.get("id", kind)))
 	var action := "Space로 상호작용"
 	var detail := ""
+	var town_service_preview := String(town_focus_runtime.call("service_preview", placement, current_slot)) if town_focus_runtime != null else ""
 	if source == "selected" and distance > 1:
 		action = "Space로 접근"
 	match kind:
 		"quest_board":
 			if action == "Space로 상호작용":
 				action = "Space로 의뢰 확인"
-			detail = "현재 보드 오퍼와 보상 전표를 확인한다.\n%s" % _town_service_preview(placement)
+			detail = "현재 보드 오퍼와 보상 전표를 확인한다.\n%s" % town_service_preview
 		"healer":
 			if action == "Space로 상호작용":
 				action = "Space로 치료"
-			detail = "전열 체력과 상태를 회복하는 서비스다.\n%s" % _town_service_preview(placement)
+			detail = "전열 체력과 상태를 회복하는 서비스다.\n%s" % town_service_preview
 		"skill_shop":
 			if action == "Space로 상호작용":
 				action = "Space로 기술 상점 열기"
-			detail = "현재 재고와 리롤 가능한 기술 목록을 본다.\n%s" % _town_service_preview(placement)
+			detail = "현재 재고와 리롤 가능한 기술 목록을 본다.\n%s" % town_service_preview
 		"trade":
 			if action == "Space로 상호작용":
 				action = "Space로 거래"
-			detail = "소모품과 잡화를 구매한다.\n%s" % _town_service_preview(placement)
+			detail = "소모품과 잡화를 구매한다.\n%s" % town_service_preview
 		"npc_service":
 			if action == "Space로 상호작용":
 				action = "Space로 대화"
-			detail = "NPC 서비스와 대화 분기를 연다.\n%s" % _town_service_preview(placement)
+			detail = "NPC 서비스와 대화 분기를 연다.\n%s" % town_service_preview
 		"gate", "stairs":
 			if action == "Space로 상호작용":
 				action = "Space로 이동"
@@ -861,7 +842,7 @@ func _interaction_snapshot() -> Dictionary:
 		"rest":
 			if action == "Space로 상호작용":
 				action = "Space로 휴식"
-			detail = "짧은 휴식과 회복을 시도한다.\n%s" % _town_service_preview(placement)
+			detail = "짧은 휴식과 회복을 시도한다.\n%s" % town_service_preview
 		"field_monster":
 			action = "Space로 전투 진입"
 			detail = _field_monster_affordance_detail(placement)
@@ -890,9 +871,9 @@ func _interaction_snapshot() -> Dictionary:
 		"blocked": kind in ["gate", "stairs"] and _route_block_message(placement) != "",
 		"source": source,
 		"distance": distance,
-		"hint": _interaction_alignment_hint(placement, source, distance),
-		"selection": _town_focus_summary(placement, source),
-		"anchorCell": _town_anchor_snapshot(placement, source),
+		"hint": String(town_focus_runtime.call("alignment_hint", placement, source, distance)) if town_focus_runtime != null else "",
+		"selection": String(town_focus_runtime.call("focus_summary", placement, source)) if town_focus_runtime != null else "",
+		"anchorCell": town_focus_runtime.call("anchor_snapshot", placement, source) if town_focus_runtime != null else [],
 		"intent": _interaction_intent_label(placement, source, distance),
 		"nextStep": _interaction_next_step_snapshot(placement, source),
 		"guide": _interaction_guide_text(placement, source, distance)
@@ -902,8 +883,8 @@ func _interaction_next_step_snapshot(placement: Dictionary, source: String) -> A
 	if placement.is_empty():
 		return []
 	if _is_town_map() and source == "selected":
-		var anchor := _town_interaction_anchor_cell(placement)
-		var next_step := _town_next_step_toward(anchor)
+		var anchor: Vector2i = town_focus_runtime.call("interaction_anchor_cell", placement) if town_focus_runtime != null else player_cell
+		var next_step: Vector2i = town_focus_runtime.call("next_step_toward", anchor) if town_focus_runtime != null else player_cell
 		if next_step != player_cell:
 			return [next_step.x, next_step.y]
 	var cell := _placement_runtime_cell(placement)
@@ -1090,7 +1071,7 @@ func _interaction_prompt_text() -> String:
 func _refresh_interaction_focus() -> void:
 	var interaction := _interaction_snapshot()
 	var focus_id := String(interaction.get("id", ""))
-	var selected_id := _selected_town_focus_id()
+	var selected_id := String(town_focus_runtime.call("selected_id")) if town_focus_runtime != null else ""
 	for placement in map_data.get("placements", []):
 		var placement_id := String(placement.get("id", ""))
 		var node: MeshInstance3D = placement_nodes.get(placement_id)
@@ -1156,34 +1137,9 @@ func _animate_dungeon_affordances() -> void:
 	if dungeon_affordance_presenter != null:
 		dungeon_affordance_presenter.call("animate_affordances")
 
-func _interaction_alignment_hint(placement: Dictionary, source: String, distance: int) -> String:
-	if town_focus_runtime == null:
-		return ""
-	return String(town_focus_runtime.call("alignment_hint", placement, source, distance))
-
 func _refresh_town_focus_targets() -> void:
 	if town_focus_runtime != null:
 		town_focus_runtime.call("refresh_targets")
-
-func _town_focus_summary(active_placement: Dictionary, source: String) -> String:
-	if town_focus_runtime == null:
-		return ""
-	return String(town_focus_runtime.call("focus_summary", active_placement, source))
-
-func _town_anchor_snapshot(placement: Dictionary, source: String) -> Array:
-	if town_focus_runtime == null:
-		return []
-	return town_focus_runtime.call("anchor_snapshot", placement, source)
-
-func _town_focus_snapshot() -> Dictionary:
-	if town_focus_runtime == null:
-		return {}
-	return town_focus_runtime.call("focus_snapshot")
-
-func _selected_town_focus_id() -> String:
-	if town_focus_runtime == null:
-		return ""
-	return String(town_focus_runtime.call("selected_id"))
 
 func _clear_dungeon_focus_path_nodes() -> void:
 	if dungeon_affordance_presenter != null:
@@ -1231,16 +1187,6 @@ func _dungeon_path_to_cell(target: Vector2i) -> Array[Vector2i]:
 		reversed_path.append(step)
 	reversed_path.reverse()
 	return reversed_path
-
-func _town_path_to_anchor(anchor: Vector2i) -> Array[Vector2i]:
-	if town_focus_runtime == null:
-		return [player_cell]
-	return town_focus_runtime.call("path_to_anchor", anchor)
-
-func _town_service_preview(placement: Dictionary) -> String:
-	if town_focus_runtime == null:
-		return ""
-	return String(town_focus_runtime.call("service_preview", placement, current_slot))
 
 func _route_from_placement(placement: Dictionary) -> void:
 	var blocked_message := _route_block_message(placement)
