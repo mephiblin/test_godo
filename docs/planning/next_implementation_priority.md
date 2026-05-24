@@ -96,6 +96,8 @@ original web-repo `godot-port-plan.md`.
   visual node construction and anchor animation into `town_world_presenter.gd`.
 - 2026-05-24 editor dock scene pass moved the content editor dock root into a
   named `.tscn` scene loaded by both the plugin and editor smoke.
+- 2026-05-24 runtime smoke driver pass moved simple visual/benchmark smoke
+  actions out of `grid_scene.gd` into a test-only driver loaded only by smoke.
 
 ## P0
 
@@ -113,6 +115,9 @@ original web-repo `godot-port-plan.md`.
      `town_world_presenter.gd`.
    - Done: move town focus anchor/path visual node construction and anchor
      animation out of `grid_scene.gd` into `town_world_presenter.gd`.
+   - Done: remove simple town visual-smoke action wrappers from `grid_scene.gd`;
+     visual/benchmark smoke now uses a test driver for quest, focus, service,
+     route, inventory, and reward actions.
    - Reduce remaining town route dependency on generic dungeon world dressing
      assumptions.
 
@@ -139,6 +144,9 @@ original web-repo `godot-port-plan.md`.
    - Done: dungeon focus path marker sampling and node construction moved out
      of `grid_scene.gd` into `dungeon_affordance_presenter.gd`; the grid scene
      now computes the path and delegates rendering.
+   - Done: remove simple dungeon visual-smoke action wrappers from
+     `grid_scene.gd`; visual/benchmark smoke now uses a test driver for route,
+     event, movement, combat entry, and return-town actions.
    - Next: do manual play tuning for marker size in narrow halls and crowded
      authored encounters.
    - Re-split dungeon HUD and town HUD responsibilities after the town HUD move.

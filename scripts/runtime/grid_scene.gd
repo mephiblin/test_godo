@@ -176,39 +176,6 @@ func _try_forward_move() -> void:
 func _try_backward_move() -> void:
 	_try_move(-DIRS[facing])
 
-func smoke_move_forward() -> void:
-	_try_move(DIRS[facing])
-
-func smoke_accept_quest() -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("type", "")) == "quest_board":
-			QuestService.accept_quest(current_slot, String(placement.get("questId", "")))
-			_log("Smoke accepted quest.")
-			return
-
-func smoke_accept_quest_seed() -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("npcId", "")) != "npc_scholar":
-			continue
-		var result := QuestService.accept_quest_seed(current_slot, "npc_scholar", "quest_seed_black_mural")
-		if bool(result.get("ok", false)):
-			_log("Smoke accepted quest seed.")
-		return
-
-func smoke_route_dungeon() -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("type", "")) == "gate":
-			_route_from_placement(placement)
-			return
-
-func smoke_route_to_map(target_map_id: String) -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("targetMapId", "")) != target_map_id:
-			continue
-		if String(placement.get("type", "")) in ["gate", "stairs"]:
-			_route_from_placement(placement)
-			return
-
 func smoke_probe_route_to_map(target_map_id: String) -> Dictionary:
 	for placement in map_data.get("placements", []):
 		if String(placement.get("targetMapId", "")) != target_map_id:
@@ -228,88 +195,6 @@ func smoke_probe_route_to_map(target_map_id: String) -> Dictionary:
 			"targetMapId": target_map_id
 		}
 	return {"ok": false, "blockedMessage": "Missing route placement.", "targetMapId": target_map_id}
-
-func smoke_enter_combat() -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("type", "")) == "field_monster":
-			_enter_combat(placement)
-			return
-
-func smoke_enter_combat_by_monster(monster_id: String) -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("type", "")) != "field_monster":
-			continue
-		if String(placement.get("monsterId", placement.get("id", ""))) != monster_id:
-			continue
-		_enter_combat(placement)
-		return
-
-func smoke_trigger_blood_altar() -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("eventId", "")) != "event_blood_altar_unlock":
-			continue
-		_trigger_event_placement(placement)
-		_log("Smoke triggered blood altar.")
-		return
-
-func smoke_return_town() -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("type", "")) != "stairs":
-			continue
-		if String(placement.get("targetRoute", "")) != GameApp.MODE_TOWN:
-			continue
-		if String(placement.get("endingFlag", "")) == "campaignCleared":
-			_route_from_placement(placement)
-			return
-	for placement in map_data.get("placements", []):
-		if String(placement.get("type", "")) == "stairs" and String(placement.get("targetRoute", "")) == GameApp.MODE_TOWN:
-			_route_from_placement(placement)
-			return
-
-func smoke_trigger_event(event_id: String) -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("eventId", "")) != event_id:
-			continue
-		_trigger_event_placement(placement)
-		_log("Smoke triggered %s." % event_id)
-		return
-
-func smoke_accept_quest_seed_for_npc(npc_id: String, quest_seed_id: String) -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("npcId", "")) != npc_id:
-			continue
-		var result := QuestService.accept_quest_seed(current_slot, npc_id, quest_seed_id)
-		if bool(result.get("ok", false)):
-			_log("Smoke accepted quest seed %s." % quest_seed_id)
-		else:
-			_log(String(result.get("message", "Quest seed accept failed.")))
-		return
-
-func smoke_claim_reward() -> void:
-	QuestService.claim_reward(current_slot)
-	_log("Smoke claimed quest reward.")
-
-func smoke_claim_quest_seed_reward() -> void:
-	var result := QuestService.claim_quest_seed_reward(current_slot, "npc_scholar", "quest_seed_black_mural")
-	if bool(result.get("ok", false)):
-		_log("Smoke claimed quest seed reward.")
-
-func smoke_open_inventory() -> void:
-	_toggle_inventory_overlay()
-
-func smoke_open_service_by_npc(npc_id: String) -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("npcId", "")) != npc_id:
-			continue
-		_open_service_overlay(placement)
-		return
-
-func smoke_open_service_by_type(service_type: String) -> void:
-	for placement in map_data.get("placements", []):
-		if String(placement.get("type", "")) != service_type:
-			continue
-		_open_service_overlay(placement)
-		return
 
 func smoke_probe_field_monster_ai(monster_id: String) -> Dictionary:
 	var slot_before: Dictionary = SaveService.load_slot(current_slot).duplicate(true)
@@ -1707,9 +1592,6 @@ func _town_focus_snapshot() -> Dictionary:
 	if town_focus_runtime == null:
 		return {}
 	return town_focus_runtime.call("focus_snapshot")
-
-func smoke_cycle_town_focus(step: int) -> void:
-	_cycle_town_focus(step)
 
 func _selected_town_focus_id() -> String:
 	if town_focus_runtime == null:

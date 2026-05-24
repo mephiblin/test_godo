@@ -613,16 +613,13 @@ func _run_smoke() -> void:
 	var town_snapshot_ready_for_seed_turnin: Dictionary = {}
 	var town_snapshot_after: Dictionary = {}
 	var town_snapshot_after_clear: Dictionary = {}
-	if town_scene and town_scene.has_method("smoke_accept_quest"):
-		town_scene.call("smoke_accept_quest")
-	if town_scene and town_scene.has_method("smoke_accept_quest_seed"):
-		town_scene.call("smoke_accept_quest_seed")
-	if town_scene and town_scene.has_method("smoke_cycle_town_focus"):
-		town_scene.call("smoke_cycle_town_focus", 1)
+	var grid_smoke := _grid_scene_smoke_driver()
+	grid_smoke.accept_quest(town_scene)
+	grid_smoke.accept_quest_seed(town_scene)
+	grid_smoke.cycle_town_focus(town_scene, 1)
 	if town_scene and town_scene.has_method("hud_snapshot"):
 		town_snapshot_before = town_scene.call("hud_snapshot")
-	if town_scene and town_scene.has_method("smoke_open_service_by_npc"):
-		town_scene.call("smoke_open_service_by_npc", "npc_gatekeeper")
+	grid_smoke.open_service_by_npc(town_scene, "npc_gatekeeper")
 	await get_tree().process_frame
 	if SceneRouter.modal_layer.get_child_count() > 0:
 		var gate_overlay := SceneRouter.modal_layer.get_child(SceneRouter.modal_layer.get_child_count() - 1)
@@ -631,24 +628,19 @@ func _run_smoke() -> void:
 	await _capture("02_gatekeeper.png")
 	if town_scene and town_scene.has_method("_close_service_overlay"):
 		town_scene.call("_close_service_overlay")
-	if town_scene and town_scene.has_method("smoke_open_service_by_type"):
-		town_scene.call("smoke_open_service_by_type", "quest_board")
+	grid_smoke.open_service_by_type(town_scene, "quest_board")
 	await get_tree().process_frame
 	await _capture("02_quest_board.png")
 	if town_scene and town_scene.has_method("_close_service_overlay"):
 		town_scene.call("_close_service_overlay")
-	if town_scene and town_scene.has_method("smoke_open_inventory"):
-		town_scene.call("smoke_open_inventory")
+	grid_smoke.open_inventory(town_scene)
 	await _capture("02_inventory.png")
 	if town_scene and town_scene.has_method("_close_service_overlay"):
 		town_scene.call("_close_service_overlay")
-	if town_scene and town_scene.has_method("smoke_move_forward"):
-		town_scene.call("smoke_move_forward")
-	if town_scene and town_scene.has_method("smoke_cycle_town_focus"):
-		town_scene.call("smoke_cycle_town_focus", 1)
+	grid_smoke.move_forward(town_scene)
+	grid_smoke.cycle_town_focus(town_scene, 1)
 	await _capture("03_town.png")
-	if town_scene and town_scene.has_method("smoke_route_dungeon"):
-		town_scene.call("smoke_route_dungeon")
+	grid_smoke.route_dungeon(town_scene)
 	print("SMOKE: dungeon route")
 	await _capture("04_dungeon.png")
 	var dungeon_scene := SceneRouter.current_scene
@@ -659,37 +651,30 @@ func _run_smoke() -> void:
 			if String(placement.get("type", "")) == "secret_door":
 				dungeon_scene.call("_discover_secret", placement)
 				break
-	if dungeon_scene and dungeon_scene.has_method("smoke_trigger_blood_altar"):
-		dungeon_scene.call("smoke_trigger_blood_altar")
+	grid_smoke.trigger_blood_altar(dungeon_scene)
 	if dungeon_scene and dungeon_scene.has_method("hud_snapshot"):
 		dungeon_snapshot_after_blood_altar = dungeon_scene.call("hud_snapshot")
-	if dungeon_scene and dungeon_scene.has_method("smoke_route_to_map"):
-		dungeon_scene.call("smoke_route_to_map", "dungeon_floor_02")
+	grid_smoke.route_to_map(dungeon_scene, "dungeon_floor_02")
 	await get_tree().process_frame
 	var floor_02_scene := SceneRouter.current_scene
 	if floor_02_scene and floor_02_scene.has_method("hud_snapshot"):
 		floor_02_snapshot = floor_02_scene.call("hud_snapshot")
 	await _capture("04_floor2.png")
-	if floor_02_scene and floor_02_scene.has_method("smoke_trigger_event"):
-		floor_02_scene.call("smoke_trigger_event", "event_black_water_rite")
+	grid_smoke.trigger_event(floor_02_scene, "event_black_water_rite")
 	QuestService.claim_quest_seed_reward(1, "npc_wounded_mystic", "quest_seed_black_water_vow")
-	if floor_02_scene and floor_02_scene.has_method("smoke_route_to_map"):
-		floor_02_scene.call("smoke_route_to_map", "dungeon_floor_03")
+	grid_smoke.route_to_map(floor_02_scene, "dungeon_floor_03")
 	await get_tree().process_frame
 	var floor_03_scene := SceneRouter.current_scene
 	if floor_03_scene and floor_03_scene.has_method("hud_snapshot"):
 		floor_03_snapshot = floor_03_scene.call("hud_snapshot")
 	await _capture("04_floor3.png")
-	if floor_03_scene and floor_03_scene.has_method("smoke_route_to_map"):
-		floor_03_scene.call("smoke_route_to_map", "dungeon_floor_02")
+	grid_smoke.route_to_map(floor_03_scene, "dungeon_floor_02")
 	await get_tree().process_frame
 	floor_02_scene = SceneRouter.current_scene
-	if floor_02_scene and floor_02_scene.has_method("smoke_route_to_map"):
-		floor_02_scene.call("smoke_route_to_map", "dungeon_floor_01")
+	grid_smoke.route_to_map(floor_02_scene, "dungeon_floor_01")
 	await get_tree().process_frame
 	dungeon_scene = SceneRouter.current_scene
-	if dungeon_scene and dungeon_scene.has_method("smoke_enter_combat"):
-		dungeon_scene.call("smoke_enter_combat")
+	grid_smoke.enter_combat(dungeon_scene)
 	print("SMOKE: combat route")
 	await _capture("05_combat.png")
 	var combat_scene := SceneRouter.current_scene
@@ -697,39 +682,31 @@ func _run_smoke() -> void:
 		combat_scene.call("smoke_win")
 	await get_tree().process_frame
 	dungeon_scene = SceneRouter.current_scene
-	if dungeon_scene and dungeon_scene.has_method("smoke_return_town"):
-		dungeon_scene.call("smoke_return_town")
+	grid_smoke.return_town(dungeon_scene)
 	await get_tree().process_frame
 	town_scene = SceneRouter.current_scene
 	if town_scene and town_scene.has_method("hud_snapshot"):
 		town_snapshot_ready_for_seed_turnin = town_scene.call("hud_snapshot")
-	if town_scene and town_scene.has_method("smoke_claim_quest_seed_reward"):
-		town_scene.call("smoke_claim_quest_seed_reward")
-	if town_scene and town_scene.has_method("smoke_claim_reward"):
-		town_scene.call("smoke_claim_reward")
+	grid_smoke.claim_quest_seed_reward(town_scene)
+	grid_smoke.claim_reward(town_scene)
 	if town_scene and town_scene.has_method("hud_snapshot"):
 		town_snapshot_after = town_scene.call("hud_snapshot")
 	QuestService.accept_quest_seed(1, "npc_wounded_mystic", "quest_seed_black_water_vow")
-	if town_scene and town_scene.has_method("smoke_route_dungeon"):
-		town_scene.call("smoke_route_dungeon")
+	grid_smoke.route_dungeon(town_scene)
 	await get_tree().process_frame
 	dungeon_scene = SceneRouter.current_scene
-	if dungeon_scene and dungeon_scene.has_method("smoke_route_to_map"):
-		dungeon_scene.call("smoke_route_to_map", "dungeon_floor_02")
+	grid_smoke.route_to_map(dungeon_scene, "dungeon_floor_02")
 	await get_tree().process_frame
 	var post_reward_floor_02_scene := SceneRouter.current_scene
-	if post_reward_floor_02_scene and post_reward_floor_02_scene.has_method("smoke_trigger_event"):
-		post_reward_floor_02_scene.call("smoke_trigger_event", "event_black_water_rite")
+	grid_smoke.trigger_event(post_reward_floor_02_scene, "event_black_water_rite")
 	QuestService.claim_quest_seed_reward(1, "npc_wounded_mystic", "quest_seed_black_water_vow")
-	if post_reward_floor_02_scene and post_reward_floor_02_scene.has_method("smoke_route_to_map"):
-		post_reward_floor_02_scene.call("smoke_route_to_map", "dungeon_floor_03")
+	grid_smoke.route_to_map(post_reward_floor_02_scene, "dungeon_floor_03")
 	await get_tree().process_frame
 	var post_reward_floor_03_scene := SceneRouter.current_scene
 	if post_reward_floor_03_scene and post_reward_floor_03_scene.has_method("hud_snapshot"):
 		floor_03_snapshot = post_reward_floor_03_scene.call("hud_snapshot")
 	await _capture("04_floor3.png")
-	if post_reward_floor_03_scene and post_reward_floor_03_scene.has_method("smoke_enter_combat_by_monster"):
-		post_reward_floor_03_scene.call("smoke_enter_combat_by_monster", "blind_priest")
+	grid_smoke.enter_combat_by_monster(post_reward_floor_03_scene, "blind_priest")
 	await get_tree().process_frame
 	var final_combat_scene := SceneRouter.current_scene
 	if final_combat_scene and final_combat_scene.has_method("smoke_win"):
@@ -738,14 +715,12 @@ func _run_smoke() -> void:
 	post_reward_floor_03_scene = SceneRouter.current_scene
 	if post_reward_floor_03_scene and post_reward_floor_03_scene.has_method("hud_snapshot"):
 		floor_03_after_boss_snapshot = post_reward_floor_03_scene.call("hud_snapshot")
-	if post_reward_floor_03_scene and post_reward_floor_03_scene.has_method("smoke_return_town"):
-		post_reward_floor_03_scene.call("smoke_return_town")
+	grid_smoke.return_town(post_reward_floor_03_scene)
 	await get_tree().process_frame
 	town_scene = SceneRouter.current_scene
 	if town_scene and town_scene.has_method("hud_snapshot"):
 		town_snapshot_after = town_scene.call("hud_snapshot")
-	if town_scene and town_scene.has_method("smoke_open_service_by_npc"):
-		town_scene.call("smoke_open_service_by_npc", "npc_scholar")
+	grid_smoke.open_service_by_npc(town_scene, "npc_scholar")
 	await get_tree().process_frame
 	if SceneRouter.modal_layer.get_child_count() > 0:
 		var scholar_overlay := SceneRouter.modal_layer.get_child(SceneRouter.modal_layer.get_child_count() - 1)
@@ -756,8 +731,7 @@ func _run_smoke() -> void:
 	await _capture("06_epilogue.png")
 	if town_scene and town_scene.has_method("_close_service_overlay"):
 		town_scene.call("_close_service_overlay")
-	if town_scene and town_scene.has_method("smoke_open_inventory"):
-		town_scene.call("smoke_open_inventory")
+	grid_smoke.open_inventory(town_scene)
 	await _capture("06_inventory_rewards.png")
 	if town_scene and town_scene.has_method("_close_service_overlay"):
 		town_scene.call("_close_service_overlay")
@@ -822,24 +796,22 @@ func _run_benchmark_smoke() -> void:
 	await _await_frames(2)
 	var town_scene := SceneRouter.current_scene
 	QuestService.accept_quest(slot, "slime_cleanup")
+	var grid_smoke := _grid_scene_smoke_driver()
 	var dungeon_start := Time.get_ticks_usec()
-	if town_scene and town_scene.has_method("smoke_route_dungeon"):
-		town_scene.call("smoke_route_dungeon")
+	grid_smoke.route_dungeon(town_scene)
 	await _await_frames(3)
 	var dungeon_scene := SceneRouter.current_scene
 	benchmark_report["dungeonBuildMs"] = _elapsed_ms(dungeon_start)
 	if dungeon_scene and dungeon_scene.has_method("debug_benchmark_snapshot"):
 		benchmark_report["dungeonSnapshotBeforeMove"] = dungeon_scene.call("debug_benchmark_snapshot")
 	var movement_start := Time.get_ticks_usec()
-	if dungeon_scene and dungeon_scene.has_method("smoke_move_forward"):
-		dungeon_scene.call("smoke_move_forward")
+	grid_smoke.move_forward(dungeon_scene)
 	await _await_frames(1)
 	benchmark_report["movementMs"] = _elapsed_ms(movement_start)
 	if dungeon_scene and dungeon_scene.has_method("debug_benchmark_snapshot"):
 		benchmark_report["dungeonSnapshotAfterMove"] = dungeon_scene.call("debug_benchmark_snapshot")
 	var combat_start := Time.get_ticks_usec()
-	if dungeon_scene and dungeon_scene.has_method("smoke_enter_combat"):
-		dungeon_scene.call("smoke_enter_combat")
+	grid_smoke.enter_combat(dungeon_scene)
 	await _await_frames(1)
 	var combat_scene := SceneRouter.current_scene
 	if combat_scene and combat_scene.has_method("debug_combat_state"):
@@ -989,6 +961,10 @@ func _await_frames(count: int) -> void:
 
 func _elapsed_ms(start_usec: int) -> float:
 	return float(Time.get_ticks_usec() - start_usec) / 1000.0
+
+func _grid_scene_smoke_driver() -> RefCounted:
+	var script: Script = load("res://scripts/tests/grid_scene_smoke_driver.gd")
+	return script.new()
 
 func _debug_route_snapshot(slot: int, map_id: String, route: String, dungeon_source: String) -> Dictionary:
 	var scene_path := "res://scenes/town/TownScene.tscn"
