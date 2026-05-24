@@ -8,6 +8,7 @@ var slot_had_file := false
 
 func _initialize() -> void:
 	_backup_slot(PROBE_SLOT)
+	_save_service().delete_slot(PROBE_SLOT)
 	var registry := _registry()
 	registry.load_all()
 	var content: Dictionary = registry.validate_content()
@@ -16,6 +17,7 @@ func _initialize() -> void:
 	_expect(registry.get_manifest().has("compiledMaps"), "active imported manifest should expose compiledMaps")
 	_expect(not registry.get_manifest().get("definitionHashes", {}).is_empty(), "active imported manifest should expose definitionHashes")
 	_probe_imported_maps(registry)
+	await _probe_runtime_scene_ignores_editor_payload()
 	_probe_new_game_runtime_state()
 	_restore_slot(PROBE_SLOT)
 	for failure in failures:
@@ -55,6 +57,26 @@ func _probe_new_game_runtime_state() -> void:
 	for editor_key in ["editorDraft", "editorSelection", "editorPreview", "editorTestPayload"]:
 		_expect(not data.has(editor_key), "save data should not contain editor-only key: %s" % editor_key)
 	_expect(not runtime.has("editorDraft"), "runtime state should not contain editor draft data")
+
+func _probe_runtime_scene_ignores_editor_payload() -> void:
+	var app := _game_app()
+	app.current_slot = PROBE_SLOT
+	app.dungeon_runtime_source = app.DUNGEON_SOURCE_COMPILED
+	app.set_editor_test_payload({
+		"route": app.MODE_DUNGEON,
+		"slot": PROBE_SLOT,
+		"map_id": "dungeon_floor_02",
+		"dungeon_source": app.DUNGEON_SOURCE_AUTHORED
+	})
+	var scene: Node = load("res://scenes/dungeon/DungeonScene.tscn").instantiate()
+	root.add_child(scene)
+	await process_frame
+	_expect(not app.editor_test_payload.is_empty(), "real runtime scene should not consume editor test payload")
+	_expect(String(scene.get("map_data").get("id", "")) == "dungeon_floor_01", "real runtime scene should use its default/runtime payload instead of editor test payload")
+	_expect(String(scene.get("dungeon_source_mode")) == app.DUNGEON_SOURCE_COMPILED, "real runtime scene should not inherit authored editor test source")
+	scene.queue_free()
+	await process_frame
+	app.editor_test_payload.clear()
 
 func _backup_slot(slot: int) -> void:
 	var path: String = _save_service().slot_path(slot)

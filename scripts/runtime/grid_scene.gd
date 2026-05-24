@@ -2,6 +2,7 @@ extends Node3D
 
 @export var default_map_id := ""
 @export var route_name := ""
+@export var allow_editor_test_payload := false
 
 const DIRS := [
 	Vector2i(0, -1),
@@ -41,7 +42,7 @@ var town_world_presenter: RefCounted
 @onready var sun: DirectionalLight3D = $Sun
 
 func setup(payload: Dictionary) -> void:
-	if payload.is_empty():
+	if payload.is_empty() and allow_editor_test_payload:
 		payload = GameApp.consume_editor_test_payload(route_name)
 	current_slot = int(payload.get("slot", GameApp.current_slot))
 	var save_data: Dictionary = SaveService.load_slot(current_slot)

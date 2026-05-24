@@ -446,7 +446,7 @@ func _initialize() -> void:
 				"map_id": "dungeon_floor_01",
 				"dungeon_source": "compiled"
 			})
-			var dungeon_scene: Node = load("res://scenes/dungeon/DungeonScene.tscn").instantiate()
+			var dungeon_scene: Node = load("res://scenes/editor_tools/PlaytestDungeonScene.tscn").instantiate()
 			get_root().call_deferred("add_child", dungeon_scene)
 			await process_frame
 			compiled_handoff_ok = String(dungeon_scene.get("dungeon_source_mode")) == "compiled" \
@@ -463,7 +463,7 @@ func _initialize() -> void:
 				"map_id": "dungeon_floor_01",
 				"dungeon_source": "authored"
 			})
-			var authored_scene: Node = load("res://scenes/dungeon/DungeonScene.tscn").instantiate()
+			var authored_scene: Node = load("res://scenes/editor_tools/PlaytestDungeonScene.tscn").instantiate()
 			get_root().call_deferred("add_child", authored_scene)
 			await process_frame
 			authored_handoff_ok = String(authored_scene.get("dungeon_source_mode")) == "authored" \

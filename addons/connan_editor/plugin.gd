@@ -40,9 +40,9 @@ func play_map_test(map_id: String, dungeon_source: String = GameApp.DUNGEON_SOUR
 		push_warning("Cannot test-play missing map %s." % map_id)
 		return
 	var route := String(map_data.get("kind", ""))
-	var scene_path := "res://scenes/town/TownScene.tscn"
+	var scene_path := "res://scenes/editor_tools/PlaytestTownScene.tscn"
 	if route == GameApp.MODE_DUNGEON:
-		scene_path = "res://scenes/dungeon/DungeonScene.tscn"
+		scene_path = "res://scenes/editor_tools/PlaytestDungeonScene.tscn"
 	GameApp.current_slot = slot
 	GameApp.current_mode = route
 	GameApp.dungeon_runtime_source = dungeon_source

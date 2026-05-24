@@ -83,6 +83,9 @@ original web-repo `godot-port-plan.md`.
 - 2026-05-24 town world presenter mesh pass moved town landmark, actor,
   campfire, gate, stall, table, crate, and ambient dressing mesh construction
   out of `grid_scene.gd` into `town_world_presenter.gd`.
+- 2026-05-24 editor playtest scene boundary pass made real town/dungeon runtime
+  scenes ignore editor test payload by default and moved editor custom play into
+  explicit `scenes/editor_tools/Playtest*.tscn` scenes.
 
 ## P0
 
@@ -133,6 +136,8 @@ original web-repo `godot-port-plan.md`.
      unbounded vertical stack.
    - Done: editor smoke now directly guards the content editor dock root name
      while checking build/import handoff metadata.
+   - Done: editor Play Selected now launches explicit editor playtest scenes
+     instead of making production town/dungeon scenes consume editor payload.
 
 4. `validation-import-contract`
    - Done: stricter checks now cover missing material, broken `entryStepId`, step
@@ -155,6 +160,8 @@ original web-repo `godot-port-plan.md`.
    - Done: imported runtime probe now asserts normal new-game state uses the
      imported manifest, compiled map metadata, and compiled dungeon source while
      keeping editor-only keys out of save data.
+   - Done: imported runtime probe now asserts real `DungeonScene.tscn` does not
+     consume pending editor test payload.
    - Broaden stale bundle and content-version mismatch handling to exported
      build metadata and CI artifact reports.
 
